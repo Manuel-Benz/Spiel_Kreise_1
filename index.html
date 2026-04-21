@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
     <main id="start-screen">
@@ -14,8 +14,11 @@
         <button id="start-button" type="button">Start</button>
     </main>
     <div id="game-container" hidden>
-        <canvas id="game-canvas"></canvas>
+        <div id="game-stage">
+            <canvas id="game-canvas"></canvas>
+            <svg id="object-layer" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
     </div>
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=8"></script>
 </body>
 </html>
