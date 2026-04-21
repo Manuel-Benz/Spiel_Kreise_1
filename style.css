@@ -46,3 +46,28 @@ h1 {
 #start-button:active {
     transform: scale(0.98);
 }
+
+#game-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1a3a5c;
+    padding: 1rem;
+}
+
+#game-container[hidden] {
+    display: none;
+}
+
+#game-canvas {
+    aspect-ratio: 16 / 9;
+    width: min(calc(100vw - 2rem), calc((100vh - 2rem) * 16 / 9));
+    height: auto;
+    background: #f5f7fa;
+    display: block;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    border-radius: 0.25rem;
+    touch-action: none;
+}
