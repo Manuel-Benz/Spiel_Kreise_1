@@ -4,11 +4,21 @@
     padding: 0;
 }
 
-html, body {
+html {
     height: 100%;
+    overflow: hidden;
+}
+
+body {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #f5f7fa;
-    color: #222;
+    background: #000;
+    color: #fff;
+    color-scheme: dark;
 }
 
 #start-screen {
@@ -53,8 +63,8 @@ h1 {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #1a3a5c;
-    padding: 1rem;
+    background: transparent;
+    overflow: hidden;
 }
 
 #game-container[hidden] {
@@ -63,9 +73,11 @@ h1 {
 
 #game-stage {
     position: relative;
+    /* Grösse wird von JS (resizeCanvas) gesetzt; CSS-Fallback: 100% breite im Container */
     aspect-ratio: 16 / 9;
-    width: min(calc(100vw - 2rem), calc((100vh - 2rem) * 16 / 9));
-    height: auto;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
     background: #f5f7fa;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     border-radius: 0.25rem;
@@ -73,7 +85,8 @@ h1 {
 }
 
 #game-canvas,
-#object-layer {
+#object-layer,
+#figure-canvas {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -85,10 +98,12 @@ h1 {
     touch-action: none;
 }
 
-#object-layer {
+#object-layer,
+#object-layer * {
     pointer-events: none;
 }
 
-#object-layer > * {
-    pointer-events: auto;
+/* Figur-Canvas liegt über SVG-Dekoration — Klicks durchreichen zu #game-canvas */
+#figure-canvas {
+    pointer-events: none;
 }

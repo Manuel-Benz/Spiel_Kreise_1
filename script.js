@@ -5,7 +5,11 @@ const startScreen = document.getElementById("start-screen");
 const startButton = document.getElementById("start-button");
 const gameContainer = document.getElementById("game-container");
 const canvas = document.getElementById("game-canvas");
-const ctx = canvas.getContext("2d");
+const canvasFigur = document.getElementById("figure-canvas");
+const ctxRaum = canvas.getContext("2d");
+const ctxFigur = canvasFigur.getContext("2d");
+// Aktiver Zeichenkontext — wird in draw() zwischen Raum und Figur umgeschaltet.
+let ctx = ctxRaum;
 const svgLayer = document.getElementById("object-layer");
 
 // Zimmer-Geometrie
@@ -45,52 +49,61 @@ function screenZuBoden(x, y) {
     return [fu, fv];
 }
 
+// Türen stehen auf dem Boden. Grössen: A/B/L 10 % kleiner, Geheimtür 50 % kleiner.
 const TUEREN = [
-    { id: "A", label: "A", polygon: [[450, 600], [650, 600], [650, 200], [450, 200]] },
-    { id: "B", label: "B", polygon: [[950, 600], [1150, 600], [1150, 200], [950, 200]] },
+    { id: "A", label: "A", polygon: [[460, 600], [640, 600], [640, 240], [460, 240]] },
+    { id: "B", label: "B", polygon: [[960, 600], [1140, 600], [1140, 240], [960, 240]] },
     {
         id: "L", label: "L",
         polygon: [
-            linkeWandPunkt(0.2, 0),
-            linkeWandPunkt(0.7, 0),
-            linkeWandPunkt(0.7, 0.8),
-            linkeWandPunkt(0.2, 0.8),
+            linkeWandPunkt(0.225, 0),
+            linkeWandPunkt(0.675, 0),
+            linkeWandPunkt(0.675, 0.72),
+            linkeWandPunkt(0.225, 0.72),
         ],
     },
     {
         id: "geheim", label: null, secret: true,
         polygon: [
-            rechteWandPunkt(0.2, 0),
-            rechteWandPunkt(0.7, 0),
-            rechteWandPunkt(0.7, 0.8),
-            rechteWandPunkt(0.2, 0.8),
+            rechteWandPunkt(0.325, 0),
+            rechteWandPunkt(0.575, 0),
+            rechteWandPunkt(0.575, 0.4),
+            rechteWandPunkt(0.325, 0.4),
         ],
     },
 ];
 
+// Palette (tikz-Notation black!X: 0=weiss, 100=schwarz)
+const GRAU = {
+    b0:   "#ffffff",
+    b20:  "#cccccc",
+    b40:  "#999999",
+    b50:  "#808080",
+    b60:  "#666666",
+    b70:  "#4d4d4d",
+    b80:  "#333333",
+    b90:  "#1a1a1a",
+    b100: "#000000",
+};
+
 const FARBEN = {
-    decke: "#efe8d3",
-    boden: "#a87d4b",
-    linkeWand: "#b8a890",
-    rechteWand: "#b8a890",
-    hintereWand: "#d4c8a8",
-    kante: "#5a4a3a",
-    tuer: "#5d3a1f",
-    tuerRahmen: "#2e1c10",
-    tuerLabel: "#f5e5cf",
-    tuerGeheim: "#b8a890",
-    tuerGeheimKante: "#a89880",
-    haut: "#f2c6a0",
-    hautSchatten: "#d9a37c",
-    haare: "#3d2a1a",
-    haareGlanz: "#5a3c25",
-    hemd: "#2563eb",
-    hemdSchatten: "#1e4fbd",
-    hose: "#2a2e3a",
-    schuh: "#15151f",
-    wange: "#f08a85",
-    mund: "#a63a3a",
-    kontur: "#1a1a1a",
+    // Zimmer
+    decke:       GRAU.b90,
+    hintereWand: GRAU.b70,
+    linkeWand:   GRAU.b70,
+    rechteWand:  GRAU.b70,
+    boden:       GRAU.b90,
+    // Türen
+    tuer:        GRAU.b50,
+    tuerLabel:   GRAU.b100,
+    tuerGeheim:  GRAU.b70,
+    // Figur (komplett schwarz, ausser Augen und Mund)
+    kopf:        GRAU.b100,
+    augen:       GRAU.b0,
+    nase:        GRAU.b100,
+    mund:        GRAU.b0,
+    hemd:        GRAU.b100,
+    hose:        GRAU.b100,
 };
 
 const figur = {
@@ -105,6 +118,7 @@ const figur = {
 
 const GEHPHASE_SCHRITT = 0.18;
 const BEIN_HUB = 0.22;
+const FIGUR_SKALA = 1.0;
 
 function fuellePolygon(p, f) {
     ctx.fillStyle = f;
@@ -130,18 +144,15 @@ function zeichneZimmer() {
     fuellePolygon(ZIMMER.linkeWand, FARBEN.linkeWand);
     fuellePolygon(ZIMMER.rechteWand, FARBEN.rechteWand);
     fuellePolygon(ZIMMER.hintereWand, FARBEN.hintereWand);
-    Object.values(ZIMMER).forEach(p => zeichnePolygon(p, FARBEN.kante, 2));
 }
 
 function zeichneTueren() {
     TUEREN.forEach(t => {
         if (t.secret) {
             fuellePolygon(t.polygon, FARBEN.tuerGeheim);
-            zeichnePolygon(t.polygon, FARBEN.tuerGeheimKante, 1);
             return;
         }
         fuellePolygon(t.polygon, FARBEN.tuer);
-        zeichnePolygon(t.polygon, FARBEN.tuerRahmen, 3);
         if (t.label) {
             const cx = t.polygon.reduce((s, pp) => s + pp[0], 0) / t.polygon.length;
             const cy = t.polygon.reduce((s, pp) => s + pp[1], 0) / t.polygon.length;
@@ -159,9 +170,23 @@ function roundRect(x, y, w, h, rad) {
     ctx.roundRect(x, y, w, h, rad);
 }
 
+// Weisser Lächel-Mondschnitz (dünne Sichel, nach oben offen = ∪)
+function zeichneLaecheln(cx, cy, breite, dicke) {
+    ctx.fillStyle = FARBEN.mund;
+    ctx.beginPath();
+    const links = cx - breite;
+    const rechts = cx + breite;
+    const tiefe = breite * 0.55;
+    ctx.moveTo(links, cy);
+    ctx.quadraticCurveTo(cx, cy + tiefe, rechts, cy);
+    ctx.quadraticCurveTo(cx, cy + tiefe - dicke, links, cy);
+    ctx.closePath();
+    ctx.fill();
+}
+
 function zeichneFigur() {
     const [fx, fy] = bodenPunkt(figur.fu, figur.fv);
-    const s = 1 - 0.45 * figur.fv;
+    const s = (1 - 0.45 * figur.fv) * FIGUR_SKALA;
     const r = figur.richtung;
 
     const headR = 52 * s;
@@ -173,8 +198,6 @@ function zeichneFigur() {
     const legW = 36 * s;
     const legGap = 10 * s;
     const legH = 235 * s;
-    const shoeH = 22 * s;
-    const shoeOver = 5 * s;
     const rad = 9 * s;
 
     const bodyBottom = fy - legH;
@@ -182,15 +205,11 @@ function zeichneFigur() {
     const neckY = bodyTop - neckH;
     const headY = neckY - headR;
 
-    ctx.strokeStyle = FARBEN.kontur;
-    ctx.lineWidth = Math.max(1, 2 * s);
-
-    // ---- Beine (mit Gehanimation) ----
-    const beinBasis = legH - shoeH;
+    // ---- Beine (mit Gehanimation, ohne Schuhe) ----
     const hubLinks = Math.max(0, Math.sin(figur.gehphase)) * BEIN_HUB;
     const hubRechts = Math.max(0, Math.sin(figur.gehphase + Math.PI)) * BEIN_HUB;
-    const beinLinks = beinBasis * (1 - hubLinks);
-    const beinRechts = beinBasis * (1 - hubRechts);
+    const beinLinks = legH * (1 - hubLinks);
+    const beinRechts = legH * (1 - hubRechts);
 
     ctx.fillStyle = FARBEN.hose;
     roundRect(fx - legGap / 2 - legW, bodyBottom, legW, beinLinks, rad * 0.4);
@@ -198,208 +217,84 @@ function zeichneFigur() {
     roundRect(fx + legGap / 2, bodyBottom, legW, beinRechts, rad * 0.4);
     ctx.fill();
 
-    // ---- Schuhe ----
-    ctx.fillStyle = FARBEN.schuh;
-    roundRect(fx - legGap / 2 - legW - shoeOver, bodyBottom + beinLinks, legW + 2 * shoeOver, shoeH, rad * 0.7);
-    ctx.fill();
-    roundRect(fx + legGap / 2 - shoeOver, bodyBottom + beinRechts, legW + 2 * shoeOver, shoeH, rad * 0.7);
-    ctx.fill();
-
     // ---- Körper ----
     const isSide = r === "links" || r === "rechts";
-    const bw = isSide ? bodyW * 0.6 : bodyW;
+    const bw = isSide ? bodyW * 0.9 : bodyW;
     ctx.fillStyle = FARBEN.hemd;
     roundRect(fx - bw / 2, bodyTop, bw, bodyH, rad);
     ctx.fill();
-    // dezenter Schatten an der Seite für Tiefe
-    ctx.fillStyle = FARBEN.hemdSchatten;
-    const seitenSchattenB = bw * 0.18;
-    if (!isSide) {
-        roundRect(fx + bw / 2 - seitenSchattenB, bodyTop, seitenSchattenB, bodyH, 0);
-        ctx.fill();
-    }
-    ctx.strokeStyle = FARBEN.kontur;
-    roundRect(fx - bw / 2, bodyTop, bw, bodyH, rad);
-    ctx.stroke();
 
     // ---- Arme ----
-    ctx.fillStyle = FARBEN.hemd;
     const aY = bodyTop + 10 * s;
     if (!isSide) {
         roundRect(fx - bw / 2 - armW, aY, armW, armH, rad);
         ctx.fill();
-        ctx.stroke();
         roundRect(fx + bw / 2, aY, armW, armH, rad);
         ctx.fill();
-        ctx.stroke();
     } else {
-        // leichter Arm-Schwung beim Laufen (umgekehrt zur Beinphase)
         const swing = Math.sin(figur.gehphase + Math.PI) * 8 * s;
         roundRect(fx - armW / 2 + swing, aY, armW, armH, rad);
         ctx.fill();
-        ctx.stroke();
     }
 
     // ---- Hals ----
-    ctx.fillStyle = FARBEN.haut;
+    ctx.fillStyle = FARBEN.kopf;
     roundRect(fx - headR * 0.28, neckY, headR * 0.56, neckH + 2 * s, rad * 0.4);
     ctx.fill();
-    ctx.stroke();
 
-    // ---- Kopf: Haare als Basis, Gesicht als Ausschnitt ----
-    // 1. Haar-Basis (etwas grösser als der Kopf für Volumen)
-    ctx.fillStyle = FARBEN.haare;
+    // ---- Kopf ----
     ctx.beginPath();
-    ctx.arc(fx, headY, headR * 1.08, 0, 2 * Math.PI);
+    ctx.arc(fx, headY, headR, 0, 2 * Math.PI);
     ctx.fill();
 
-    // 2. Gesicht (Haut-Ellipse) je nach Richtung positioniert
-    let faceX = fx;
-    let faceY = headY + headR * 0.12;
-    let faceRx = headR * 0.78;
-    let faceRy = headR * 0.82;
-
-    if (r === "links") {
-        faceX = fx - headR * 0.2;
-        faceRx = headR * 0.6;
-    } else if (r === "rechts") {
-        faceX = fx + headR * 0.2;
-        faceRx = headR * 0.6;
-    }
-
-    if (r !== "hinten") {
-        ctx.fillStyle = FARBEN.haut;
-        ctx.beginPath();
-        ctx.ellipse(faceX, faceY, faceRx, faceRy, 0, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-    // 3. Kopf-Silhouette (Kontur um das ganze Haar-Oval)
-    ctx.strokeStyle = FARBEN.kontur;
-    ctx.beginPath();
-    ctx.arc(fx, headY, headR * 1.08, 0, 2 * Math.PI);
-    ctx.stroke();
-
-    // 4. Haar-Glanz (dünner Strich oben)
-    if (r !== "hinten") {
-        ctx.strokeStyle = FARBEN.haareGlanz;
-        ctx.lineWidth = Math.max(1, 3 * s);
-        ctx.beginPath();
-        if (r === "vorne") {
-            ctx.arc(fx, headY - headR * 0.1, headR * 0.85, Math.PI * 1.15, Math.PI * 1.55);
-        } else {
-            const seite = r === "links" ? -1 : 1;
-            ctx.arc(fx + seite * headR * 0.1, headY - headR * 0.1, headR * 0.85, Math.PI * (1.2 - seite * 0.1), Math.PI * (1.5 - seite * 0.1));
-        }
-        ctx.stroke();
-        ctx.lineWidth = Math.max(1, 2 * s);
-    }
-
     // ---- Gesicht ----
-    const eyeR = Math.max(1.5, headR * 0.1);
-
+    const augenR = headR * 0.1;
     if (r === "vorne") {
-        // Augenbrauen
-        ctx.strokeStyle = FARBEN.haare;
-        ctx.lineWidth = Math.max(1, 2.5 * s);
-        ctx.lineCap = "round";
+        // Nase: senkrechtes Oval, leicht rotiert
+        ctx.fillStyle = FARBEN.nase;
         ctx.beginPath();
-        ctx.moveTo(fx - headR * 0.43, headY - headR * 0.08);
-        ctx.lineTo(fx - headR * 0.17, headY - headR * 0.14);
-        ctx.moveTo(fx + headR * 0.17, headY - headR * 0.14);
-        ctx.lineTo(fx + headR * 0.43, headY - headR * 0.08);
-        ctx.stroke();
-        ctx.lineCap = "butt";
-
-        // Augen
-        ctx.fillStyle = FARBEN.kontur;
-        ctx.beginPath();
-        ctx.arc(fx - headR * 0.3, headY + headR * 0.05, eyeR, 0, 2 * Math.PI);
-        ctx.arc(fx + headR * 0.3, headY + headR * 0.05, eyeR, 0, 2 * Math.PI);
+        ctx.ellipse(fx, headY + headR * 0.18, headR * 0.1, headR * 0.22, 0.36, 0, 2 * Math.PI);
         ctx.fill();
 
-        // Wangen
-        ctx.fillStyle = FARBEN.wange;
-        ctx.globalAlpha = 0.5;
+        // Augen: weisse Kreise
+        ctx.fillStyle = FARBEN.augen;
         ctx.beginPath();
-        ctx.arc(fx - headR * 0.45, headY + headR * 0.3, headR * 0.11, 0, 2 * Math.PI);
-        ctx.arc(fx + headR * 0.45, headY + headR * 0.3, headR * 0.11, 0, 2 * Math.PI);
+        ctx.arc(fx - headR * 0.35, headY - headR * 0.05, augenR, 0, 2 * Math.PI);
+        ctx.arc(fx + headR * 0.35, headY - headR * 0.05, augenR, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.globalAlpha = 1;
 
-        // Mund
-        ctx.strokeStyle = FARBEN.mund;
-        ctx.lineWidth = Math.max(1, 2.5 * s);
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.arc(fx, headY + headR * 0.38, headR * 0.22, 0.15 * Math.PI, 0.85 * Math.PI);
-        ctx.stroke();
-        ctx.lineCap = "butt";
-    } else if (r === "links" || r === "rechts") {
+        // Mund: Lächeln
+        zeichneLaecheln(fx, headY + headR * 0.48, headR * 0.48, headR * 0.2);
+    } else if (isSide) {
         const seite = r === "links" ? -1 : 1;
 
-        // Augenbraue
-        ctx.strokeStyle = FARBEN.haare;
-        ctx.lineWidth = Math.max(1, 2.5 * s);
-        ctx.lineCap = "round";
+        // Nase: waagrechtes Oval, Spitze nach unten-aussen rotiert
+        ctx.fillStyle = FARBEN.nase;
         ctx.beginPath();
-        ctx.moveTo(fx + seite * headR * 0.15, headY - headR * 0.18);
-        ctx.lineTo(fx + seite * headR * 0.42, headY - headR * 0.12);
-        ctx.stroke();
-        ctx.lineCap = "butt";
+        ctx.ellipse(fx + seite * headR * 0.95, headY + headR * 0.12, headR * 0.27, headR * 0.13, seite * 0.6, 0, 2 * Math.PI);
+        ctx.fill();
 
         // Auge
-        ctx.fillStyle = FARBEN.kontur;
+        ctx.fillStyle = FARBEN.augen;
         ctx.beginPath();
-        ctx.arc(fx + seite * headR * 0.3, headY + headR * 0.02, eyeR, 0, 2 * Math.PI);
+        ctx.arc(fx + seite * headR * 0.28, headY - headR * 0.05, augenR, 0, 2 * Math.PI);
         ctx.fill();
-
-        // Nase (sanfte Kurve)
-        ctx.fillStyle = FARBEN.hautSchatten;
-        ctx.strokeStyle = FARBEN.kontur;
-        ctx.lineWidth = Math.max(1, 2 * s);
-        ctx.beginPath();
-        ctx.moveTo(fx + seite * headR * 0.65, headY - headR * 0.02);
-        ctx.quadraticCurveTo(
-            fx + seite * headR * 0.95, headY + headR * 0.12,
-            fx + seite * headR * 0.68, headY + headR * 0.22
-        );
-        ctx.quadraticCurveTo(
-            fx + seite * headR * 0.5, headY + headR * 0.22,
-            fx + seite * headR * 0.5, headY + headR * 0.1
-        );
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // Wange
-        ctx.fillStyle = FARBEN.wange;
-        ctx.globalAlpha = 0.45;
-        ctx.beginPath();
-        ctx.arc(fx + seite * headR * 0.45, headY + headR * 0.35, headR * 0.1, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.globalAlpha = 1;
 
         // Mund
-        ctx.strokeStyle = FARBEN.mund;
-        ctx.lineWidth = Math.max(1, 2.5 * s);
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(fx + seite * headR * 0.5, headY + headR * 0.42);
-        ctx.quadraticCurveTo(
-            fx + seite * headR * 0.65, headY + headR * 0.48,
-            fx + seite * headR * 0.78, headY + headR * 0.4
-        );
-        ctx.stroke();
-        ctx.lineCap = "butt";
+        zeichneLaecheln(fx + seite * headR * 0.35, headY + headR * 0.48, headR * 0.36, headR * 0.17);
     }
     // hinten: kein Gesicht
 }
 
 function draw() {
+    // Hintere Ebene: Zimmer + Türen (unter der SVG-Dekoration)
+    ctx = ctxRaum;
     ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneZimmer();
     zeichneTueren();
+    // Vordere Ebene: Figur (über der SVG-Dekoration)
+    ctx = ctxFigur;
+    ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneFigur();
 }
 
@@ -435,16 +330,40 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+const gameStage = document.getElementById("game-stage");
+const STAGE_PADDING = 0; // Stage füllt den Viewport voll aus (16:9-Letterbox per body-bg)
+
 function resizeCanvas() {
+    // Stage-Grösse aus Viewport berechnen (16:9 einpassen)
+    const availW = window.innerWidth - STAGE_PADDING;
+    const availH = window.innerHeight - STAGE_PADDING;
+    let stageW, stageH;
+    if (availW * 9 / 16 <= availH) {
+        stageW = availW;
+        stageH = stageW * 9 / 16;
+    } else {
+        stageH = availH;
+        stageW = stageH * 16 / 9;
+    }
+    gameStage.style.width = stageW + "px";
+    gameStage.style.height = stageH + "px";
+
+    // Canvas-interne Auflösung (DPR-aware) — beide Canvases
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
-    const scale = canvas.width / LOGICAL_WIDTH;
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const pxW = Math.round(stageW * dpr);
+    const pxH = Math.round(stageH * dpr);
+    const scale = pxW / LOGICAL_WIDTH;
+    [canvas, canvasFigur].forEach(c => {
+        c.width = pxW;
+        c.height = pxH;
+        c.getContext("2d").setTransform(scale, 0, 0, scale, 0, 0);
+    });
     draw();
 }
 
+// Startbildschirm ausgeklammert — direkt starten. Zum Reaktivieren:
+// Block unten wieder entkommentieren und Auto-Start darunter entfernen.
+/*
 startButton.addEventListener("click", () => {
     startScreen.hidden = true;
     gameContainer.hidden = false;
@@ -455,6 +374,16 @@ startButton.addEventListener("click", () => {
             loop();
         }
     });
+});
+*/
+
+// Auto-Start
+requestAnimationFrame(() => {
+    resizeCanvas();
+    if (!loopGestartet) {
+        loopGestartet = true;
+        loop();
+    }
 });
 
 window.addEventListener("resize", () => {
