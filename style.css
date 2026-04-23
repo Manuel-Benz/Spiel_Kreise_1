@@ -107,3 +107,164 @@ h1 {
 #figure-canvas {
     pointer-events: none;
 }
+
+/* Raumwechsel-Fade (Phase 5): liegt über den Canvases, unter dem Overlay */
+#fade {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease-in-out;
+}
+
+#fade.visible {
+    opacity: 1;
+}
+
+/* ---------- Overlay (Phase 2: Info-Text; in Phase 3 erweitert für Aufgaben) ---------- */
+
+#overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+#overlay[hidden] {
+    display: none;
+}
+
+#overlay-box {
+    position: relative;
+    min-width: 320px;
+    max-width: 70%;
+    padding: 2.2rem 2.8rem;
+    background: #fff;
+    color: #111;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.overlay-text {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    white-space: pre-line;
+    margin: 0;
+}
+
+/* Aufgaben-UI (Phase 3) */
+#overlay-inhalt .aufgabe-frage {
+    font-size: 1.15rem;
+    line-height: 1.5;
+    margin: 0 0 0.8rem 0;
+}
+
+#overlay-inhalt .aufgabe-formel {
+    font-size: 1.4rem;
+    text-align: center;
+    margin: 1rem 0;
+    padding: 0.5rem;
+    background: #f5f5f5;
+    border-radius: 0.25rem;
+}
+
+#overlay-inhalt .aufgabe-detail {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    margin: 0.8rem 0;
+    color: #333;
+}
+
+#overlay-inhalt .aufgabe-form {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+#overlay-inhalt .aufgabe-input {
+    flex: 1;
+    padding: 0.55rem 0.7rem;
+    font-size: 1.1rem;
+    border: 2px solid #bbb;
+    border-radius: 0.3rem;
+    outline: none;
+    color: #111;
+    background: #fff;
+}
+
+#overlay-inhalt .aufgabe-input:focus {
+    border-color: #2563eb;
+}
+
+#overlay-inhalt .aufgabe-input:disabled {
+    background: #eee;
+    color: #666;
+}
+
+#overlay-inhalt .aufgabe-pruefen {
+    padding: 0.55rem 1.2rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #fff;
+    background: #2563eb;
+    border: none;
+    border-radius: 0.3rem;
+    cursor: pointer;
+}
+
+#overlay-inhalt .aufgabe-pruefen:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+#overlay-inhalt .aufgabe-pruefen:disabled {
+    background: #9aa6bb;
+    cursor: default;
+}
+
+#overlay-inhalt .feedback {
+    margin: 0.9rem 0 0 0;
+    padding: 0.55rem 0.8rem;
+    font-size: 1.05rem;
+    border-radius: 0.3rem;
+    min-height: 1em;
+}
+
+#overlay-inhalt .feedback:empty {
+    display: none;
+}
+
+#overlay-inhalt .feedback.richtig {
+    background: #d7f5df;
+    color: #185c2a;
+    border: 1px solid #7fc794;
+}
+
+#overlay-inhalt .feedback.falsch {
+    background: #fde1e1;
+    color: #7a1e1e;
+    border: 1px solid #e7a0a0;
+}
+
+#overlay-close {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.7rem;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #555;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    border-radius: 0.25rem;
+}
+
+#overlay-close:hover {
+    background: #eee;
+    color: #000;
+}
