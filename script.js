@@ -364,7 +364,8 @@ const OBJEKTE = {
             polygon: [[810, 635], [930, 635], [930, 710], [810, 710]],
             laufziel: { fu: 0.5, fv: 0.85 },
             zeichnen: (ctx) => {
-                // Kleines Blatt Papier mit ein paar Liniatur-Strichen
+                // Brief: Blatt mit Datum oben-rechts, Anrede, Textzeilen unterschiedlicher
+                // Länge und Unterschrift-Zickzack unten.
                 ctx.save();
                 ctx.fillStyle = "#fffbe6";
                 ctx.strokeStyle = "#333";
@@ -373,15 +374,33 @@ const OBJEKTE = {
                 ctx.roundRect(820, 645, 100, 60, 3);
                 ctx.fill();
                 ctx.stroke();
-                ctx.strokeStyle = "#aaa";
+                // Liniatur (Datum, Anrede, Text) in gedämpftem Grau
+                ctx.strokeStyle = "#777";
                 ctx.lineWidth = 1;
-                for (let i = 1; i <= 4; i++) {
-                    const y = 645 + i * 12;
+                const linie = (x1, y, x2) => {
                     ctx.beginPath();
-                    ctx.moveTo(832, y);
-                    ctx.lineTo(908, y);
+                    ctx.moveTo(x1, y);
+                    ctx.lineTo(x2, y);
                     ctx.stroke();
-                }
+                };
+                // Datum oben-rechts
+                linie(885, 652, 912);
+                // Anrede (kürzer, linksbündig)
+                linie(828, 662, 864);
+                // Drei Textzeilen mit abnehmender Länge (letzter Absatz zu Ende)
+                linie(828, 672, 910);
+                linie(828, 679, 908);
+                linie(828, 686, 895);
+                // Unterschrift als Zickzack (unten-rechts)
+                ctx.strokeStyle = "#333";
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(880, 698);
+                ctx.lineTo(885, 694);
+                ctx.lineTo(890, 699);
+                ctx.lineTo(898, 695);
+                ctx.lineTo(906, 700);
+                ctx.stroke();
                 ctx.restore();
             },
         },
@@ -1592,10 +1611,16 @@ const GEGENSTAENDE = {
         name: "Notizzettel",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
             <rect x="9" y="6" width="30" height="36" rx="2" fill="#fffbe6" stroke="#222" stroke-width="1.6"/>
-            <line x1="15" y1="15" x2="33" y2="15" stroke="#666" stroke-width="1.4"/>
-            <line x1="15" y1="21" x2="33" y2="21" stroke="#666" stroke-width="1.4"/>
-            <line x1="15" y1="27" x2="30" y2="27" stroke="#666" stroke-width="1.4"/>
-            <line x1="15" y1="33" x2="27" y2="33" stroke="#666" stroke-width="1.4"/>
+            <!-- Datum oben-rechts -->
+            <line x1="30" y1="11" x2="37" y2="11" stroke="#777" stroke-width="1.2"/>
+            <!-- Anrede (kurz, linksbündig) -->
+            <line x1="12" y1="17" x2="24" y2="17" stroke="#777" stroke-width="1.2"/>
+            <!-- Text-Zeilen mit abnehmender Länge -->
+            <line x1="12" y1="23" x2="36" y2="23" stroke="#666" stroke-width="1.2"/>
+            <line x1="12" y1="28" x2="35" y2="28" stroke="#666" stroke-width="1.2"/>
+            <line x1="12" y1="33" x2="31" y2="33" stroke="#666" stroke-width="1.2"/>
+            <!-- Unterschrift-Zickzack unten-rechts -->
+            <path d="M26 38 L27.5 36 L29 38.5 L31.5 37 L34 38.5" stroke="#333" stroke-width="1.2" fill="none"/>
         </svg>`,
     },
 };

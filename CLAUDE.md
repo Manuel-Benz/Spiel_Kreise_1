@@ -21,13 +21,17 @@ assets/
   table_1.svg     ← Kleiner Holztisch (im Hauptraum, Inline-SVG)
   table_2.svg     ← Grosser Schreibtisch (im Büro, Inline-SVG, helleres Holz)
   lamp_lava_1.svg ← Lavalampe-Original (3D-Verläufe; im Spiel: vereinfachte Inline-Variante)
-  octopus_1.svg   ← Tintenfisch (im Fitnessraum, Inline-SVG, Strokes via CSS entfernt)
+  octopus_1.svg   ← Tintenfisch (im Fitnessraum, Inline-SVG; Mund path4647 dunkelrot)
+  bathtub_1/2.svg ← Badewannen (im Fitnessraum, Inline-SVG)
+  duck_1.svg      ← Quietscheente (im Fitnessraum, auf bathtub_1)
+  toilet_1.svg    ← WC Seitenansicht (im Fitnessraum, Inline-SVG)
+  toilet_2_1/2.svg← WC Frontansicht, 2 Varianten (im Fitnessraum, shared CSS-Klassen)
   bookshelf_1.svg ← Original (im Spiel als Inline-SVG, nicht das File)
   skeleton_1/2.svg, human_1_left.svg ← nicht aktiv
 CLAUDE.md         ← diese Datei
 ```
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=21`, `script.js?v=64`. Bei Änderungen hochzählen — sonst lädt der Browser die alte Version.
+**Cache-Busting** in `index.html`: aktuell `style.css?v=22`, `script.js?v=65`. Bei Änderungen hochzählen — sonst lädt der Browser die alte Version.
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -136,7 +140,7 @@ Globale Farben (Türen, Figur) in `FARBEN`. Raum-Wandfarben in `RAEUME[id].farbe
 Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 1. **Bookshelf** an hinterer Wand (Inline-SVG `<g id="bookshelf" transform="translate(650 310) scale(0.5)" filter="url(#grell)">`). 5 Regale, Pflanzen in Regal 1 + 5. Sättigungs-Filter `#grell` (`feColorMatrix saturate 2`).
 2. **Möbel-Gruppe** `<g id="haupt-moebel">` — VOR den Pflanzen, damit Pflanzen mit kleinerem fv (näher zur Kamera) in Render-Order über dem Tisch landen:
-   - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82 (schmaler als 1.0, damit der Tisch Tür A nicht überdeckt). Foot fv≈0.87. `data-fv="0.87"`. Beide Beine 1:1 wie im Original (rechtes Detail per `matrix(-1,0,0,1,749.3,0)` gespiegelt). Zusätzlicher **Slab-Strip** rechts (`M 456 495 L 484 521 L 484 529 L 456 503 Z`) für vertikale Plattendicke.
+   - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82 (schmaler als 1.0, damit der Tisch Tür A nicht überdeckt). Foot fv≈0.87. `data-fv="0.87"`. Rechtes Bein um +47 SVG-Units verschoben (x=494.5) für perspektivische Ausrichtung; Beindetails per `matrix(-1,0,0,1,749.3,0)` gespiegelt. **Perspektiv-Fix**: Back-Right der Tischplatte auf SVG x=509 verlängert (war 456), damit die rechte Kante zum Raum-Fluchtpunkt (800, 225) konvergiert (ein Tisch LINKS vom VP muss nach rechts-oben laufen). Back-Left leicht auf x=298. **Slab-Strip** rechts aktuell `M 509 495 L 482.2 516.7 L 482.2 524.7 L 509 503 Z` — Front exakt an Tischplatten-Front-Right-Ecke (482.2, 516.7) angedockt, Back synchron auf x=509.
    - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante von `lamp_lava_1.svg` (Original hat viele Inkscape-Verläufe; hier nur Vase-Glaskolben + Lava-Blobs + Sockel + Metallkappe). Pfade weiterhin im Lampen-Koordinatensystem (Sockelmitte 375/728, Höhe ~222px). Wrapper `translate(362 584) scale(0.30) translate(-375 -728)` schrumpft auf 30 % und positioniert auf Tischplatte. `data-fv="0.87"`.
 3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512` (mit Inhaltsratio z.B. blume 52 %, yucca 88 %, kraeuter 99 %). Jede Pflanze hat `data-fv` für Tiefensortierung:
 
@@ -154,18 +158,29 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
 ### Büro
 
 - **Tisch 2** (`assets/table_2.svg`, L-Schreibtisch mit Schubladen): Anker = front-left-leg-Fuss SVG (311, 613) → Screen (240, 700), σ=0.55. Steht vorderlinks. **Helle Holz-Palette**: Original-Wood-Hex-Codes wurden global ersetzt (z.B. `#512F18→#8B6740`, `#C77137→#DEAA6F` usw.). Metallbeine (Grautöne) und Schubladengriffe (`#D1C6BF`) bleiben.
-- **Tischlampe** auf Tisch 2 (handgezeichnet inline, klassische Schreibtisch-Lampe):
+- **Tischlampe** auf Tisch 2 (handgezeichnet inline, klassische Schreibtisch-Lampe, V7):
   - Schirm = Trapez schmal oben, breit unten. Anker Standfuss-Mitte = Screen (340, 495).
   - **Stange** geht komplett bis in den Standfuss-Mittelpunkt durch (Höhe 125), wird unten vom Standfuss überdeckt → keine Lücke.
-  - **Schirm um -12° gedreht** (gegenuhrzeigersinn = Bottom kippt nach RECHTS) um Stem-Top (340, 370). Lichtkegel-Boden HORIZONTAL bei y=505, Mitte x=368, deckungsgleich mit Lichtfleck `cx=368 cy=505 rx=50 ry=6`.
-  - **Unterer Schirm-Rand als TONGUE**: `M 318 410 Q 340 435 362 410 L 366 425 L 314 425 Z`. Gerade Unterkante bei y=425, ∪-förmige Oberkante (Peak dipt nach UNTEN). Grenze Tongue/Schirmkörper = ∪-Schnitz (öffnet nach OBEN) → wirkt wie Aufsicht von oben.
-- **Demo-Notizzettel** am Boden (`OBJEKTE.buero[0]`): per `zeichnen`-Callback aufs Canvas gemalt, `aufnehmen: "notizzettel"`. Drop auf Bookshelf zeigt Hinweis-Overlay.
+  - **Schirm um -20° gedreht** (gegenuhrzeigersinn = Bottom kippt nach RECHTS) um Stem-Top (340, 370). Lichtkegel-Boden HORIZONTAL bei y=505, Lichtfleck-Mitte x=389 passend zum stärkeren Neigungswinkel.
+  - **Schirm = genau 2 Flächen + oberer Rand**: Licht-Hälfte rechts `#987230` (`M 340 370 L 352 370 L 366 425 Q 353 431 340 431 Z`), Schatten-Hälfte links `#7a5a20` (`M 328 370 L 340 370 L 340 431 Q 327 431 314 425 Z`). Unterkanten beider Hälften folgen der Boden-Ellipse als quadratischer Bezier, Treffpunkt bei Peak (340, 431). Kontrollpunkte via De Casteljau-Split der Außenkontur-Bezier `Q 340 437` bei t=0.5: (327, 431) und (353, 431).
+  - **Aussenkontur in zwei Stroke-Pfaden**, jede Seite in ihrer eigenen Flächenfarbe → keine sichtbare Mittellinie (weicher Übergang).
+  - **Lichtkegel-Oberkante** als Bezier `Q 363 433` (rotierter Außenkontur-Kontrollpunkt) statt gerader Sehne → halbtransparenter Lichtkegel (`#fff5b8` opacity 0.20) ragt nicht in den Schirm rein.
+- **Demo-Notizzettel** am Boden (`OBJEKTE.buero[0]`): per `zeichnen`-Callback als Brief aufs Canvas gemalt (Datum oben-rechts, Anrede, 3 Textzeilen mit abnehmender Länge, Unterschrift-Zickzack unten), `aufnehmen: "notizzettel"`. Drop auf Bookshelf zeigt Hinweis-Overlay.
 
 ### Fitnessraum
 
 - **Tintenfisch** (`assets/octopus_1.svg`) inline importiert, hinten-rechts. Anker `<svg class="octopus" x="970" y="408" width="440" height="330" viewBox="0 0 640.08 479.93">`. CSS in `style.css`:
-  - `.octopus * { stroke: none !important }` — entfernt alle schwarzen Outlines global.
-  - **Augen-Pupillen** (path3950, path3950-4): NICHT der Mund (frühere Verwechslung — die Pfade liegen IM Auge). Behalten ihren Inline-`fill:#000`. Wo der echte Mund im Original-SVG gezeichnet wird (path4567 / path3986 als Stroke?) ist offen.
+  - `.octopus *:not(#path4647) { stroke: none !important }` — entfernt schwarze Outlines global, AUSSER beim Mund.
+  - **Augen-Pupillen** (path3950, path3950-4): NICHT der Mund — die Pfade liegen IM Auge. Behalten Inline-`fill:#000`.
+  - **Mund** (`#path4647`): offene Kurve, nur Stroke, Farbe `#5a0000` (dunkelrot). Auch in `assets/octopus_1.svg` auf dunkelrot gesetzt.
+- **Badezimmer-Assets** (aus `assets/` inline importiert, Renderreihenfolge hinten → vorn):
+  - `toilet_2_1` hinten-rechts (Frontansicht, grauer Schatten-Layer): (805, 537) 105×138
+  - `toilet_2_2` hinten-links (Frontansicht, weiß): (273, 545) 110×145
+  - `bathtub_2` hinten-mitte (kleiner, klares Wasser `#FCFCFC`): (588, 535) 200×125
+  - `toilet_1` mitte (Seitenansicht, inline styles): (446, 608) 110×142
+  - `bathtub_1` vorne-links (groß, blaues Wasser `#A7C5EA`): (40, 670) 300×188
+  - `duck_1` auf bathtub_1 schwimmend: (150, 696) 70×74
+  - **Shared `<style>` Block** im `<g data-raum="fitness">` für `.st1-.st10` (von toilet_2_1/toilet_2_2 geerbte CSS-Klassen), einmalig definiert.
 
 ### Garten (Spezialfall)
 
@@ -288,7 +303,7 @@ const AUFGABEN = {
 
 ```js
 const GEGENSTAENDE = {
-    notizzettel: { name: "Notizzettel", icon: `<svg ...>` },
+    notizzettel: { name: "Notizzettel", icon: `<svg ...>` },  // Brief-Icon: Datum oben-rechts, Anrede, 3 Textzeilen abnehmender Länge, Unterschrift-Zickzack
 };
 ```
 
