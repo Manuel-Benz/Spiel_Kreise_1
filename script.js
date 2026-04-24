@@ -137,8 +137,8 @@ const RAEUME = {
     buero: {
         name: "Büro",
         farben: {
-            decke: GRAU.b90, boden: "#3d2e1a",
-            hintereWand: "#a89070", linkeWand: "#a89070", rechteWand: "#a89070",
+            decke: GRAU.b90, boden: GRAU.b90,
+            hintereWand: GRAU.b70, linkeWand: GRAU.b70, rechteWand: GRAU.b70,
         },
         tueren: [
             { id: "zurueck", pfeil: true, polygon: PFEIL_POLYGON,
@@ -150,8 +150,8 @@ const RAEUME = {
     fitness: {
         name: "Fitnessraum",
         farben: {
-            decke: GRAU.b90, boden: GRAU.b60,
-            hintereWand: "#5a7a9a", linkeWand: "#5a7a9a", rechteWand: "#5a7a9a",
+            decke: GRAU.b90, boden: GRAU.b90,
+            hintereWand: GRAU.b70, linkeWand: GRAU.b70, rechteWand: GRAU.b70,
         },
         tueren: [
             { id: "zurueck", pfeil: true, polygon: PFEIL_POLYGON,
@@ -542,26 +542,45 @@ const HINDERNISSE = {
     haupt: [
         // Radien sind am Fussabdruck der Pflanze orientiert (Topfbasis, nicht Blätter).
         // So kann die Figur knapp vorbei — Körper verschwindet perspektivisch hinter den Blättern.
-        { fu: 0.08, fv: 0.85, r: 0.03 },   // yucca (hinten-links)
+        { fu: 0.034, fv: 0.787, r: 0.03 }, // yucca (vor dem Tisch links, nach -10x/-50y verschoben)
         { fu: 0.94, fv: 0.78, r: 0.03 },   // geranie (hinten-rechts)
         { fu: 0.12, fv: 0.50, r: 0.035 },  // setzling (mitte-links) — muss Tür L (fv 0.45) frei lassen
         { fu: 0.85, fv: 0.45, r: 0.025 },  // kraeuter (mitte-rechts) — muss Tür geheim (fu 0.88) frei lassen
         { fu: 0.87, fv: 0.15, r: 0.05 },   // blume (vorne-rechts, grösser)
         { fu: 0.15, fv: 0.12, r: 0.05 },   // tulpe (vorne-links, grösser)
+        // Tisch 1 + Lavalampe: ELLIPSE statt Kreis (rx > ry → flach), Center hinter den Tisch verschoben
+        // (fv=0.88), damit die Ellipse den BACK-AREA mit abdeckt → die Figur kann nicht mehr zwischen
+        // linker Wand und Tisch hinter den Tisch durchschlüpfen. Tür A (laufziel fu=0.26 fv=0.92) und
+        // Bookshelf (laufziel fu=0.5) liegen ausserhalb der Ellipse.
+        { fu: 0.10, fv: 0.88, rx: 0.14, ry: 0.12 },
     ],
-    buero:   [],
-    fitness: [],
+    buero: [
+        // Tisch 2 (vorderlinks): Anker (240, 700) σ=0.55. L-förmiger Schreibtisch.
+        // 4 Beine bei fu/fv: (0.13, 0.67), (0.02, 0.78), (0.20, 0.96), (0.30, 0.90).
+        // 3 Kreise decken den gesamten Footprint ab, lassen aber Tür F (fu=0.88) und PFEIL frei.
+        { fu: 0.10, fv: 0.72, r: 0.10 },   // vorne (zwei vordere Beine + Schubladenkasten)
+        { fu: 0.18, fv: 0.83, r: 0.10 },   // mitte (Lücke zwischen vorderen und hinteren Beinen)
+        { fu: 0.25, fv: 0.93, r: 0.10 },   // hinten (zwei hintere Beine + rechter Schrank)
+    ],
+    fitness: [
+        // Octopus hinten-rechts: zentriert ca. fu=0.85 fv=0.80 (Inline-SVG-Mitte), kompakter Kreis.
+        { fu: 0.85, fv: 0.80, r: 0.08 },
+    ],
     garten:  [],
     keller:  [],
 };
 window.HINDERNISSE = HINDERNISSE;
 
+// Hindernisse können entweder Kreise (h.r) oder Ellipsen (h.rx + h.ry) sein.
+// Für Backward-Compat fallen rx/ry auf r zurück, wenn nicht gesetzt.
 function istImHindernis(fu, fv) {
     const hs = HINDERNISSE[aktuellerRaum] || [];
     for (const h of hs) {
         const dfu = fu - h.fu;
         const dfv = fv - h.fv;
-        if (dfu * dfu + dfv * dfv < h.r * h.r) return true;
+        const rx = h.rx ?? h.r;
+        const ry = h.ry ?? h.r;
+        if ((dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry) < 1) return true;
     }
     return false;
 }
@@ -582,7 +601,8 @@ function slideUmHindernis(ux, uy, schritt) {
         const along = dfu * ux + dfv * uy;           // Projektion auf Laufrichtung
         if (along <= 0) continue;                    // Hindernis liegt hinter uns
         const perp = dfu * uy - dfv * ux;            // senkrechter Versatz (signed)
-        if (Math.abs(perp) > h.r + 0.02) continue;   // Hindernis liegt nicht im Pfad
+        const r = Math.max(h.rx ?? h.r, h.ry ?? h.r);  // konservative Grenze für Ellipsen
+        if (Math.abs(perp) > r + 0.02) continue;     // Hindernis liegt nicht im Pfad
         if (along < bestDist) {
             bestDist = along;
             blocker = h;
@@ -590,23 +610,33 @@ function slideUmHindernis(ux, uy, schritt) {
     }
     if (!blocker) return null;
 
-    // Tangent-Richtung: senkrecht zum Vektor Figur → Hindernis.
-    const toObsX = blocker.fu - figur.fu;
-    const toObsY = blocker.fv - figur.fv;
-    const toObsLen = Math.sqrt(toObsX * toObsX + toObsY * toObsY);
-    if (toObsLen < 1e-6) return null;
-    const perpX = -toObsY / toObsLen;
-    const perpY =  toObsX / toObsLen;
-    // Zwei mögliche Tangent-Richtungen (±). Wähle die mit positivem Dot zur Laufrichtung,
-    // damit die Figur in Richtung Ziel gleitet und nicht zurück.
+    // Tangent-Richtung senkrecht zum Ellipsen-Gradient an der Figur-Position. Für Kreise
+    // (rx = ry = r) reduziert sich das auf die alte Kreis-Tangente.
+    const rx = blocker.rx ?? blocker.r;
+    const ry = blocker.ry ?? blocker.r;
+    const gradX = (figur.fu - blocker.fu) / (rx * rx);
+    const gradY = (figur.fv - blocker.fv) / (ry * ry);
+    const gradLen = Math.sqrt(gradX * gradX + gradY * gradY);
+    if (gradLen < 1e-6) return null;
+    const perpX = -gradY / gradLen;
+    const perpY =  gradX / gradLen;
+    // Bevorzugte Seite: positives Dot mit Laufrichtung — Figur gleitet Richtung Ziel.
     const dot = perpX * ux + perpY * uy;
-    const tx = dot >= 0 ? perpX : -perpX;
-    const ty = dot >= 0 ? perpY : -perpY;
-
-    const slidFu = figur.fu + tx * schritt;
-    const slidFv = figur.fv + ty * schritt;
-    if (istImHindernis(slidFu, slidFv)) return null;  // Gleite würde in anderes Hindernis laufen
-    return { fu: slidFu, fv: slidFv };
+    const sides = [
+        { tx: dot >= 0 ? perpX : -perpX, ty: dot >= 0 ? perpY : -perpY },
+        { tx: dot >= 0 ? -perpX : perpX, ty: dot >= 0 ? -perpY : perpY },
+    ];
+    // Fallback: wenn die bevorzugte Seite gegen eine Wand (Laufbereich-Clamp) oder in ein
+    // anderes Hindernis führt, die ANDERE Seite probieren.
+    for (const { tx, ty } of sides) {
+        const slidFu = figur.fu + tx * schritt;
+        const slidFv = figur.fv + ty * schritt;
+        if (slidFu < FIGUR_FU_MIN || slidFu > FIGUR_FU_MAX) continue;
+        if (slidFv < FIGUR_FV_MIN || slidFv > FIGUR_FV_MAX) continue;
+        if (istImHindernis(slidFu, slidFv)) continue;
+        return { fu: slidFu, fv: slidFv };
+    }
+    return null;
 }
 
 // Ray-Casting-Test: Liegt (x, y) innerhalb des Polygons?
@@ -1077,6 +1107,25 @@ function beendeSchrittWennInLuft() {
 }
 
 function aktualisiereFigur() {
+    // Safety-Net: Falls die Figur (z.B. nach einer Hindernis-Anpassung) in einem Hindernis
+    // gelandet ist, vor allem anderen radial nach aussen schieben. So bleibt sie nicht
+    // dauerhaft stecken, weil istImHindernis am Anfang jedes Schritts true wäre.
+    const hsCur = HINDERNISSE[aktuellerRaum] || [];
+    for (const h of hsCur) {
+        const dfuC = figur.fu - h.fu;
+        const dfvC = figur.fv - h.fv;
+        const rxC = h.rx ?? h.r;
+        const ryC = h.ry ?? h.r;
+        const dEllC = (dfuC * dfuC) / (rxC * rxC) + (dfvC * dfvC) / (ryC * ryC);
+        if (dEllC < 1) {
+            const k = 1.05 / Math.sqrt(Math.max(dEllC, 1e-6));
+            figur.fu = h.fu + dfuC * k;
+            figur.fv = h.fv + dfvC * k;
+            figur.fu = Math.max(FIGUR_FU_MIN, Math.min(FIGUR_FU_MAX, figur.fu));
+            figur.fv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, figur.fv));
+        }
+    }
+
     const dx = figur.zielFu - figur.fu;
     const dy = figur.zielFv - figur.fv;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1421,19 +1470,22 @@ function findeTuerBei(x, y) {
 function setzeFigurZiel(fu, fv) {
     // Wenn das Ziel in einem Hindernis liegt (z.B. Tür-Laufziel nahe einer Pflanze oder
     // Klick direkt auf die Pflanze), zum nächstgelegenen Punkt leicht ausserhalb verschieben.
+    // Funktioniert für Kreise (h.r) und Ellipsen (h.rx/h.ry).
     const hs = HINDERNISSE[aktuellerRaum] || [];
     for (const h of hs) {
         const dfu = fu - h.fu;
         const dfv = fv - h.fv;
-        const d2 = dfu * dfu + dfv * dfv;
-        if (d2 < h.r * h.r) {
-            const d = Math.sqrt(d2);
-            const raus = h.r + 0.005;         // knapp ausserhalb der Hindernis-Kante
-            if (d > 1e-6) {
-                fu = h.fu + (dfu / d) * raus;
-                fv = h.fv + (dfv / d) * raus;
+        const rx = h.rx ?? h.r;
+        const ry = h.ry ?? h.r;
+        const dEll = (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry);
+        if (dEll < 1) {
+            // Ziel liegt innerhalb. Entlang der Radial-Richtung nach aussen schieben (1.05 * Rand).
+            if (dEll < 1e-6) {
+                fu = h.fu + rx + 0.005;          // Fallback: Ziel genau in der Mitte
             } else {
-                fu = h.fu + raus;              // Fallback: Klick genau in der Mitte
+                const k = 1.05 / Math.sqrt(dEll);
+                fu = h.fu + dfu * k;
+                fv = h.fv + dfv * k;
             }
         }
     }

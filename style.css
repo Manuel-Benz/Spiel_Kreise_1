@@ -351,3 +351,11 @@ h1 {
     background: #eee;
     color: #000;
 }
+
+/* Octopus im Fitnessraum (Inline-SVG aus assets/octopus_1.svg).
+   Schwarze Outlines (Strokes) global entfernen → Flächen nehmen die umliegende Farbe an.
+   path3950 / path3950-4 sind die Augen-Pupillen (NICHT der Mund — Verwechslung korrigiert):
+   sie behalten ihren Original-Look (fill:#000 aus dem Inline-Style; Stroke wird global entfernt). */
+.octopus * {
+    stroke: none !important;
+}

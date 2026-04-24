@@ -1,66 +1,60 @@
 # CLAUDE.md – Projektübersicht für neue Chat-Sessions
 
-Dieses Dokument erklärt Claude die Architektur des Projekts, damit ein neuer Chat sofort weiterarbeiten kann.
+Architektur-Doku, damit ein neuer Chat sofort weiterarbeiten kann.
 
 ## Projektkontext
 
-Ein interaktives Mathe-Lernspiel für den Schulunterricht (Thema: Kreise), aufgebaut als **Escape-Room-artiges Abenteuer**: 5 Räume, lineare Aufgaben-Progression mit Cross-Room-Lookups.
+Interaktives Mathe-Lernspiel (Thema: Kreise) für den Schulunterricht. Aufbau als **Escape-Room-artiges Abenteuer** mit 5 Räumen, linearer Aufgaben-Progression und Cross-Room-Lookups. Vanilla HTML/CSS/JS, kein Build-Tool, kein Framework.
 
-Gebaut als **Vanilla HTML/CSS/JS** – kein Build-Tool, kein Framework.
-Entwickler: Manuel Benz (Lehrer, wenig Programmiererfahrung).
-GitHub-Repo: `Manuel-Benz/Spiel_Kreise_1`.
+Entwickler: Manuel Benz (Lehrer, wenig Programmiererfahrung). GitHub: `Manuel-Benz/Spiel_Kreise_1`.
 
 ## Dateistruktur
 
 ```
 index.html        ← 2 Canvases + 2 SVG-Layer (hinten + vorne) mit Deko-Gruppen pro Raum
-style.css         ← Layout, Stage-Styling, Canvas/SVG-Positionierung, Inventar & Drag-Preview
-script.js         ← Räume, Türen, Figur, Deko-Generatoren, Input, Loop, Inventar, Kollision, Tiefensortierung
-assets/           ← SVG-Dateien
-  plant_*.svg     ← Einzelpflanzen (tulpe, blume, yucca, geranie, setzling, kraeuter, gras, blattpflanze, strauch)
-  bush_1..4.svg   ← Detail-Büsche für Garten
-  bookshelf_1.svg ← (noch nicht aktiv verwendet, Inline-SVG in HTML)
+style.css         ← Layout, Stage-Styling, Inventar, Drag-Preview, Octopus-Overrides
+script.js         ← Räume, Türen, Figur, Deko-Generatoren, Input/Loop, Inventar, Hindernisse, Tiefensortierung
+assets/
+  plant_*.svg     ← Pflanzen (tulpe, blume, yucca, geranie, setzling, kraeuter, gras, blattpflanze, strauch)
+  bush_1..4.svg   ← Detail-Büsche im Garten
   skeleton_3.svg  ← Tanzendes Skelett im Keller
-  skeleton_1/2.svg← nicht aktiv (laden unter file:// unzuverlässig)
-  human_1_left.svg← (nicht aktiv)
+  table_1.svg     ← Kleiner Holztisch (im Hauptraum, Inline-SVG)
+  table_2.svg     ← Grosser Schreibtisch (im Büro, Inline-SVG, helleres Holz)
+  lamp_lava_1.svg ← Lavalampe-Original (3D-Verläufe; im Spiel: vereinfachte Inline-Variante)
+  octopus_1.svg   ← Tintenfisch (im Fitnessraum, Inline-SVG, Strokes via CSS entfernt)
+  bookshelf_1.svg ← Original (im Spiel als Inline-SVG, nicht das File)
+  skeleton_1/2.svg, human_1_left.svg ← nicht aktiv
 CLAUDE.md         ← diese Datei
 ```
 
-Cache-Busting in `index.html`: aktuell `style.css?v=17`, `script.js?v=58` — bei Änderungen hochzählen.
+**Cache-Busting** in `index.html`: aktuell `style.css?v=21`, `script.js?v=64`. Bei Änderungen hochzählen — sonst lädt der Browser die alte Version.
 
 ## Rendering-Ebenen (hinten → vorne)
 
-**Zwei Canvases und zwei SVG-Ebenen** — die zweite SVG-Ebene liegt ÜBER dem Figur-Canvas, damit Pflanzen perspektivisch VOR der Figur sichtbar werden können:
+Vier Ebenen, damit Pflanzen perspektivisch VOR oder HINTER der Figur erscheinen können:
 
-1. `#game-canvas` (`ctxRaum`) — Zimmer (Wände, Boden, Decke), Türen, sowie **Raum-spezifisches Canvas-Drawing** (Garten-Zaun, Sonne, Gebüsch, rasterisierte Detail-Büsche)
-2. `#object-layer` (SVG, viewBox `0 0 1600 900`) — pro Raum eine Deko-Gruppe `<g data-raum="…">`; JS blendet per `display` um. Bookshelf, Skelett, Sträucher und Pflanzen-Originale sitzen hier.
-3. `#figure-canvas` (`ctxFigur`) — nur die animierte Figur
-4. `#object-layer-vorne` (SVG, gleiche viewBox) — Klone der Pflanzen mit `data-fv`; per Frame togglet JS pro Pflanze Sichtbarkeit zwischen Rück- und Front-Ebene
+1. `#game-canvas` (`ctxRaum`) — Zimmer (Wände, Boden, Decke), Türen, Raum-spezifisches Canvas-Drawing (Garten-Zaun + Sonne, rasterisierte Detail-Büsche).
+2. `#object-layer` (SVG, viewBox `0 0 1600 900`) — pro Raum eine Gruppe `<g data-raum="…">`. Bookshelf, Skelett, Sträucher, Pflanzen-Originale, Tische.
+3. `#figure-canvas` (`ctxFigur`) — nur die animierte Figur.
+4. `#object-layer-vorne` (SVG, gleiche viewBox) — Klone aller `[data-fv]`-Elemente. Pro Frame togglet JS Sichtbarkeit zwischen Rück- und Front-Ebene → Pflanze überdeckt Figur, sobald `figur.fv > pflanze.fv`.
 
-In `script.js` wird `let ctx` (mutable) in `draw()` zwischen `ctxRaum` und `ctxFigur` umgeschaltet:
+In `draw()` wird `let ctx` zwischen `ctxRaum` und `ctxFigur` umgeschaltet:
 
 ```js
 function draw() {
     ctx = ctxRaum;  clearRect; zeichneZimmer(); zeichneTueren(); zeichneObjekte();
     ctx = ctxFigur; clearRect; zeichneFigur();
-    aktualisierePflanzenTiefe();   // SVG-Pflanzen zwischen vorne/hinten togglen
+    aktualisierePflanzenTiefe();
 }
 ```
 
-`resizeCanvas()` setzt beide Canvases auf dieselbe DPR-aware Pixelgrösse. Klicks landen auf `#game-canvas`; `#figure-canvas` und beide SVGs haben `pointer-events: none`.
+`resizeCanvas()` setzt beide Canvases auf dieselbe DPR-aware Pixelgrösse. Klicks landen nur auf `#game-canvas`; `#figure-canvas` und beide SVGs haben `pointer-events: none`.
 
-## Koordinatensystem
+## Koordinatensystem & Perspektive
 
-Logisch: **1600 × 900** (16:9). Stage-Grösse wird in JS berechnet (`resizeCanvas`).
+Logische Bühne **1600 × 900** (16:9). Stage-Grösse via `resizeCanvas`.
 
-```js
-const LOGICAL_WIDTH = 1600;
-const LOGICAL_HEIGHT = 900;
-```
-
-## Zimmer-Geometrie (perspektivisches 2D-Zimmer)
-
-Alle Räume teilen sich dieselbe Geometrie; nur Farben und Deko unterscheiden sich.
+**Zimmer-Geometrie** (alle Räume gleich, nur Farben/Deko unterscheiden sich):
 
 ```js
 const ZIMMER = {
@@ -72,289 +66,267 @@ const ZIMMER = {
 };
 ```
 
-Fluchtpunkt ca. (800, 225). Horizont y=225 (fv=1). Perspektive-Skala **`s = 1 - 0.45·fv`**.
-
-### Boden- & Wand-Koordinaten
+Fluchtpunkt ca. (800, 225). Horizont y=225 (fv=1). **Perspektive-Skala `s = 1 - 0.45·fv`**.
 
 ```js
-bodenPunkt(fu, fv)     // fu 0..1 links→rechts, fv 0..1 vorne→hinten
+bodenPunkt(fu, fv)     // fu 0..1 links→rechts, fv 0..1 vorne→hinten → screen (x, y)
 screenZuBoden(x, y)    // inverse, liefert null ausserhalb Boden
-linkeWandPunkt(u, v)   // u 0..1 Tiefe, v 0..1 Boden→Decke
+linkeWandPunkt(u, v)   // u 0..1 Tiefe, v 0..1 Boden→Decke → screen
 rechteWandPunkt(u, v)
+fuellePolygon(polygon, farbe, nahtlos = false)  // nahtlos: 1px-Stroke in Fillfarbe gegen Subpixelsäume (nur Garten)
 ```
 
-### fuellePolygon-Signatur
+## Figur
 
 ```js
-fuellePolygon(polygon, farbe, nahtlos = false)
+figur = { fu, fv, zielFu, zielFv, richtung, geschwindigkeit:0.016, gehphase:0, ankunft:null }
+const GEHPHASE_SCHRITT = 0.36, BEIN_HUB = 0.22, FIGUR_SKALA = 1.0;
+const FIGUR_FU_MIN = 0.06, FIGUR_FU_MAX = 0.94;
+const FIGUR_FV_MIN = 0,    FIGUR_FV_MAX = 0.97;
 ```
 
-`nahtlos: true` fügt einen 1-px-Stroke in der Fill-Farbe hinzu → schliesst Subpixel-Säume zu gleichfarbigen Nachbar-Polygonen. Nur im Garten nötig (gleichfarbige Himmel- und Grasflächen); andere Räume nutzen den Default (feine Eckenlinie bleibt sichtbar).
+Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()` (top-down): Beine mit Sinus-Gehanimation, Körper (Seitenansicht 10 % schmaler), Arme (frontal beidseits, seitlich mit Schwung), Hals, Kopf, Gesicht. Nase frontal um `Math.PI/12` rotiert. Kopf sitzt 5·s tiefer als geometrisch ideal, damit die Hals-Rundungen vom Kopf überdeckt werden.
 
-## Raum-System
+`figur.richtung` zeigt immer in die TATSÄCHLICHE Laufrichtung — beim Slide um ein Hindernis dreht sich die Figur entsprechend.
 
-Aktuell **5 Räume** über das `RAEUME`-Objekt konfiguriert:
+## Räume (5 Stück, Tabelle)
 
-| ID | Name | Türen → Ziel | Besonderheiten |
-|---|---|---|---|
-| `haupt` | Hauptraum | A→Büro, B→Fitness, L→Garten, geheim→Keller | Bookshelf + 6 Pflanzen (mit Tiefensortierung + Kollision) |
-| `buero` | Büro | Pfeil→Haupt, F→Fitness | warmes Braun, Holzboden, Demo-Notizzettel am Boden |
-| `fitness` | Fitnessraum | Pfeil→Haupt, B→Büro | kühles Blau |
-| `garten` | Garten | H→Haupt | Himmel, Wiese, Zaun, Sonne, 12 Sträucher + 4 Detail-Büsche (bush_1..4) |
-| `keller` | Keller | H→Haupt | dunkel, tanzendes Skelett hinten rechts |
+| ID | Name | Türen → Ziel | Wandfarben | Inhalt |
+|---|---|---|---|---|
+| `haupt` | Hauptraum | A→Büro, B→Fitness, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 mit Lavalampe |
+| `buero` | Büro | Pfeil→Haupt, F→Fitness | b90/b90, Wände b70 | Tisch2 mit Tischlampe + Demo-Notizzettel am Boden |
+| `fitness` | Fitnessraum | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch hinten-rechts |
+| `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
+| `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts |
 
 `aktuellerRaum` hält die aktive ID. `wechsleRaum(zielId)`:
-- merkt sich `vonRaum = aktuellerRaum`, setzt `aktuellerRaum = zielId`
-- blendet alle `<g data-raum>` ausser dem Ziel auf `display:none` — **in beiden SVG-Ebenen** (Rück- und Front-Layer)
-- **Eintrittsposition richtungsabhängig:** Sucht im Zielraum die Tür, deren `ziel === vonRaum`, und nutzt deren `laufziel` als Figur-Position. Fallback: `RAUM_EINTRITT = {fu: 0.5, fv: 0.3}`
-- `eintrittsRichtung(fu, fv)` setzt `figur.richtung` so, dass die Figur „in den Raum" schaut (fu<0.2 → rechts, fu>0.8 → links, fv>0.8 → vorne, fv<0.2 → hinten)
+- merkt `vonRaum`, setzt `aktuellerRaum = zielId`
+- blendet alle `<g data-raum>` ausser dem Ziel auf `display:none` — **in beiden SVG-Ebenen** (Rück + Front)
+- Eintrittsposition = `laufziel` der Tür im Zielraum, deren `ziel === vonRaum` (Fallback `RAUM_EINTRITT = {fu:0.5, fv:0.3}`)
+- `eintrittsRichtung(fu, fv)` setzt `figur.richtung` "in den Raum hinein"
 - ruft `draw()`
 
-Klick-Handler prüft **zuerst Tür-Polygone** → `starteRaumwechsel()` (Fade), dann interaktive Objekte → Aufgabe/Aufnehmen, sonst Bodenpunkt → Figur läuft.
+Klick-Pipeline (`pointerdown`): zuerst Tür-Polygone → `starteRaumwechsel()` (Fade) — sonst aktive Objekte → Aufgabe/Aufnehmen — sonst `screenZuBoden` → Figur läuft hin.
 
-## Türen pro Raum
+## Türen
 
-Jede Tür hat `polygon`, `ziel` (Raum-ID), `laufziel: {fu, fv}` (Zielpunkt vor der Tür), optional `label`/`secret`/`pfeil`/`schloss`/`akzeptiert`.
+Jede Tür hat `polygon`, `ziel`, `laufziel: {fu, fv}`, optional `label`/`secret`/`pfeil`/`schloss`/`akzeptiert`.
 
-- **Hauptraum:** A, B an hinterer Wand (x 460–640 / 960–1140), L an linker Wand (`seitenTuerPolygon(linkeWandPunkt)`), geheim an rechter Wand (kleiner, wandfarben).
-- **Büro / Fitness:** `zurueck` als **2D-Pfeil** unten am Bildrand (`PFEIL_POLYGON`, y=820–880, "fake 3D" flach). Dazu seitliche Durchgangstür (F bzw. B).
-- **Garten / Keller:** einzelne Rück-Tür an rechter bzw. linker Wand.
-- **Gap zwischen Tür A und Tür B im Hauptraum:** x = 640..960 (hier sitzt das Bookshelf).
+- **Hauptraum:** A, B an hinterer Wand (x 460–640 / 960–1140), L an linker Wand, geheim an rechter Wand (`secret: true`, wandfarben).
+- **Büro/Fitness:** `zurueck` als 2D-Pfeil unten am Bildrand (`PFEIL_POLYGON`); seitliche Durchgangstür F bzw. B.
+- **Garten/Keller:** einzelne Rück-Tür auf Seitenwand.
+
+**Türen-Schlösser:** `schloss: "<id>"` macht Tür gesperrt, bis der Schlüssel in `spielstand.freigeschalteteTueren` liegt. `zeichneSchloss()` malt ein weisses Schloss unten in der Tür (NICHT auf `secret`-Türen). Aktuell verschlossen: Geheim-Tür im Hauptraum (`schloss: "keller_schluessel"`).
 
 ## Farb-Palette
 
-Graustufen-Palette `GRAU.bX` (X=0..100, `b0`=weiss, `b100`=schwarz):
+Graustufen `GRAU.bX` (X=0..100, b0=weiss, b100=schwarz):
 
 ```js
 GRAU = { b0:"#ffffff", b20:"#cccccc", b40:"#999999", b50:"#808080",
          b60:"#666666", b70:"#4d4d4d", b80:"#333333", b90:"#1a1a1a", b100:"#000000" };
 ```
 
-Figur- und Tür-Farben global in `FARBEN`. Raum-Wandfarben in `RAEUME[id].farben` (decke/boden/hintereWand/linkeWand/rechteWand).
+Globale Farben (Türen, Figur) in `FARBEN`. Raum-Wandfarben in `RAEUME[id].farben`. Body-Background: schwarz.
 
-Body-Background: schwarz (`#000`).
+## Möbel & Deko pro Raum
 
-## Figur (abstrakt)
+### Hauptraum
 
-Komplett schwarz, Augen + Mund weiss. Keine Haare/Schuhe/Ohren.
+Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
+1. **Bookshelf** an hinterer Wand (Inline-SVG `<g id="bookshelf" transform="translate(650 310) scale(0.5)" filter="url(#grell)">`). 5 Regale, Pflanzen in Regal 1 + 5. Sättigungs-Filter `#grell` (`feColorMatrix saturate 2`).
+2. **Möbel-Gruppe** `<g id="haupt-moebel">` — VOR den Pflanzen, damit Pflanzen mit kleinerem fv (näher zur Kamera) in Render-Order über dem Tisch landen:
+   - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82 (schmaler als 1.0, damit der Tisch Tür A nicht überdeckt). Foot fv≈0.87. `data-fv="0.87"`. Beide Beine 1:1 wie im Original (rechtes Detail per `matrix(-1,0,0,1,749.3,0)` gespiegelt). Zusätzlicher **Slab-Strip** rechts (`M 456 495 L 484 521 L 484 529 L 456 503 Z`) für vertikale Plattendicke.
+   - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante von `lamp_lava_1.svg` (Original hat viele Inkscape-Verläufe; hier nur Vase-Glaskolben + Lava-Blobs + Sockel + Metallkappe). Pfade weiterhin im Lampen-Koordinatensystem (Sockelmitte 375/728, Höhe ~222px). Wrapper `translate(362 584) scale(0.30) translate(-375 -728)` schrumpft auf 30 % und positioniert auf Tischplatte. `data-fv="0.87"`.
+3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512` (mit Inhaltsratio z.B. blume 52 %, yucca 88 %, kraeuter 99 %). Jede Pflanze hat `data-fv` für Tiefensortierung:
 
-```js
-figur = { fu, fv, zielFu, zielFv, richtung, geschwindigkeit:0.016, gehphase:0, ankunft:null }
-const GEHPHASE_SCHRITT = 0.36, BEIN_HUB = 0.22, FIGUR_SKALA = 1.0;
-```
-
-Laufbereich-Clamp (damit der Körper nicht in die Wände ragt):
-
-```js
-const FIGUR_FU_MIN = 0.06, FIGUR_FU_MAX = 0.94;
-const FIGUR_FV_MIN = 0,    FIGUR_FV_MAX = 0.97;
-```
-
-`zeichneFigur()` (top-down): Beine mit Sinus-Gehanimation, Körper (Seitenansicht breiter), Arme (frontal beidseits, seitlich mit Schwung), Hals, Kopf, Gesicht. **Nase-Rotation frontal: `Math.PI/12` (15°).** Kopf sitzt ein kleines Stück (`5*s`) tiefer als geometrisch ideal, damit die Hals-Rundungen vom Kopf überdeckt werden.
-
-Bei Bewegung zeigt `figur.richtung` immer in die **tatsächliche** Laufrichtung — beim Slide um ein Hindernis dreht sich die Figur entsprechend.
-
-## Bookshelf (Hauptraum, hintere Wand)
-
-Inline-SVG in `index.html` unter `<g data-raum="haupt">`. Container:
-```
-<g id="bookshelf" transform="translate(650 310) scale(0.5)" filter="url(#grell)">
-```
-
-5 Regale, handgezeichnet mit `<rect>`, Pflanzen (Gras, Blattpflanze) in Regal 1 und 5.
-
-**Sättigungs-Filter** `#grell` in `<defs>` (`feColorMatrix saturate 2`).
-
-Zusätzliche Interaktionen über `OBJEKTE.haupt[0]`:
-- `aufgabe: "bookshelf_umfang"` — Aufgaben-Overlay bei Klick (Phase 3)
-- `akzeptiert: { notizzettel: (s) => zeigeOverlayText("…r = 5 cm") }` — Drop-Target für Drag & Drop vom Inventar (Phase 6)
-
-## Pflanzen im Hauptraum (6 Stück)
-
-Inline-SVG-Gruppen in `<g id="plants">` (Wrapper innerhalb von `<g data-raum="haupt">`), inhaltskorrigiert skaliert. Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` — verankert Topfboden (256, 512) im viewBox an Bodenpunkt.
-
-Formel: `σ = s · basisBreite / 512`. Sichtbare Breite berücksichtigt **Inhaltsratio** (z. B. blume 52 %, yucca 88 %, kraeuter 99 %).
-
-Jede Pflanze hat ein **`data-fv`-Attribut** (ihre fv-Koordinate), damit die Tiefensortierung weiss, ob die Figur davor oder dahinter läuft. Positionen:
-
-| Pflanze | fu | fv | bw | r (Kollision) |
+| Pflanze | fu | fv | bw | r (Hindernis) |
 |---|---|---|---|---|
 | tulpe | 0.15 | 0.12 | 175 | 0.05 |
 | blume | 0.87 | 0.15 | 175 | 0.05 |
 | kraeuter | 0.85 | 0.45 | 92 | 0.025 |
 | setzling | 0.12 | 0.50 | 118 | 0.035 |
 | geranie | 0.94 | 0.78 | 100 | 0.03 |
-| yucca | 0.08 | 0.85 | 104 | 0.03 |
+| yucca | 0.034 | 0.79 | 104 | 0.03 |
 
-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk. So kann die Figur knapp an den Pflanzen vorbeilaufen; ihr Körper verschwindet perspektivisch hinter den Blättern.
+Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "bookshelf_umfang"` (Aufgaben-Overlay) + `akzeptiert.notizzettel` (Drop-Target).
 
-## Garten (Spezialfall)
+### Büro
 
-Im Garten sind decke, linkeWand und hintereWand alle Himmelsblau. `zeichneZimmer()` hat deshalb einen **Sonderweg**: statt drei separater Polygone (mit sichtbaren Säumen) füllt ein einziger `fillRect` den ganzen Hintergrund mit Himmel, dann werden Boden (nahtlos) und rechte Hauswand als Polygone drübergezeichnet.
+- **Tisch 2** (`assets/table_2.svg`, L-Schreibtisch mit Schubladen): Anker = front-left-leg-Fuss SVG (311, 613) → Screen (240, 700), σ=0.55. Steht vorderlinks. **Helle Holz-Palette**: Original-Wood-Hex-Codes wurden global ersetzt (z.B. `#512F18→#8B6740`, `#C77137→#DEAA6F` usw.). Metallbeine (Grautöne) und Schubladengriffe (`#D1C6BF`) bleiben.
+- **Tischlampe** auf Tisch 2 (handgezeichnet inline, klassische Schreibtisch-Lampe):
+  - Schirm = Trapez schmal oben, breit unten. Anker Standfuss-Mitte = Screen (340, 495).
+  - **Stange** geht komplett bis in den Standfuss-Mittelpunkt durch (Höhe 125), wird unten vom Standfuss überdeckt → keine Lücke.
+  - **Schirm um -12° gedreht** (gegenuhrzeigersinn = Bottom kippt nach RECHTS) um Stem-Top (340, 370). Lichtkegel-Boden HORIZONTAL bei y=505, Mitte x=368, deckungsgleich mit Lichtfleck `cx=368 cy=505 rx=50 ry=6`.
+  - **Unterer Schirm-Rand als TONGUE**: `M 318 410 Q 340 435 362 410 L 366 425 L 314 425 Z`. Gerade Unterkante bei y=425, ∪-förmige Oberkante (Peak dipt nach UNTEN). Grenze Tongue/Schirmkörper = ∪-Schnitz (öffnet nach OBEN) → wirkt wie Aufsicht von oben.
+- **Demo-Notizzettel** am Boden (`OBJEKTE.buero[0]`): per `zeichnen`-Callback aufs Canvas gemalt, `aufnehmen: "notizzettel"`. Drop auf Bookshelf zeigt Hinweis-Overlay.
 
-Rendering in `zeichneGartenZaun()` (auf `ctxRaum`):
+### Fitnessraum
 
-**Reihenfolge:**
-1. `zeichneSonne()` — gelber Kreis + 12 Strahlen bei (1200, 200), r=42
-2. **Horizont-Silhouetten** (ohne `vor`-Flag, Büsche 1/4/7) — werden gleich vom Gras halb verdeckt
-3. **Grashorizont** + **linke Wiese** — beide mit `nahtlos: true` (schliesst Gras-Säume)
-4. **Horizont-Büsche mit `vor: true`** (Büsche 2/3/5/6) — stehen auf dem Gras, voll sichtbar
-5. **Nah-Büsche** (Canvas-Ellipsen) auf linker Wiese (3 Stück)
-6. **bush_4** (Detail-Busch, SVG via `drawImage`) — auf linker Wiese
-7. **bush_1** + **bush_3** (Detail-Büsche) — hinter Hintenzaun
-8. **Zaun hinten** — 9 Pfosten + 2 Verstrebungen, y=420–600 (verdeckt Teile der hinteren Büsche)
-9. **bush_2** (Detail-Busch) — oberhalb des Zauns, voll sichtbar
-10. **Zaun links** — perspektivisch via `linkeWandPunkt(u, v)`, 8 Pfosten
-11. **Rechte Hauswand nachzeichnen** — damit Detail-Büsche, die über x=1300 ragen, sauber abgeschnitten werden
+- **Tintenfisch** (`assets/octopus_1.svg`) inline importiert, hinten-rechts. Anker `<svg class="octopus" x="970" y="408" width="440" height="330" viewBox="0 0 640.08 479.93">`. CSS in `style.css`:
+  - `.octopus * { stroke: none !important }` — entfernt alle schwarzen Outlines global.
+  - **Augen-Pupillen** (path3950, path3950-4): NICHT der Mund (frühere Verwechslung — die Pfade liegen IM Auge). Behalten ihren Inline-`fill:#000`. Wo der echte Mund im Original-SVG gezeichnet wird (path4567 / path3986 als Stroke?) ist offen.
 
-**Horizont-Büsche** (`GEBUESCH_HORIZONT`): Array von `{cx, cy, b, f, vor?}`. `vor: true` → nach Gras gezeichnet (voll sichtbar).
+### Garten (Spezialfall)
 
-**Detail-Büsche** (`BUESCHE`): SVGs aus `assets/bush_1..4.svg`, als `Image`-Objekte geladen (`ladeBuschBild`) und per `ctx.drawImage` auf den Zimmer-Canvas gerastert. Konfig-Objekt:
+Decke + linkeWand + hintereWand alle Himmelsblau → `zeichneZimmer()` füllt einen einzigen `fillRect` mit Himmel, dann werden Boden (nahtlos) und rechte Hauswand drübergezeichnet. So entstehen keine Subpixel-Säume.
+
+`zeichneGartenZaun()` (auf `ctxRaum`) Renderreihenfolge:
+1. `zeichneSonne()` (gelber Kreis + 12 Strahlen, (1200, 200), r=42)
+2. Horizont-Silhouetten (Büsche 1/4/7) — werden gleich vom Gras halb verdeckt
+3. Grashorizont + linke Wiese (beide `nahtlos: true`)
+4. Horizont-Büsche mit `vor: true` (Büsche 2/3/5/6) — voll sichtbar
+5. Nah-Büsche (Canvas-Ellipsen, 3 Stück)
+6. **bush_4** (Detail-Busch, `drawImage`) auf linker Wiese
+7. **bush_1** + **bush_3** (Detail-Büsche) hinter Hintenzaun
+8. Zaun hinten (9 Pfosten + 2 Verstrebungen, y=420–600)
+9. **bush_2** (Detail-Busch) oberhalb des Zauns, voll sichtbar
+10. Zaun links (`linkeWandPunkt(u, v)`, 8 Pfosten, perspektivisch)
+11. Rechte Hauswand nachzeichnen (clippt Detail-Büsche, die über x=1300 ragen)
+
+**Detail-Büsche** (`BUESCHE`): SVGs aus `bush_1..4.svg` als `Image`-Objekte geladen (`ladeBuschBild`) und per `drawImage` auf den Canvas gerastert (damit der Zaun sie verdecken kann — was mit `<image href>` in der mittleren SVG-Ebene nicht ginge).
+
+**bush_4**-Konturen: Die SVG-Datei hat am äusseren `<g>` `stroke-width="25" stroke-linejoin="round" stroke-linecap="round"`, jeder Pfad zusätzlich `stroke="{sein eigener fill}"` — Pfade „puffen" minimal, KEINE schwarze Outline.
+
+**Sträucher im Garten** (12 Stück, im SVG-Layer `<g data-raum="garten">`) durch `baueGartenDeko()` beim Start erzeugt. 4 Varianten (`STRAUCH_VARIANTEN`) mit unterschiedlichen Blatt-Auswahlen und Grüntönen. Pfade aus `plant_strauch.svg` (Boden entfernt, 5 Blatt-Cluster + 1 Ast-Pfad).
+
+### Keller
+
+- Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90)
+- **Skelett** aus `skeleton_3.svg` via `<image href>`, perspektivisch hinten-rechts (fu=0.90, fv=0.85, Füsse bei (1236, 645)). Grösse 177×250.
+- Farb-Invertierung via SVG-Filter `#invert` (schwarz → weiss).
+- Schaukel-Animation: `<animateTransform type="rotate">` um die Füsse, ±6°, 2.5 s.
+
+## Hindernis-System (Kollision)
+
+`HINDERNISSE[raumId]` ist ein Array von Hindernissen. Jedes ist entweder ein **Kreis** mit `{ fu, fv, r }` oder eine **Ellipse** mit `{ fu, fv, rx, ry }`. Funktionen `istImHindernis`, `slideUmHindernis`, `setzeFigurZiel` benutzen `h.rx ?? h.r` und `h.ry ?? h.r` → Kreise mit `r` bleiben rückwärts-kompatibel.
+
 ```js
-BUESCHE = {
-    linksWiese:  { src: "assets/bush_4.svg", cx, baseY, breite, hoehe },
-    hintenTief:  { src: "assets/bush_1.svg", ... },
-    hintenGanz:  { src: "assets/bush_2.svg", ... },
-    hintenHalb:  { src: "assets/bush_3.svg", ... },
-}
+const HINDERNISSE = {
+    haupt: [
+        { fu: 0.034, fv: 0.79, r: 0.03 },             // Kreis (Pflanze yucca)
+        { fu: 0.10,  fv: 0.88, rx: 0.14, ry: 0.12 },  // Ellipse (Tisch 1, deckt Back-Area mit ab)
+        // ...
+    ],
+    buero:   [{...}, {...}, {...}],                   // 3 Kreise entlang der Diagonale für L-Schreibtisch
+    fitness: [{ fu: 0.85, fv: 0.80, r: 0.08 }],       // Octopus
+};
 ```
-`baseY` ist die Fusslinie auf dem Bildschirm. Renderreihenfolge entscheidet, ob der Zaun den Busch verdeckt (bush_1/3 vor dem Zaun gezeichnet = Zaun-Verdeckung; bush_2 nach dem Zaun = voll sichtbar).
 
-**bush_4 Konturen:** Die SVG-Datei hat am äusseren `<g>` `stroke-width="25" stroke-linejoin="round" stroke-linecap="round"` gesetzt. Jeder Pfad hat zusätzlich `stroke="{sein eigener fill}"` — dadurch „puffen" die Pfade minimal, aber es entsteht KEINE sichtbare schwarze Outline (angrenzende Flächen behalten ihr Farbgefühl).
+- `istImHindernis(fu, fv)`: `(dfu/rx)² + (dfv/ry)² < 1` (Ellipsen-Gleichung).
+- `setzeFigurZiel(fu, fv)`: liegt das Ziel innerhalb, schiebt es radial nach aussen auf 1.05 × Ellipsen-Rand und clamped auf den Laufbereich. Safety Net für Tür-Laufziele nahe Pflanzen.
+- `slideUmHindernis(ux, uy, schritt)`:
+  1. Sucht das blockierende Hindernis (in Laufrichtung, senkrechter Versatz ≤ max(rx, ry) + 0.02).
+  2. Tangenten-Richtung senkrecht zum **Ellipsen-Gradient** an Figur-Position (für Kreise = alte Kreis-Tangente).
+  3. Bevorzugt die Seite mit positivem Dot zur Laufrichtung.
+  4. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren. Nur wenn beide blockiert sind, stoppt die Figur.
+- **Safety-Net** in `aktualisiereFigur`: vor jedem Schritt wird geprüft, ob die Figur in einem Hindernis ist (z.B. nach einer Hindernis-Anpassung). Falls ja → radial nach aussen schieben + clamp.
 
-**Sträucher im Garten** (12 Stück) liegen im SVG-Layer `<g data-raum="garten">`, durch `baueGartenDeko()` beim Start erzeugt. 4 Varianten (`STRAUCH_VARIANTEN`) mit unterschiedlichen Blatt-Auswahlen und Grüntönen. Pfade stammen aus `assets/plant_strauch.svg` (Boden entfernt, 5 Blatt-Cluster + 1 Ast-Pfad).
+Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern (siehe Tiefensortierung).
 
-## Keller
+## Tiefensortierung (data-fv-Toggle)
 
-- Wände/Decke/Boden in dunklen Grautönen (`b80`/`b100`/`b90`)
-- **Skelett** aus `assets/skeleton_3.svg` via `<image href>`, perspektivisch platziert hinten rechts (fu=0.90, fv=0.85, Füsse bei (1236, 645)). Grösse 177×250 (10 % grösser als Ursprung).
-- Farbe-Invertierung via SVG-Filter `#invert` (schwarz → weiss)
-- Schaukel-Animation: `<animateTransform type="rotate">` um die Füsse, ±6°, 2.5 s, Ease-in-out-Spline
+Architektur-Problem: Der Figur-Canvas liegt fix zwischen den SVG-Ebenen. Damit Pflanzen je nach Tiefe VOR oder HINTER der Figur erscheinen können, liegen sie in zwei Ebenen:
 
-## Inventar + Drag & Drop (Phase 6, abgeschlossen)
+1. Jede Pflanze (und Tisch1 + Lavalampe) hat ein `data-fv="…"`-Attribut.
+2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, und ALLE `[data-fv]`-Elemente werden hineingeklont.
+3. `aktualisierePflanzenTiefe()` läuft am Ende jedes `draw()`:
+   - Für jedes `[data-fv]` in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv`. Sonst sichtbar.
+   - In Front-Ebene umgekehrt.
 
-### Gegenstände
+Bookshelf, Skelett, Sträucher, Tisch2 haben KEIN `data-fv` und bleiben nur in der Rück-Ebene — sie stehen perspektivisch immer hinter der Figur.
+
+`wechsleRaum()` togglet `<g data-raum>`-Sichtbarkeit in BEIDEN SVG-Ebenen simultan.
+
+## Spielstand
+
+```js
+const spielstand = {
+    geloesteAufgaben: new Set(),       // IDs gelöster Aufgaben
+    freigeschalteteTueren: new Set(),  // eingesammelte Schlüssel-IDs
+    inventar: {},                      // gefundene Zahlen / Infos (Cross-Room-Lookup)
+    gegenstaende: new Set(),           // physische Inventar-Gegenstände
+};
+```
+
+**Dev-Helfer in der Browserkonsole:**
+```js
+freischalten("keller_schluessel")
+verschliessen("keller_schluessel")
+gegenstandHinzufuegen("notizzettel")
+gegenstandEntfernen("notizzettel")
+verbrauche("notizzettel")              // Alias — praktisch in akzeptiert-Callbacks
+spielstand                              // aktueller Zustand inspizieren
+```
+
+## Aufgaben + Overlay
+
+```js
+const AUFGABEN = {
+    aufgabeId: {
+        frage:     "Text oder (spielstand) => string",  // Funktion → Cross-Room-Lookup
+        formel:    "U = 2 \\pi r",                       // KaTeX (optional)
+        fragetext: "Detailfrage mit Werten (in cm).",   // optional
+        loesung:   31.4,                                 // Zahl
+        toleranz:  0.2,
+        bei_richtig: {
+            schluessel:     "keller_schluessel",         // optional → freigeschalteteTueren
+            inventar:       { umfang_demo_cm: 31.4 },    // optional → spielstand.inventar
+            belohnung_text: "Richtig! ...",              // optional
+        },
+    },
+};
+```
+
+`zeigeAufgabe(id)` baut Aufgaben-UI ins `#overlay-inhalt` (KaTeX-Formel via CDN, Input, Prüfen-Button, Feedback). `pruefeAntwort()` vergleicht per Toleranz (Komma → Punkt normalisiert). Bei Erfolg: `geloesteAufgaben.add()`, Schlüssel/Inventar aus `bei_richtig`, Input + Button deaktivieren.
+
+`zeigeOverlayText(text)` für einfachen Info-Text (z.B. „Tür verschlossen."). Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
+
+**Aktuelle Demo-Aufgabe:** `bookshelf_umfang` — Klick aufs Bücherregal, Umfang bei r=5 cm. Bei Erfolg: `keller_schluessel` + Inventar-Eintrag.
+
+## Inventar + Drag & Drop
 
 ```js
 const GEGENSTAENDE = {
-    id: {
-        name: "Notizzettel",
-        icon: `<svg viewBox="0 0 48 48">…</svg>`,
-    },
+    notizzettel: { name: "Notizzettel", icon: `<svg ...>` },
 };
 ```
 
 Inventar-Zustand: `spielstand.gegenstaende` (Set von IDs). Rendert in `#inventar` (Panel rechts oben), hidden wenn leer.
 
-### Aufnehmen & Drop-Targets
-
 Objekte in `OBJEKTE[raumId]` bekommen optional:
-- `aufnehmen: "gegenstand_id"` — Klick → Figur läuft zum `laufziel` → `nimmAufGegenstand()` fügt ins Inventar, markiert `obj.aufgenommen = true` (Objekt verschwindet).
-- `akzeptiert: { gegenstand_id: (spielstand, id) => {...} }` — Drop-Target für Drag & Drop. Callback entscheidet, ob der Gegenstand verbraucht wird (`verbrauche(id)`).
-- `zeichnen: (ctx) => {...}` — Canvas-Rendering, wenn das Objekt keinen eigenen SVG-Anteil hat.
+- `aufnehmen: "gegenstand_id"` — Klick → Figur läuft zum `laufziel` → `nimmAufGegenstand()` fügt ins Inventar, markiert `obj.aufgenommen = true`.
+- `akzeptiert: { gegenstand_id: (s, id) => {...} }` — Drop-Target. Callback entscheidet, ob der Gegenstand verbraucht wird (`verbrauche(id)`).
+- `zeichnen: (ctx) => {...}` — Canvas-Rendering (wenn das Objekt keinen SVG-Anteil hat).
 
-Türen können ebenfalls `akzeptiert` haben (z. B. Schlüssel auf Schloss ziehen).
+Türen können auch `akzeptiert` haben (z.B. Schlüssel auf Schloss).
 
-### Drag & Drop
-
-Pointer-basiert (kein HTML5-DnD), damit Touch und Canvas-Drop funktionieren:
+**Drag & Drop** ist Pointer-basiert (kein HTML5-DnD), damit Touch und Canvas-Drop funktionieren:
 - `pointerdown` auf Inventar-Slot → `starteDrag()` mit `setPointerCapture`
 - `#drag-preview` (position: fixed) folgt der Maus
-- `pointerup`: `versucheDrop(clientX, clientY, id)` prüft, ob ein Objekt oder eine Tür unter der Maus `akzeptiert[id]` hat → Figur läuft hin → Callback
+- `pointerup` → `versucheDrop(clientX, clientY, id)` prüft, ob ein Objekt oder eine Tür unter der Maus `akzeptiert[id]` hat → Figur läuft hin → Callback
 
-### Demo
+## Laufen + Raumwechsel-Fade
 
-- **Notizzettel** liegt im Büro auf dem Boden (Canvas-gezeichnet via `zeichnen`-Callback).
-- Aufnehmen → Icon im Inventar.
-- Drag auf Bookshelf im Hauptraum → Overlay: „Auf dem Notizzettel steht: r = 5 cm"
-
-### Dev-Helfer
+**Laufen vor Interaktion:** Klick auf Tür/Objekt startet NICHT sofort die Aktion. Stattdessen läuft die Figur zum `laufziel`. `figur.ankunft` ist ein einmaliger Callback, der beim Ankommen ausgelöst wird:
 
 ```js
-gegenstandHinzufuegen("notizzettel")
-gegenstandEntfernen("notizzettel")
-verbrauche("notizzettel")              // Alias — praktisch in akzeptiert-Callbacks
+figur.ankunft = () => starteRaumwechsel("buero");        // bei Tür-Klick
+figur.ankunft = () => zeigeAufgabe("bookshelf_umfang");  // bei Objekt-Klick
+figur.ankunft = () => nimmAufGegenstand(obj);            // bei Aufnehm-Objekt
 ```
 
-## Kollision + Hindernis-Umgehung (Phase 7 Teil 1)
+Klick auf Boden, `wechsleRaum`, oder Stop wegen Hindernis verwirft `ankunft`.
 
-### Hindernisse (Kreise im fu/fv-System)
+**Fade-Transition:** `starteRaumwechsel(zielId)` blendet `#fade`-Div schwarz ein (220 ms), ruft `wechsleRaum`, blendet aus. `wechselInGang`-Flag blockt Klicks während der Transition.
 
-```js
-const HINDERNISSE = {
-    haupt: [
-        { fu: 0.08, fv: 0.85, r: 0.03 },   // yucca
-        // ...
-    ],
-    // andere Räume: []
-};
-```
+## Sound (Web Audio, keine Dateien)
 
-Radien sind an der Pflanzen-Topfbasis orientiert — klein genug, dass Türen nicht blockiert werden, gross genug, dass die Figur-Mitte nicht durch die Pflanze läuft.
+Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter zum dumpfen „Thud". Vier Varianten in `SCHRITT_VARIANTEN` (220–310 Hz, 80–100 ms, Gain 0.17–0.22) round-robin + ±3 % Frequenz-Jitter pro Schritt.
 
-### Ziel-Snap
+`audioCtx` wird beim ersten `pointerdown` via `ensureAudio()` initialisiert (Safari/Chrome starten oft `suspended` → `audioCtx.resume()`). `spieleSchritt()` feuert in `aktualisiereFigur`, wenn die Gehphase π oder 2π überquert. `beendeSchrittWennInLuft()` beim Ankommen.
 
-`setzeFigurZiel(fu, fv)` verschiebt das Ziel automatisch auf die Hindernis-Kante, wenn es innerhalb eines Kreises liegt. Dadurch bleiben Tür-Laufziele erreichbar, auch wenn sie nahe einer Pflanze liegen (Safety Net — müssen nicht manuell getunt werden).
-
-### Slide um Hindernisse
-
-`aktualisiereFigur()` prüft jeden Schritt. Wäre der nächste Schritt in einem Hindernis:
-- `slideUmHindernis(ux, uy, schritt)` sucht das blockierende Hindernis (nur wenn in Laufrichtung, senkrechter Versatz ≤ r + 0.02)
-- Berechnet Tangenten-Richtung senkrecht zu Figur→Hindernis, wählt die Seite mit positivem Dot zur gewünschten Laufrichtung
-- Figur macht den Tangent-Schritt statt zu stoppen → „gleitet" an der Pflanze entlang, bis der direkte Pfad wieder frei ist
-
-Fallback: Falls auch der Slide in ein Hindernis führen würde, stoppt die Figur doch. In der Praxis bei sparsamen Hindernissen fast nie.
-
-## Tiefensortierung für Pflanzen (Phase 7 Teil 2)
-
-Architektur-Problem: Der Figur-Canvas liegt fix zwischen den SVG-Ebenen. Damit die Figur je nach Tiefe VOR oder HINTER einer Pflanze erscheinen kann, liegen Pflanzen in zwei Ebenen.
-
-### Setup
-
-1. Jede Pflanze im HTML hat ein `data-fv="…"`-Attribut (ihre fv-Koordinate).
-2. Zweite SVG-Ebene `#object-layer-vorne` ÜBER dem Figur-Canvas (in `index.html` nach `<canvas id="figure-canvas">` eingefügt, gleiche viewBox, `pointer-events: none`).
-3. `klonePflanzenVorne()` läuft einmal im Init (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, und ALLE Elemente mit `data-fv` (rekursiv — z. B. aus `<g id="plants">`) werden hineingeklont.
-
-### Toggle pro Frame
-
-`aktualisierePflanzenTiefe()` läuft am Ende jedes `draw()`:
-- Für jede Pflanze in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv` (Figur tiefer → Pflanze soll vorne sein). Sonst sichtbar.
-- Für jede Pflanze in Front-Ebene: umgekehrt.
-
-Das Ergebnis: Je nach Position der Figur erscheint jede Pflanze entweder in der hinteren Ebene (Figur überdeckt sie) oder in der vorderen Ebene (Pflanze überdeckt Figur).
-
-### Bookshelf / Skelett / Sträucher
-
-Diese haben KEIN `data-fv` und bleiben nur in der Rück-Ebene (werden nicht sortiert). Das ist OK, weil sie perspektivisch immer hinter der Figur stehen (Bookshelf an der Wand; Skelett hinten; Sträucher im Garten neben dem Figur-Laufbereich).
-
-### Raumwechsel
-
-`wechsleRaum()` togglet `<g data-raum>`-Sichtbarkeit in **beiden** SVG-Ebenen simultan.
-
-## Deko-Generatoren (JS-seitig)
-
-```js
-makeSVG(tag, attrs, kinder)        // SVG-Element-Factory (namespaced)
-erzeugeStrauch({fu, fv, bw, v})    // liefert <g> mit transformierter Strauch-Grafik
-baueGartenDeko()                   // füllt <g data-raum="garten"> mit 12 Sträuchern (idempotent)
-baueRaumDeko()                     // Dispatch für alle Räume + klonePflanzenVorne(); wird 1× beim Start aufgerufen
-klonePflanzenVorne()               // klont alle [data-fv]-Elemente in #object-layer-vorne
-ladeBuschBild(src)                 // cached Image-Loader für Detail-Büsche (drawImage-basiert)
-zeichneBuschBild(def)              // rendert einen Detail-Busch auf den aktuellen Canvas
-```
-
-Kanonisch: **Init ruft `baueRaumDeko()` vor `resizeCanvas()` auf.**
-
-## SVG-Helfer (älter, ungenutzt)
-
-```js
-ladeSVG(pfad)                  // fetch + DOMParser (braucht lokalen Server unter file://)
-platziereAufBoden(svgRoot, …)
-platziereImZimmer(svgRoot, …)
-entferneAlleSVGs()
-```
-
-Aktuell nicht aktiv gebraucht; bei Bedarf über lokalen Server (`python3 -m http.server 8000`).
+Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`.
 
 ## Input / Loop
 
@@ -362,155 +334,61 @@ Aktuell nicht aktiv gebraucht; bei Bedarf über lokalen Server (`python3 -m http
 Seitenladen → requestAnimationFrame → baueRaumDeko() → resizeCanvas() → loop()
 loop(): aktualisiereFigur() → draw() → requestAnimationFrame(loop)
 canvas.pointerdown:
-    → prüft Tür-Polygone → figur läuft hin → ankunft = starteRaumwechsel() (bei Treffer)
-    → prüft OBJEKTE → figur läuft hin → ankunft = zeigeAufgabe() oder nimmAufGegenstand()
-    → sonst: screenZuBoden → figur.zielFu/zielFv (mit Clamp, mit Snap aus Hindernissen)
+    → Tür-Polygone? → figur läuft hin → ankunft = starteRaumwechsel()
+    → OBJEKTE? → figur läuft hin → ankunft = zeigeAufgabe() oder nimmAufGegenstand()
+    → sonst: screenZuBoden → setzeFigurZiel() (mit Clamp + Snap aus Hindernissen)
 window.resize → resizeCanvas()
 ```
 
-## Bekannte Eigenheiten / Stolpersteine
+## Deko-Generatoren (JS-seitig)
 
-- **Cache-Busting:** bei Änderungen an `script.js` oder `style.css` das `?v=N` in `index.html` hochzählen. HTML selbst hat kein Busting → Hard-Refresh.
-- **Zwei Canvases + zwei SVGs:** jede Renderänderung muss auf die richtige Ebene gelangen. In `draw()` wird `ctx` umgeschaltet; `aktualisierePflanzenTiefe` togglet die SVG-Ebenen.
-- **SVG-Filter `filter="url(#name)"`** (grell, invert) statt CSS-Filter — robuster.
-- **CSS `pointer-events: none`** auf Figur-Canvas und beiden SVG-Layern, damit Klicks zum `game-canvas` durchreichen.
-- **Body: `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none`** — verhindert Scroll/Verschieben.
+```js
+makeSVG(tag, attrs, kinder)        // SVG-Element-Factory (namespaced)
+erzeugeStrauch({fu, fv, bw, v})    // <g> mit transformierter Strauch-Grafik
+baueGartenDeko()                   // füllt <g data-raum="garten"> mit 12 Sträuchern (idempotent)
+baueRaumDeko()                     // Dispatch + klonePflanzenVorne(); 1× beim Start
+klonePflanzenVorne()               // klont alle [data-fv]-Elemente in #object-layer-vorne
+ladeBuschBild(src)                 // cached Image-Loader für Detail-Büsche
+zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
+```
+
+Init-Reihenfolge: **`baueRaumDeko()` VOR `resizeCanvas()`**.
+
+## Stolpersteine
+
+- **Cache-Busting:** bei Änderungen an `script.js` oder `style.css` das `?v=N` in `index.html` hochzählen. Sonst hängt die alte Version im Browser-Cache.
+- **Pflanzen-/Tisch-Position ändern:** `HINDERNISSE` (Kollision) UND `data-fv` im HTML (Tiefensortierung) UND Transform (Rendering) müssen synchron bleiben.
+- **Möbel vor Pflanzen im DOM:** Tisch1 + Lavalampe sind in `<g id="haupt-moebel">` VOR `<g id="plants">` — sonst überdeckt der Tisch die davor stehenden Pflanzen.
+- **`<image href>` in SVG** unter file://: nicht zuverlässig für externe SVG-Referenzen (skeleton_1 lud nicht). Inline-SVG ist Fallback.
+- **Detail-Büsche per `drawImage`** statt `<image href>` — damit der Zaun sie verdecken kann (würde in der SVG-Mittel-Ebene nicht gehen).
+- **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell für Bookshelf-Sättigung, #invert für Skelett-Farbinversion).
+- **Body-CSS:** `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none` — verhindert Scroll/Verschieben.
 - **Startbildschirm** ist in `index.html` ausgeklammert; Auto-Start am Ende von `script.js`.
-- **`<image href>` in SVG** unter file://: funktioniert je nach Browser nicht zuverlässig für externe SVG-Referenzen (skeleton_1 lud nicht). Inlining ist Fallback.
-- **Detail-Büsche** (bush_1..4) werden per `drawImage` auf den Canvas gerastert — damit der Zaun sie verdecken kann (was mit `<image href>` in der mittleren SVG-Ebene nicht ginge).
-- **Pflanzen-Positionen ändern:** `HINDERNISSE` (für Kollision), `data-fv` im HTML (für Tiefensortierung) und Transform (für Rendering) müssen synchron bleiben.
-
-## Spielstand + Türen-Schlösser (Phase 2, abgeschlossen)
-
-```js
-const spielstand = {
-    geloesteAufgaben: new Set(),       // IDs gelöster Aufgaben
-    freigeschalteteTueren: new Set(),  // eingesammelte Schlüssel-IDs
-    inventar: {},                      // gefundene Zahlen / Infos
-    gegenstaende: new Set(),           // Inventar-Gegenstände (Phase 6)
-};
-```
-
-**Türen-Schlösser** via optionalem `schloss: "<schluessel-id>"` am Tür-Objekt. `istFrei(tuer)` = `true`, wenn entweder kein Schloss gesetzt ist oder der passende Schlüssel in `spielstand.freigeschalteteTueren` liegt.
-
-Klick auf verschlossene Tür → Overlay mit Hinweis, kein Raumwechsel. Offene Tür → wie bisher.
-
-**Visuals:** `zeichneSchloss(cx, cy, groesse)` zeichnet ein weisses Schloss (Bügel + Korpus + Schlüsselloch) unten in der Tür. **Auf `secret: true`-Türen wird KEIN Schloss gezeichnet**, damit sie versteckt bleiben.
-
-**Aktuell verschlossene Türen (Default):**
-- Geheim-Tür im Hauptraum → Keller (`schloss: "keller_schluessel"`)
-
-**Dev-Helfer in der Browserkonsole:**
-```js
-freischalten("keller_schluessel")   // Schlüssel hinzufügen
-verschliessen("keller_schluessel")  // Schlüssel entfernen
-spielstand                           // aktueller Zustand
-```
-
-## Overlay (Phase 2 + 3)
-
-HTML-Struktur in `index.html` unter `#game-container`:
-```html
-<div id="overlay" hidden>
-    <div id="overlay-box">
-        <button id="overlay-close">×</button>
-        <div id="overlay-inhalt"></div>
-    </div>
-</div>
-```
-
-`#overlay-inhalt` wird per JS dynamisch befüllt — entweder mit einem Info-Text oder mit einem Aufgaben-Formular.
-
-Funktionen:
-- `zeigeOverlayText(text)` — einfacher Info-Text (z.B. "Tür verschlossen.")
-- `zeigeOverlay(text)` — Alias, rückwärtskompatibel
-- `zeigeAufgabe(aufgabenId)` — baut Aufgaben-UI (KaTeX-Formel, Input, Prüfen-Button, Feedback)
-- `schliesseOverlay()` — räumt `#overlay-inhalt` leer und blendet aus
-
-Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
-
-## Aufgaben-Infrastruktur (Phase 3, abgeschlossen)
-
-```js
-const AUFGABEN = {
-    aufgabeId: {
-        frage:     "Textfrage oder (spielstand) => string",  // Dynamisch → Cross-Room-Lookup
-        formel:    "U = 2 \\pi r",                            // KaTeX (optional)
-        fragetext: "Detailfrage mit Werten (in cm).",        // Optional
-        loesung:   31.4,                                      // Zahl
-        toleranz:  0.2,                                       // maximaler Fehler
-        bei_richtig: {
-            schluessel:     "keller_schluessel",              // optional: wird in spielstand.freigeschalteteTueren aufgenommen
-            inventar:       { umfang_demo_cm: 31.4 },         // optional: spielstand.inventar wird erweitert
-            belohnung_text: "Richtig! ...",                   // optional: Feedback-Text bei Erfolg
-        },
-    },
-};
-
-const OBJEKTE = {
-    haupt: [{ id: "...", aufgabe: "aufgabeId", polygon: [...],
-              laufziel: {...}, akzeptiert: {...} /* Phase 6 */ }],
-    // andere Räume analog, leere Arrays als Platzhalter
-};
-```
-
-**Klick-Pipeline:** `pointerdown` → Tür? → Objekt? → Boden. `pointermove` setzt `cursor: pointer`, wenn unter dem Cursor eine Tür oder ein aktives Objekt liegt.
-
-**`objektIstAktiv(obj)`**: aktiv, wenn nicht `aufgenommen` UND (Aufgabe definiert ODER `aufnehmen` gesetzt ODER `akzeptiert` gesetzt).
-
-**`pruefeAntwort(id, eingabe, ...)`**: vergleicht per Toleranz (`Math.abs(zahl − loesung) ≤ toleranz`). Komma wird zu Punkt normalisiert. Bei Erfolg: `spielstand.geloesteAufgaben.add(id)`, Schlüssel und Inventar aus `bei_richtig` anwenden, `draw()`, Input + Button deaktivieren.
-
-**Cross-Room-Lookups:** `frage` und `fragetext` können Funktionen sein, z.B. `frage: (s) => \`Der Umfang war ${s.inventar.umfang_demo_cm} cm.\``. So kann eine Aufgabe in Raum C einen Wert aus Raum A lesen.
-
-**Aktuelle Demo-Aufgabe:** `bookshelf_umfang` — Klick aufs Bücherregal im Hauptraum, Umfang bei r=5 cm. Bei Erfolg: `keller_schluessel`, Inventar-Eintrag, Keller-Zugang offen.
-
-## Sound (Web Audio, keine Dateien)
-
-Schrittsounds werden live via `Web Audio API` synthetisiert: kurzer weisser Noise-Burst, durch Tiefpassfilter zu einem dumpfen „Thud". Vier Varianten in `SCHRITT_VARIANTEN` (Frequenz 220–310 Hz, Dauer 80–100 ms, Gain 0.17–0.22) werden **round-robin** durchlaufen, mit zusätzlich ±3 % Frequenz-Jitter pro Schritt.
-
-`audioCtx` wird beim ersten `pointerdown` via `ensureAudio()` initialisiert. Safari/Chrome starten den AudioContext oft im Zustand `suspended` — `ensureAudio()` ruft deshalb immer `audioCtx.resume()` auf.
-
-`spieleSchritt()` feuert in `aktualisiereFigur`, wenn die Gehphase π oder 2π überquert. Zusätzlich `beendeSchrittWennInLuft()` beim Ankommen (auch beim Stop wegen Hindernis).
-
-Konsolen-Helfer:
-- `soundAnAus(true|false)` — Sound global an/aus
-- `soundTest()` — 3 Diagnose-Sounds; zeigt `audioCtx.state`
-
-## Laufen + Raumwechsel-Fade (Phase 5, Teil 1+2)
-
-**Laufen zum Ziel vor Interaktion:** Klick auf Tür oder Objekt startet NICHT mehr sofort die Aktion. Stattdessen läuft die Figur zum `laufziel`. `figur.ankunft` ist ein einmaliger Callback, der beim Ankommen ausgelöst wird.
-
-```js
-figur.ankunft = () => starteRaumwechsel("buero");   // bei Tür-Klick
-figur.ankunft = () => zeigeAufgabe("bookshelf_umfang");  // bei Objekt-Klick
-figur.ankunft = () => nimmAufGegenstand(obj);        // bei Aufnehm-Objekt (Phase 6)
-```
-
-Klick auf Boden setzt `figur.ankunft = null`. `wechsleRaum` räumt ebenfalls. Wird die Figur durch ein Hindernis gestoppt, wird der Callback ebenfalls verworfen.
-
-**Fade-Transition beim Raumwechsel:** `starteRaumwechsel(zielId)` blendet via `#fade`-Div schwarz ein (220 ms), ruft `wechsleRaum`, blendet wieder aus. `wechselInGang`-Flag blockt Klicks während der Transition.
 
 ## Roadmap
 
-**Abgeschlossen:**
-- Phase 1: Infrastruktur + Deko (Räume, Türen, Figur, SVG-Layer)
-- Phase 2: Spielstand + Schlösser + Overlay
-- Phase 3: Aufgaben-UI mit KaTeX, Cross-Room-Lookups
-- Phase 5 Teil 1+2: Fade-Transition + zur Tür/Objekt laufen
-- Phase 6: Inventar + Drag & Drop
-- Phase 7 Teil 1: Kollision + Slide-Umgehung
-- Phase 7 Teil 2: Tiefensortierung für Pflanzen (Figur vor/hinter SVG-Pflanzen)
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen) + Tiefensortierung — alles drin. Demo-Aufgabe `bookshelf_umfang` mit Cross-Room-Lookup funktioniert.
 
 **Phase 4: Inhalte (mit Manuel)**
-- 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius).
-- **Linearer Lösungsweg I → II → III → IV**, aber **Infos aus Raum A werden in Raum C gebraucht**.
-- 5 Räume gestalten (zusätzliche Möbel/Aufgaben-Objekte).
+- 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius)
+- Linearer Lösungsweg I → II → III → IV, aber Infos aus Raum A werden in Raum C gebraucht
+- 5 Räume mit zusätzlichen Möbeln/Aufgaben-Objekten ausstatten
 
 **Phase 5 Restpunkte (nach Phase 4)**
-- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar).
-- `localStorage` für Fortschritt (erst nach Phase 4 sinnvoll).
+- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar)
+- `localStorage` für Fortschritt (erst nach Phase 4 sinnvoll)
 
-## Git / GitHub
+## Git-Workflow
 
-- Remote: `https://github.com/Manuel-Benz/Spiel_Kreise_1`
-- Workflow: `git add <datei>` → `git commit -m "Nachricht"` → `git push`
+Remote: `https://github.com/Manuel-Benz/Spiel_Kreise_1`. Solo auf `main`.
+
+Nach jedem Schritt:
+```bash
+git status                             # was hat sich geändert
+git diff                               # konkrete Änderungen ansehen (optional)
+git add index.html script.js style.css CLAUDE.md   # explizit, nicht "git add ."
+git commit -m "Kurze Beschreibung"
+git push
+```
+
+`git pull` ist nur nötig, wenn du auf github.com direkt editiert hast oder von einem anderen Rechner kommst.
