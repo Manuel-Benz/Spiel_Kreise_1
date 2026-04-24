@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -235,7 +235,7 @@
                 -->
                 <g id="plants">
                     <!-- plant_yucca — hinten-links (fu=0.08, fv=0.85, bw=104, Inhalt 88%) -->
-                    <g transform="translate(342.2 645) scale(0.1250) translate(-256 -512)">
+                    <g data-fv="0.85" transform="translate(342.2 645) scale(0.1250) translate(-256 -512)">
                         <g transform="translate(-1 0)">
                             <polygon style="fill:#AF8066;" points="144.188,503.322 369.815,503.322 369.815,329.763 144.188,329.763"/>
                             <polygon style="fill:#D9AA94;" points="369.815,407.864 309.069,468.61 257.001,416.542 204.934,468.61 144.188,407.864 144.188,355.797 204.934,416.542 257.001,364.475 309.069,416.542 369.815,355.797"/>
@@ -252,7 +252,7 @@
                         </g>
                     </g>
                     <!-- plant_geranie — hinten-rechts (fu=0.94, fv=0.78, bw=100, Inhalt 91%) -->
-                    <g transform="translate(1298.1 666) scale(0.1269) translate(-256 -512)">
+                    <g data-fv="0.78" transform="translate(1298.1 666) scale(0.1269) translate(-256 -512)">
                         <path style="fill:#33691E;" d="M345.977,180.087c0,25.67,15.32,98.535-89.129,98.535c-47.167,0-81.657-72.864-81.657-98.535c0-25.67,38.234-46.476,85.393-46.476S345.977,154.416,345.977,180.087z"/>
                         <path style="fill:#FF7043;" d="M423.085,310.775H90.612v-34.997c0-9.668,7.831-17.499,17.499-17.499h297.476c9.668,0,17.499,7.831,17.499,17.499V310.775z"/>
                         <polygon style="fill:#FF5722;" points="388.088,485.761 125.609,485.761 90.612,310.775 423.085,310.775"/>
@@ -271,7 +271,7 @@
                         <path style="fill:#D50000;" d="M212.008,182.817c2.555-1.82,13.491-26.974,2.879-33.414c-10.604-6.439-16.002,10.018-16.002,10.018c-0.367-21.208-7.656-32.381-19.318-25.81c-7.918,4.453-2.914,16.107,1.129,23.151c-5.188-7.297-15.075-18.172-23.754-10c-12.424,11.689,3.788,22.074,3.788,22.074s-12.87-1.689-10.683,12.17c2.187,13.85,25.154,13.491,25.154,13.491c-2.914,10.937,13.124,10.569,29.161,2.021C220.39,187.944,212.008,182.817,212.008,182.817z"/>
                     </g>
                     <!-- plant_setzling — mitte-links (fu=0.12, fv=0.50, bw=118, Inhalt 77%) -->
-                    <g transform="translate(306 750) scale(0.15) translate(-256 -512)">
+                    <g data-fv="0.50" transform="translate(306 750) scale(0.15) translate(-256 -512)">
                         <path style="fill:#FF9478;" d="M78.316,242.244l53.365,251.394C134.403,506.459,147.22,512,159.942,512h191.978c13.211,0,25.539-5.542,28.261-18.363l53.365-251.394H78.316z"/>
                         <path style="fill:#FF6243;" d="M340.177,484.098h-82.985c-4.332,0-7.845-3.512-7.845-7.845s3.512-7.845,7.845-7.845h82.985c4.333,0,7.845,3.512,7.845,7.845S344.51,484.098,340.177,484.098z"/>
                         <path style="fill:#6DC82A;" d="M203.79,26.267c-43.096-23.224-85.232-26.12-87.003-26.233c-5.113-0.32-10.106,1.641-13.63,5.362c-3.523,3.72-5.213,8.812-4.613,13.901c4.463,37.839,15.721,70.701,33.461,97.674c14.684,22.327,33.77,40.627,56.726,54.392c44.228,26.519,87.157,26.825,88.964,26.825c2.58,0,8.625,0,13.773-5.152c3.375-3.377,5.203-8.001,5.046-12.773C293.661,92.742,244.516,48.211,203.79,26.267z"/>
@@ -283,7 +283,7 @@
                         <path style="fill:#5AAAE7;" d="M435.375,232.007h-144.18c-4.332,0-7.845-3.512-7.845-7.845c0-4.332,3.512-7.845,7.845-7.845h144.181c4.333,0,7.845,3.512,7.845,7.845C443.221,228.495,439.708,232.007,435.375,232.007z"/>
                     </g>
                     <!-- plant_kraeuter — mitte-rechts (fu=0.85, fv=0.45, bw=92, Inhalt 99%) -->
-                    <g transform="translate(1265.5 765) scale(0.1428) translate(-256 -512)">
+                    <g data-fv="0.45" transform="translate(1265.5 765) scale(0.1428) translate(-256 -512)">
                         <g transform="translate(-1 0)">
                             <path style="fill:#91CF96;" d="M173.987,163.537c-10.761,0-22.51-1.627-35.2-4.882c-4.8-1.234-7.735-6.053-6.647-10.889c5.467-24.046,16.942-41.563,34.121-52.032c19.099-11.639,45.339-13.998,73.911-6.647c4.855,1.179,8.64,6.235,7.534,11.109l-0.274,1.307c-1.819,8.841-7.351,35.749-32.247,51.301C203.738,159.953,189.95,163.537,173.987,163.537"/>
                             <path style="fill:#91CF96;" d="M62.246,202.26c-8.512,0-16.366-1.399-23.534-4.224c-23.927-9.399-32.731-31.378-36.05-39.653c-0.311-0.759-0.549-1.39-0.759-1.838c-1.006-2.203-1.097-4.727-0.247-7.003c0.841-2.267,2.551-4.105,4.754-5.111l1.591-0.841c25.499-13.641,48.421-17.243,68.041-10.597c18.231,6.153,32.722,20.736,43.063,43.374c2.075,4.553,0.11,9.938-4.416,12.069C95.197,197.643,77.66,202.26,62.246,202.26"/>
@@ -303,7 +303,7 @@
                         </g>
                     </g>
                     <!-- plant_blume — vorne-rechts (fu=0.87, fv=0.15, bw=175, Inhalt 52%) -->
-                    <g transform="translate(1500 855) scale(0.3187) translate(-256 -512)">
+                    <g data-fv="0.15" transform="translate(1500 855) scale(0.3187) translate(-256 -512)">
                         <rect x="238.771" y="132.975" style="fill:#81E26F;" width="34.39" height="160.487"/>
                         <rect x="254.82" y="132.975" style="fill:#60DC4D;" width="18.399" height="160.487"/>
                         <path style="fill:#FFB64C;" d="M255.972,1.146c-41.086,0-74.512,33.426-74.512,74.512s33.426,74.512,74.512,74.512s74.512-33.426,74.512-74.512S297.058,1.146,255.972,1.146z"/>
@@ -318,7 +318,7 @@
                         <rect x="255.92" style="fill:#FF0536;" width="18.399" height="66.488"/>
                     </g>
                     <!-- plant_tulpe — vorne-links (fu=0.15, fv=0.12, bw=175, Inhalt 52%) -->
-                    <g transform="translate(95.2 884) scale(0.3233) translate(-256 -512)">
+                    <g data-fv="0.12" transform="translate(95.2 884) scale(0.3233) translate(-256 -512)">
                         <rect x="239.873" y="162.573" style="fill:#6FD6A4;" width="32.254" height="150.521"/>
                         <rect x="256" y="162.573" style="fill:#3ACC8F;" width="16.127" height="150.521"/>
                         <polygon style="fill:#FFB64C;" points="255.997,0 185.678,70.319 255.997,129.967 326.315,70.319"/>
@@ -341,7 +341,7 @@
                 <g data-raum="keller" style="display:none">
                     <!-- Skelett (assets/skeleton_3.svg), invertiert auf weiss, mit Schaukel-Animation.
                          Position: hinten rechts (fu=0.90, fv=0.85), Füsse bei (1236, 645). -->
-                    <image href="assets/skeleton_3.svg" x="1156" y="418" width="161" height="227" filter="url(#invert)">
+                    <image href="assets/skeleton_3.svg" x="1148" y="395" width="177" height="250" filter="url(#invert)">
                         <animateTransform attributeName="transform" type="rotate"
                             values="-6 1236 645; 6 1236 645; -6 1236 645"
                             keyTimes="0; 0.5; 1"
@@ -354,9 +354,16 @@
                 <g data-raum="fitness" style="display:none"></g>
             </svg>
             <canvas id="figure-canvas"></canvas>
+            <!-- Front-SVG-Ebene (Phase 7): nimmt Klone von Pflanzen auf, die perspektivisch
+                 VOR der Figur stehen. Pro Frame togglet JS zwischen dieser und der Rück-Ebene. -->
+            <svg id="object-layer-vorne" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
             <!-- Schwarzer Fade für Raumwechsel (Phase 5). Liegt über den Canvases, unter dem Overlay. -->
             <div id="fade"></div>
+            <!-- Inventar (Phase 6): rechts oben auf der Stage. Icons werden per JS gefüllt. -->
+            <div id="inventar" hidden></div>
         </div>
+        <!-- Drag-Preview (Phase 6): floating Icon beim Drag & Drop. Position: fixed am Viewport. -->
+        <div id="drag-preview" hidden></div>
         <!-- Overlay: Info-Text (Phase 2) oder Aufgaben-UI (Phase 3). Inhalt wird per JS gesetzt. -->
         <div id="overlay" hidden>
             <div id="overlay-box">
@@ -365,6 +372,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=49"></script>
+    <script src="script.js?v=58"></script>
 </body>
 </html>

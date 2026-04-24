@@ -11,6 +11,7 @@ const ctxFigur = canvasFigur.getContext("2d");
 // Aktiver Zeichenkontext — wird in draw() zwischen Raum und Figur umgeschaltet.
 let ctx = ctxRaum;
 const svgLayer = document.getElementById("object-layer");
+const svgLayerVorne = document.getElementById("object-layer-vorne");
 
 // Zimmer-Geometrie
 const ZIMMER = {
@@ -174,6 +175,7 @@ const spielstand = {
     geloesteAufgaben: new Set(),
     freigeschalteteTueren: new Set(),
     inventar: {},
+    gegenstaende: new Set(),   // Phase 6: aufgenommene Gegenstände (Set von IDs aus GEGENSTAENDE)
 };
 
 function istFrei(tuer) {
@@ -328,23 +330,71 @@ const AUFGABEN = {
 };
 
 // Klickbare Objekte pro Raum. Polygon in Stage-Koordinaten (1600×900).
-// `aufgabe` ist eine ID aus AUFGABEN; `id` identifiziert das Objekt eindeutig.
+// Mögliche Felder:
+//   `id`         Eindeutige Objekt-ID (pflicht).
+//   `polygon`    Klick-Hitbox in Stage-Koordinaten (pflicht).
+//   `laufziel`   {fu, fv} — Punkt, zu dem die Figur läuft, bevor die Aktion auslöst.
+//   `aufgabe`    ID aus AUFGABEN — Klick öffnet das Aufgaben-Overlay.
+//   `aufnehmen`  ID aus GEGENSTAENDE — Klick nimmt den Gegenstand auf (Objekt verschwindet).
+//   `akzeptiert` { gegenstand_id: (spielstand, id) => {...} } — Drop-Target für Drag & Drop.
+//   `zeichnen`   (ctx) => void — zeichnet das Objekt auf den Zimmer-Canvas (nur nötig,
+//                wenn es nicht schon durch SVG-Deko oder Möbel repräsentiert ist).
+//   `aufgenommen` boolean (intern) — wird true gesetzt, nachdem `aufnehmen` ausgelöst hat.
 const OBJEKTE = {
     haupt: [
         // Bookshelf: transform translate(650 310) scale(0.5), Inhalt ~610×550 → Screen x ~647..952, y 310..585
-        { id: "bookshelf", aufgabe: "bookshelf_umfang",
-          polygon: [[647, 310], [953, 310], [953, 585], [647, 585]],
-          laufziel: { fu: 0.5, fv: 0.88 } },
+        {
+            id: "bookshelf",
+            aufgabe: "bookshelf_umfang",
+            polygon: [[647, 310], [953, 310], [953, 585], [647, 585]],
+            laufziel: { fu: 0.5, fv: 0.88 },
+            // Demo: Notizzettel auf Bookshelf droppen zeigt einen Hinweis.
+            akzeptiert: {
+                notizzettel: (s) => {
+                    zeigeOverlayText("Auf dem Notizzettel steht:\n\u201er = 5 cm\u201c");
+                },
+            },
+        },
     ],
-    buero: [],
+    buero: [
+        // Demo-Aufnehm-Gegenstand: Notizzettel auf dem Boden.
+        {
+            id: "buero_notizzettel",
+            aufnehmen: "notizzettel",
+            polygon: [[810, 635], [930, 635], [930, 710], [810, 710]],
+            laufziel: { fu: 0.5, fv: 0.85 },
+            zeichnen: (ctx) => {
+                // Kleines Blatt Papier mit ein paar Liniatur-Strichen
+                ctx.save();
+                ctx.fillStyle = "#fffbe6";
+                ctx.strokeStyle = "#333";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(820, 645, 100, 60, 3);
+                ctx.fill();
+                ctx.stroke();
+                ctx.strokeStyle = "#aaa";
+                ctx.lineWidth = 1;
+                for (let i = 1; i <= 4; i++) {
+                    const y = 645 + i * 12;
+                    ctx.beginPath();
+                    ctx.moveTo(832, y);
+                    ctx.lineTo(908, y);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            },
+        },
+    ],
     fitness: [],
     garten: [],
     keller: [],
 };
 
 function objektIstAktiv(obj) {
-    // Gelöste Aufgaben bleiben klickbar (zeigen "schon gelöst"-Hinweis).
-    return !!AUFGABEN[obj.aufgabe];
+    if (obj.aufgenommen) return false;
+    // Aktiv, wenn eines der Interaktions-Felder gesetzt ist.
+    return !!(AUFGABEN[obj.aufgabe] || obj.aufnehmen || obj.akzeptiert);
 }
 
 function zeigeAufgabe(id) {
@@ -464,8 +514,8 @@ function wechsleRaum(zielId) {
     if (!RAEUME[zielId]) return;
     const vonRaum = aktuellerRaum;
     aktuellerRaum = zielId;
-    // Nur Deko des aktuellen Raums anzeigen
-    document.querySelectorAll("#object-layer > g[data-raum]").forEach(g => {
+    // Nur Deko des aktuellen Raums anzeigen — in beiden SVG-Ebenen (hinten + vorne).
+    document.querySelectorAll("#object-layer > g[data-raum], #object-layer-vorne > g[data-raum]").forEach(g => {
         g.style.display = g.dataset.raum === zielId ? "" : "none";
     });
 
@@ -481,6 +531,82 @@ function wechsleRaum(zielId) {
     figur.ankunft = null;
     figur.richtung = eintrittsRichtung(eintritt.fu, eintritt.fv);
     draw();
+}
+
+// ---------- Hindernisse (Kollision) ----------
+// Kreise im fu/fv-System (0..1). Figur kann nicht durch sie hindurchlaufen.
+// Radien sind grob am sichtbaren Fussabdruck der Pflanze orientiert — Pflanzen mit
+// grösserer bw bekommen grössere r. Werte lassen sich in der Konsole live ändern:
+//   HINDERNISSE.haupt[0].r = 0.08
+const HINDERNISSE = {
+    haupt: [
+        // Radien sind am Fussabdruck der Pflanze orientiert (Topfbasis, nicht Blätter).
+        // So kann die Figur knapp vorbei — Körper verschwindet perspektivisch hinter den Blättern.
+        { fu: 0.08, fv: 0.85, r: 0.03 },   // yucca (hinten-links)
+        { fu: 0.94, fv: 0.78, r: 0.03 },   // geranie (hinten-rechts)
+        { fu: 0.12, fv: 0.50, r: 0.035 },  // setzling (mitte-links) — muss Tür L (fv 0.45) frei lassen
+        { fu: 0.85, fv: 0.45, r: 0.025 },  // kraeuter (mitte-rechts) — muss Tür geheim (fu 0.88) frei lassen
+        { fu: 0.87, fv: 0.15, r: 0.05 },   // blume (vorne-rechts, grösser)
+        { fu: 0.15, fv: 0.12, r: 0.05 },   // tulpe (vorne-links, grösser)
+    ],
+    buero:   [],
+    fitness: [],
+    garten:  [],
+    keller:  [],
+};
+window.HINDERNISSE = HINDERNISSE;
+
+function istImHindernis(fu, fv) {
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    for (const h of hs) {
+        const dfu = fu - h.fu;
+        const dfv = fv - h.fv;
+        if (dfu * dfu + dfv * dfv < h.r * h.r) return true;
+    }
+    return false;
+}
+
+// Gleit-Manöver: Ist der direkte Schritt blockiert, versucht die Figur einen Schritt
+// TANGENTIAL am nächstgelegenen blockierenden Hindernis entlang. So „umrundet" sie die
+// Pflanze Frame für Frame, statt davor stehen zu bleiben.
+// ux, uy = gewünschte Laufrichtung (Einheitsvektor); schritt = Schrittweite.
+// Rückgabe: { fu, fv } mit neuer Position, oder null wenn kein Ausweichen möglich.
+function slideUmHindernis(ux, uy, schritt) {
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    // Finde das in Laufrichtung am nächsten liegende blockierende Hindernis.
+    let blocker = null;
+    let bestDist = Infinity;
+    for (const h of hs) {
+        const dfu = h.fu - figur.fu;
+        const dfv = h.fv - figur.fv;
+        const along = dfu * ux + dfv * uy;           // Projektion auf Laufrichtung
+        if (along <= 0) continue;                    // Hindernis liegt hinter uns
+        const perp = dfu * uy - dfv * ux;            // senkrechter Versatz (signed)
+        if (Math.abs(perp) > h.r + 0.02) continue;   // Hindernis liegt nicht im Pfad
+        if (along < bestDist) {
+            bestDist = along;
+            blocker = h;
+        }
+    }
+    if (!blocker) return null;
+
+    // Tangent-Richtung: senkrecht zum Vektor Figur → Hindernis.
+    const toObsX = blocker.fu - figur.fu;
+    const toObsY = blocker.fv - figur.fv;
+    const toObsLen = Math.sqrt(toObsX * toObsX + toObsY * toObsY);
+    if (toObsLen < 1e-6) return null;
+    const perpX = -toObsY / toObsLen;
+    const perpY =  toObsX / toObsLen;
+    // Zwei mögliche Tangent-Richtungen (±). Wähle die mit positivem Dot zur Laufrichtung,
+    // damit die Figur in Richtung Ziel gleitet und nicht zurück.
+    const dot = perpX * ux + perpY * uy;
+    const tx = dot >= 0 ? perpX : -perpX;
+    const ty = dot >= 0 ? perpY : -perpY;
+
+    const slidFu = figur.fu + tx * schritt;
+    const slidFv = figur.fv + ty * schritt;
+    if (istImHindernis(slidFu, slidFv)) return null;  // Gleite würde in anderes Hindernis laufen
+    return { fu: slidFu, fv: slidFv };
 }
 
 // Ray-Casting-Test: Liegt (x, y) innerhalb des Polygons?
@@ -518,13 +644,21 @@ const FIGUR_FU_MAX = 0.94;
 const FIGUR_FV_MIN = 0;
 const FIGUR_FV_MAX = 0.97;
 
-function fuellePolygon(p, f) {
+function fuellePolygon(p, f, nahtlos = false) {
     ctx.fillStyle = f;
     ctx.beginPath();
     ctx.moveTo(p[0][0], p[0][1]);
     for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
     ctx.closePath();
     ctx.fill();
+    // Optional: gleichfarbiger Stroke schliesst Subpixel-Säume zu Nachbar-Polygonen
+    // derselben Farbe. Nur dort verwenden, wo solche Säume stören (z.B. Garten-Himmel/Gras);
+    // in anderen Räumen bleibt die feine Eckenlinie sichtbar.
+    if (nahtlos) {
+        ctx.strokeStyle = f;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
 }
 function zeichnePolygon(p, f, b = 2) {
     ctx.strokeStyle = f;
@@ -538,13 +672,24 @@ function zeichnePolygon(p, f, b = 2) {
 
 function zeichneZimmer() {
     const f = RAEUME[aktuellerRaum].farben;
+
+    // Garten-Sonderfall: decke, linkeWand und hintereWand sind alle Himmelsblau.
+    // Statt drei Polygone (mit sichtbaren Säumen) den gesamten Hintergrund mit einer
+    // einzigen Fläche füllen. Andere Räume behalten die feinen Ecken-Linien.
+    if (aktuellerRaum === "garten") {
+        ctx.fillStyle = f.decke;
+        ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        fuellePolygon(ZIMMER.boden, f.boden, true);       // Boden — Stroke schliesst Saum zum Gras
+        fuellePolygon(ZIMMER.rechteWand, f.rechteWand);   // Hauswand
+        zeichneGartenZaun();
+        return;
+    }
+
     fuellePolygon(ZIMMER.decke, f.decke);
     fuellePolygon(ZIMMER.boden, f.boden);
     fuellePolygon(ZIMMER.linkeWand, f.linkeWand);
     fuellePolygon(ZIMMER.rechteWand, f.rechteWand);
     fuellePolygon(ZIMMER.hintereWand, f.hintereWand);
-
-    if (aktuellerRaum === "garten") zeichneGartenZaun();
 }
 
 // Sonne: gelber Kreis + 12 Strahlen. Oben rechts auf dem Himmel.
@@ -587,24 +732,54 @@ function zeichneBusch(cx, cy, breite, farbe) {
     ctx.fill();
 }
 
-// Horizont-Silhouetten (werden vom Gras halb verdeckt → dadurch Silhouetten)
+// Horizont-Büsche. `vor: true` = wird NACH dem Gras gezeichnet (vor der Wiese sichtbar).
+// Default = als Silhouette hinter dem Gras (unterer Teil wird vom Gras verdeckt).
 const GEBUESCH_HORIZONT = [
-    { cx: 380, cy: 330, b: 42, f: "#5A9A4A" },
-    { cx: 510, cy: 326, b: 52, f: "#6CAF5B" },
-    { cx: 640, cy: 332, b: 38, f: "#5A9A4A" },
-    { cx: 780, cy: 328, b: 46, f: "#7CC06C" },
-    { cx: 910, cy: 330, b: 50, f: "#6CAF5B" },
-    { cx: 1050, cy: 327, b: 40, f: "#5A9A4A" },
-    { cx: 1190, cy: 332, b: 36, f: "#7CC06C" },
+    { cx: 380,  cy: 330, b: 42, f: "#5A9A4A" },                // 1: Silhouette
+    { cx: 510,  cy: 326, b: 52, f: "#6CAF5B", vor: true },     // 2: vor Gras
+    { cx: 640,  cy: 332, b: 38, f: "#5A9A4A", vor: true },     // 3: vor Gras
+    { cx: 780,  cy: 328, b: 46, f: "#7CC06C" },                // 4: Silhouette
+    { cx: 910,  cy: 330, b: 50, f: "#6CAF5B", vor: true },     // 5: vor Gras
+    { cx: 1050, cy: 327, b: 40, f: "#5A9A4A", vor: true },     // 6: vor Gras
+    { cx: 1190, cy: 332, b: 36, f: "#7CC06C" },                // 7: Silhouette
 ];
 
-// Nah-Büsche auf linker Wiese (sitzen auf der Wand-Bodenlinie)
+// Nah-Büsche auf linker Wiese (sitzen auf der Wand-Bodenlinie).
+// Der mittlere Punkt (170,620) wurde entfernt, damit bush_4 dort Platz hat.
 const GEBUESCH_NAH = [
     { cx: 40,  cy: 820, b: 75, f: "#6CAF5B" },
     { cx: 110, cy: 720, b: 62, f: "#7CC06C" },
-    { cx: 170, cy: 620, b: 50, f: "#5A9A4A" },
     { cx: 230, cy: 500, b: 36, f: "#8ED085" },
 ];
+
+// --- Detaillierte SVG-Büsche auf der Wiese (rasterisiert via drawImage). ---
+// Werden auf dem Zimmer-Canvas gezeichnet, damit der Zaun einige davon verdecken kann.
+// Jede Definition: { src, cx, baseY, breite, hoehe } — cx = horizontale Mitte, baseY = Fusslinie.
+const BUESCHE = {
+    linksWiese:    { src: "assets/bush_4.svg", cx: 185, baseY: 650, breite: 480, hoehe: 492 },
+    hintenTief:    { src: "assets/bush_1.svg", cx: 1150, baseY: 550, breite: 360, hoehe: 150 }, // tief hinter Zaun
+    hintenGanz:    { src: "assets/bush_2.svg", cx: 570, baseY: 410, breite: 80, hoehe: 80 }, // oberhalb des Zauns
+    hintenHalb:    { src: "assets/bush_3.svg", cx: 100, baseY: 378, breite: 150, hoehe: 160 }, // 
+};
+
+// Image-Cache mit automatischem Redraw nach Load (SVG-Rasterisierung durch Browser).
+const BUSCH_BILDER = {};
+function ladeBuschBild(src) {
+    if (BUSCH_BILDER[src]) return BUSCH_BILDER[src];
+    const img = new Image();
+    img.onload = () => { if (loopGestartet) draw(); };
+    img.onerror = () => console.warn(`Busch konnte nicht geladen werden: ${src}`);
+    img.src = src;
+    BUSCH_BILDER[src] = img;
+    return img;
+}
+
+function zeichneBuschBild(def) {
+    const img = ladeBuschBild(def.src);
+    if (img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, def.cx - def.breite / 2, def.baseY - def.hoehe, def.breite, def.hoehe);
+    }
+}
 
 // Garten: Himmel + Sonne + Wiese mit Gebüsch + Zaun.
 // Reihenfolge: Sonne → Horizont-Büsche → Wiese → Nah-Büsche → Zäune
@@ -617,16 +792,27 @@ function zeichneGartenZaun() {
     // Sonne im oberen rechten Bereich des Himmels
     zeichneSonne();
 
-    // Horizont-Büsche als Silhouetten (werden gleich vom Gras halb verdeckt)
-    GEBUESCH_HORIZONT.forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
+    // Horizont-Büsche ohne `vor`-Flag: als Silhouette hinter dem Gras.
+    GEBUESCH_HORIZONT.filter(b => !b.vor).forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
 
-    // Grashorizont: hinten (rechteckig) + links (perspektivisch als Wiese).
-    ctx.fillStyle = GRAS;
-    ctx.fillRect(300, HORIZON_Y, 1000, 600 - HORIZON_Y);
-    fuellePolygon([[0, HORIZON_Y], [300, HORIZON_Y], [300, 600], [0, 900]], GRAS);
+    // Grashorizont: hinten + links (perspektivisch als Wiese). `nahtlos: true` schliesst
+    // den Subpixel-Saum zum Boden-Polygon und zwischen den beiden Gras-Polygonen.
+    fuellePolygon([[300, HORIZON_Y], [1300, HORIZON_Y], [1300, 600], [300, 600]], GRAS, true);
+    fuellePolygon([[0, HORIZON_Y], [300, HORIZON_Y], [300, 600], [0, 900]], GRAS, true);
+
+    // Horizont-Büsche mit `vor`-Flag: auf dem Gras stehend (voll sichtbar).
+    GEBUESCH_HORIZONT.filter(b => b.vor).forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
 
     // Nah-Büsche auf linker Wiese (zwischen Wiese und Zaun)
     GEBUESCH_NAH.forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
+
+    // bush_4 auf der linken Wiese — vor den Ellipsen, noch vor dem linken Zaun.
+    zeichneBuschBild(BUESCHE.linksWiese);
+
+    // Detaillierte Büsche hinter dem Hintenzaun — Zaun wird GLEICH danach gezeichnet
+    // und verdeckt die Teile, die in den Zaunbereich (y ≥ 420) hineinragen.
+    zeichneBuschBild(BUESCHE.hintenTief);   // bush_1 — tief hinter dem Zaun
+    zeichneBuschBild(BUESCHE.hintenHalb);   // bush_3 — teilweise hinter dem Zaun
 
     // Zaun an hinterer Wand — horizontale Verstrebungen und 9 Pfosten
     ctx.fillStyle = VERSTREBUNG;
@@ -635,6 +821,10 @@ function zeichneGartenZaun() {
     ctx.fillStyle = PFOSTEN;
     const postenX = [305, 429, 552, 676, 800, 924, 1048, 1171, 1295];
     postenX.forEach(x => ctx.fillRect(x - 6, 420, 12, 180));
+
+    // bush_2 — sitzt komplett oberhalb des Zauns; wird nach dem Zaun gezeichnet,
+    // damit ein möglicher minimaler Overlap mit der Pfosten-Oberkante sauber aussieht.
+    zeichneBuschBild(BUESCHE.hintenGanz);
 
     // Zaun an linker Wand — perspektivisch via linkeWandPunkt(u, v)
     // Gleiche v-Bereiche wie am Hintenzaun, damit sie am Eck zusammenpassen.
@@ -661,6 +851,10 @@ function zeichneGartenZaun() {
             linkeWandPunkt(uR, ZAUN_V), linkeWandPunkt(uL, ZAUN_V),
         ], PFOSTEN);
     });
+
+    // Rechte Hauswand nochmal drüberzeichnen, damit Büsche, die über die Wand-Kante
+    // bei x=1300 hinausragen (z.B. bush_1 in der neuen Position), sauber abgeschnitten werden.
+    fuellePolygon(ZIMMER.rechteWand, RAEUME.garten.farben.rechteWand);
 }
 
 // Kleines Schloss-Icon: Bügel (Torus-Segment) + Korpus. Skaliert über `groesse`.
@@ -765,7 +959,8 @@ function zeichneFigur() {
     const bodyBottom = fy - legH;
     const bodyTop = bodyBottom - bodyH;
     const neckY = bodyTop - neckH;
-    const headY = neckY - headR;
+    // Kopf minimal in den Hals hineingesetzt, damit die Hals-Rundungen nicht sichtbar bleiben.
+    const headY = neckY - headR + 5 * s;
 
     // ---- Beine (mit Gehanimation, ohne Schuhe) ----
     const hubLinks = Math.max(0, Math.sin(figur.gehphase)) * BEIN_HUB;
@@ -848,16 +1043,27 @@ function zeichneFigur() {
     // hinten: kein Gesicht
 }
 
+function zeichneObjekte() {
+    const objekte = OBJEKTE[aktuellerRaum] || [];
+    for (const obj of objekte) {
+        if (obj.aufgenommen) continue;
+        if (typeof obj.zeichnen === "function") obj.zeichnen(ctx);
+    }
+}
+
 function draw() {
-    // Hintere Ebene: Zimmer + Türen (unter der SVG-Dekoration)
+    // Hintere Ebene: Zimmer + Türen + Objekte (unter der SVG-Dekoration)
     ctx = ctxRaum;
     ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneZimmer();
     zeichneTueren();
+    zeichneObjekte();
     // Vordere Ebene: Figur (über der SVG-Dekoration)
     ctx = ctxFigur;
     ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneFigur();
+    // Pflanzen mit data-fv zwischen Rück- und Front-SVG togglen (perspektivische Tiefensortierung).
+    aktualisierePflanzenTiefe();
 }
 
 // Beim Ankommen: wenn ein Bein mitten in der Hebung war, abschliessenden Landungs-Sound spielen.
@@ -886,8 +1092,33 @@ function aktualisiereFigur() {
         loeseAnkunftAus();
         return;
     }
-    figur.fu += (dx / dist) * figur.geschwindigkeit;
-    figur.fv += (dy / dist) * figur.geschwindigkeit;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    let neueFu = figur.fu + ux * figur.geschwindigkeit;
+    let neueFv = figur.fv + uy * figur.geschwindigkeit;
+
+    // Hindernis-Test: Würde der direkte Schritt in eine Pflanze laufen?
+    // → Automatische Umgehung: tangential am Hindernis entlang gleiten.
+    if (istImHindernis(neueFu, neueFv)) {
+        const slid = slideUmHindernis(ux, uy, figur.geschwindigkeit);
+        if (slid) {
+            neueFu = slid.fu;
+            neueFv = slid.fv;
+        } else {
+            // Keine Gleite möglich (z.B. zwischen zwei Hindernissen) → doch stoppen.
+            figur.zielFu = figur.fu;
+            figur.zielFv = figur.fv;
+            figur.ankunft = null;
+            beendeSchrittWennInLuft();
+            return;
+        }
+    }
+
+    // Tatsächliche Bewegungsrichtung (kann von gewünschter Richtung abweichen, falls gegleitet wurde).
+    const bewegDx = neueFu - figur.fu;
+    const bewegDy = neueFv - figur.fv;
+    figur.fu = neueFu;
+    figur.fv = neueFv;
 
     const prevPhase = figur.gehphase;
     figur.gehphase = (figur.gehphase + GEHPHASE_SCHRITT) % (2 * Math.PI);
@@ -895,10 +1126,11 @@ function aktualisiereFigur() {
     if (prevPhase < Math.PI && figur.gehphase >= Math.PI) spieleSchritt();
     else if (figur.gehphase < prevPhase) spieleSchritt();
 
-    if (Math.abs(dx) > Math.abs(dy)) {
-        figur.richtung = dx > 0 ? "rechts" : "links";
+    // Figur schaut in die tatsächliche Laufrichtung — beim Gleiten dreht sie sich entsprechend.
+    if (Math.abs(bewegDx) > Math.abs(bewegDy)) {
+        figur.richtung = bewegDx > 0 ? "rechts" : "links";
     } else {
-        figur.richtung = dy > 0 ? "hinten" : "vorne";
+        figur.richtung = bewegDy > 0 ? "hinten" : "vorne";
     }
 }
 
@@ -979,18 +1211,18 @@ const STRAUCH_VARIANTEN = [
 
 // Positionen & Varianten für 12 Sträucher im Garten (fu, fv, basisBreite, Variante)
 const STRAEUCHER_GARTEN = [
-    { fu: 0.12, fv: 0.12, bw: 130, v: 0 },
-    { fu: 0.28, fv: 0.18, bw: 115, v: 2 },
-    { fu: 0.72, fv: 0.15, bw: 125, v: 1 },
-    { fu: 0.88, fv: 0.20, bw: 120, v: 3 },
-    { fu: 0.15, fv: 0.42, bw: 110, v: 1 },
-    { fu: 0.38, fv: 0.38, bw: 105, v: 0 },
-    { fu: 0.62, fv: 0.40, bw: 115, v: 2 },
-    { fu: 0.85, fv: 0.44, bw: 120, v: 3 },
-    { fu: 0.18, fv: 0.72, bw: 130, v: 2 },
-    { fu: 0.40, fv: 0.82, bw: 115, v: 0 },
-    { fu: 0.62, fv: 0.78, bw: 125, v: 3 },
-    { fu: 0.85, fv: 0.73, bw: 120, v: 1 },
+    { fu: 0.12, fv: 0.12, bw: 80, v: 0 },
+    { fu: 0.28, fv: 0.18, bw: 75, v: 2 },
+    { fu: 0.72, fv: 0.15, bw: 88, v: 1 },
+    { fu: 0.88, fv: 0.20, bw: 72, v: 3 },
+    { fu: 0.15, fv: 0.42, bw: 71, v: 1 },
+    { fu: 0.38, fv: 0.38, bw: 68, v: 0 },
+    { fu: 0.62, fv: 0.40, bw: 72, v: 2 },
+    { fu: 0.85, fv: 0.44, bw: 92, v: 3 },
+    { fu: 0.18, fv: 0.72, bw: 87, v: 2 },
+    { fu: 0.40, fv: 0.82, bw: 69, v: 0 },
+    { fu: 0.62, fv: 0.78, bw: 77, v: 3 },
+    { fu: 0.85, fv: 0.73, bw: 100, v: 1 },
 ];
 
 function erzeugeStrauch({ fu, fv, bw, v }) {
@@ -1015,13 +1247,49 @@ function baueGartenDeko() {
     if (!gruppe) return;
     gruppe.innerHTML = "";  // Bestehende Inhalte entfernen (idempotent)
 
-    // Sträucher: hinten zuerst zeichnen (höheres fv → weiter weg)
+    // Sträucher innen: hinten zuerst zeichnen (höheres fv → weiter weg)
     const sortiert = [...STRAEUCHER_GARTEN].sort((a, b) => b.fv - a.fv);
     sortiert.forEach(s => gruppe.appendChild(erzeugeStrauch(s)));
 }
 
 function baueRaumDeko() {
     baueGartenDeko();
+    klonePflanzenVorne();
+}
+
+// ---------- Tiefensortierung für Pflanzen (Phase 7) ----------
+// Jede Pflanze mit `data-fv` im SVG-Layer wird in eine zweite SVG-Ebene geklont, die ÜBER
+// dem Figur-Canvas liegt. Pro Frame entscheidet `aktualisierePflanzenTiefe()`, welche Ebene
+// die Pflanze zeigt: ist die Figur tiefer im Raum als die Pflanze (figur.fv > pflanze.fv),
+// erscheint die Pflanze in der Front-Ebene und verdeckt die Figur; sonst in der Rück-Ebene.
+function klonePflanzenVorne() {
+    svgLayerVorne.innerHTML = "";
+    document.querySelectorAll('#object-layer > g[data-raum]').forEach(hintenGruppe => {
+        const raumId = hintenGruppe.dataset.raum;
+        const vorneGruppe = document.createElementNS(SVG_NS, "g");
+        vorneGruppe.setAttribute("data-raum", raumId);
+        // Nur der aktuelle Raum ist sichtbar (Rest display:none wie in der Rück-Ebene).
+        if (raumId !== aktuellerRaum) vorneGruppe.style.display = "none";
+        svgLayerVorne.appendChild(vorneGruppe);
+        // Alle Elemente mit data-fv klonen (rekursiv — Pflanzen stecken z.B. in einem
+        // <g id="plants">-Wrapper). Transforms sind absolut, also kein Problem beim Verschieben.
+        hintenGruppe.querySelectorAll('[data-fv]').forEach(pflanze => {
+            vorneGruppe.appendChild(pflanze.cloneNode(true));
+        });
+    });
+}
+
+function aktualisierePflanzenTiefe() {
+    // Für alle data-fv-Pflanzen im Rück- UND Front-Layer die Sichtbarkeit togglen.
+    // Entscheidung: wer tiefer im Raum ist (grösseres fv), liegt weiter hinten → Figur liegt davor.
+    svgLayer.querySelectorAll('[data-fv]').forEach(el => {
+        const fv = parseFloat(el.dataset.fv);
+        el.style.display = (figur.fv > fv) ? "none" : "";
+    });
+    svgLayerVorne.querySelectorAll('[data-fv]').forEach(el => {
+        const fv = parseFloat(el.dataset.fv);
+        el.style.display = (figur.fv > fv) ? "" : "none";
+    });
 }
 
 // Startbildschirm ausgeklammert — direkt starten. Zum Reaktivieren:
@@ -1151,6 +1419,24 @@ function findeTuerBei(x, y) {
 }
 
 function setzeFigurZiel(fu, fv) {
+    // Wenn das Ziel in einem Hindernis liegt (z.B. Tür-Laufziel nahe einer Pflanze oder
+    // Klick direkt auf die Pflanze), zum nächstgelegenen Punkt leicht ausserhalb verschieben.
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    for (const h of hs) {
+        const dfu = fu - h.fu;
+        const dfv = fv - h.fv;
+        const d2 = dfu * dfu + dfv * dfv;
+        if (d2 < h.r * h.r) {
+            const d = Math.sqrt(d2);
+            const raus = h.r + 0.005;         // knapp ausserhalb der Hindernis-Kante
+            if (d > 1e-6) {
+                fu = h.fu + (dfu / d) * raus;
+                fv = h.fv + (dfv / d) * raus;
+            } else {
+                fu = h.fu + raus;              // Fallback: Klick genau in der Mitte
+            }
+        }
+    }
     figur.zielFu = Math.max(FIGUR_FU_MIN, Math.min(FIGUR_FU_MAX, fu));
     figur.zielFv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, fv));
 }
@@ -1177,15 +1463,19 @@ canvas.addEventListener("pointerdown", (e) => {
         return;
     }
 
-    // 2) Interaktive Objekte — ebenfalls hinlaufen, dann Aufgabe öffnen
+    // 2) Interaktive Objekte — ebenfalls hinlaufen, dann Aktion auslösen
     const obj = findeObjektBei(x, y);
     if (obj) {
         const z = obj.laufziel || null;
+        const aktion = () => {
+            if (obj.aufnehmen) nimmAufGegenstand(obj);
+            else if (obj.aufgabe) zeigeAufgabe(obj.aufgabe);
+        };
         if (z) {
             setzeFigurZiel(z.fu, z.fv);
-            figur.ankunft = () => zeigeAufgabe(obj.aufgabe);
+            figur.ankunft = aktion;
         } else {
-            zeigeAufgabe(obj.aufgabe);
+            aktion();
         }
         return;
     }
@@ -1238,3 +1528,146 @@ overlayEl.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !overlayEl.hidden) schliesseOverlay();
 });
+
+// ---------- Inventar (Phase 6) ----------
+// Gegenstände können im Raum aufgenommen werden (Klick auf Objekt mit `aufnehmen`),
+// erscheinen dann als Icon rechts oben im Inventar und können per Drag & Drop auf
+// andere Objekte oder Türen gezogen werden (Drop-Target hat `akzeptiert[id]`).
+
+// Registry aller möglichen Gegenstände. Icon ist Inline-SVG (viewBox 0..48).
+const GEGENSTAENDE = {
+    notizzettel: {
+        name: "Notizzettel",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <rect x="9" y="6" width="30" height="36" rx="2" fill="#fffbe6" stroke="#222" stroke-width="1.6"/>
+            <line x1="15" y1="15" x2="33" y2="15" stroke="#666" stroke-width="1.4"/>
+            <line x1="15" y1="21" x2="33" y2="21" stroke="#666" stroke-width="1.4"/>
+            <line x1="15" y1="27" x2="30" y2="27" stroke="#666" stroke-width="1.4"/>
+            <line x1="15" y1="33" x2="27" y2="33" stroke="#666" stroke-width="1.4"/>
+        </svg>`,
+    },
+};
+
+const inventarEl = document.getElementById("inventar");
+const dragPreviewEl = document.getElementById("drag-preview");
+
+function aktualisiereInventar() {
+    inventarEl.innerHTML = "";
+    if (spielstand.gegenstaende.size === 0) {
+        inventarEl.hidden = true;
+        return;
+    }
+    inventarEl.hidden = false;
+    for (const id of spielstand.gegenstaende) {
+        const g = GEGENSTAENDE[id];
+        if (!g) continue;
+        const slot = document.createElement("div");
+        slot.className = "inventar-slot";
+        slot.dataset.gegenstand = id;
+        slot.title = g.name;
+        slot.innerHTML = g.icon;
+        slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
+        inventarEl.appendChild(slot);
+    }
+}
+
+// Gegenstand aufnehmen: wird vom Objekt-Klick-Handler aufgerufen, nachdem die Figur angekommen ist.
+function nimmAufGegenstand(obj) {
+    if (!obj || !obj.aufnehmen || obj.aufgenommen) return;
+    obj.aufgenommen = true;
+    spielstand.gegenstaende.add(obj.aufnehmen);
+    aktualisiereInventar();
+    draw();
+}
+
+// Dev-Helfer (Konsole)
+function gegenstandHinzufuegen(id) {
+    if (!GEGENSTAENDE[id]) { console.warn(`Unbekannter Gegenstand: ${id}`); return; }
+    spielstand.gegenstaende.add(id);
+    aktualisiereInventar();
+    console.log(`Gegenstand "${id}" ins Inventar gelegt.`);
+}
+function gegenstandEntfernen(id) {
+    spielstand.gegenstaende.delete(id);
+    aktualisiereInventar();
+    console.log(`Gegenstand "${id}" aus Inventar entfernt.`);
+}
+window.gegenstandHinzufuegen = gegenstandHinzufuegen;
+window.gegenstandEntfernen = gegenstandEntfernen;
+window.verbrauche = gegenstandEntfernen;  // Alias, kann in akzeptiert-Callbacks verwendet werden
+window.GEGENSTAENDE = GEGENSTAENDE;
+
+// ---------- Drag & Drop ----------
+// Pointer-basiert (nicht HTML5 DnD), damit Touch und Canvas-Drops problemlos funktionieren.
+
+let dragZustand = null;  // { id, slot, pointerId } während aktivem Drag
+
+function starteDrag(e, id, slot) {
+    if (wechselInGang) return;
+    if (dragZustand) return;                         // Schon einer unterwegs
+    e.preventDefault();
+    slot.setPointerCapture(e.pointerId);
+    slot.classList.add("dragging");
+
+    const g = GEGENSTAENDE[id];
+    dragPreviewEl.innerHTML = g.icon;
+    dragPreviewEl.hidden = false;
+    dragPreviewEl.style.left = e.clientX + "px";
+    dragPreviewEl.style.top  = e.clientY + "px";
+
+    dragZustand = { id, slot, pointerId: e.pointerId };
+
+    const onMove = (ev) => {
+        if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
+        dragPreviewEl.style.left = ev.clientX + "px";
+        dragPreviewEl.style.top  = ev.clientY + "px";
+    };
+    const beende = (ev, treffer) => {
+        if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
+        slot.classList.remove("dragging");
+        dragPreviewEl.hidden = true;
+        dragPreviewEl.innerHTML = "";
+        const zustand = dragZustand;
+        dragZustand = null;
+        slot.removeEventListener("pointermove", onMove);
+        slot.removeEventListener("pointerup", onUp);
+        slot.removeEventListener("pointercancel", onCancel);
+        if (treffer) versucheDrop(ev.clientX, ev.clientY, zustand.id);
+    };
+    const onUp     = (ev) => beende(ev, true);
+    const onCancel = (ev) => beende(ev, false);
+
+    slot.addEventListener("pointermove", onMove);
+    slot.addEventListener("pointerup", onUp);
+    slot.addEventListener("pointercancel", onCancel);
+}
+
+function versucheDrop(clientX, clientY, gegenstandId) {
+    const rect = canvas.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right ||
+        clientY < rect.top  || clientY > rect.bottom) {
+        return;   // ausserhalb des Canvas → Drop verpuffet, Gegenstand bleibt im Inventar
+    }
+    const [x, y] = canvasZuLogisch(clientX, clientY);
+
+    // Erst Objekte, dann Türen prüfen — bei Treffer Figur hinlaufen lassen, dann Callback.
+    const obj = findeObjektBei(x, y);
+    if (obj && obj.akzeptiert && obj.akzeptiert[gegenstandId]) {
+        const z = obj.laufziel || null;
+        const aktion = () => obj.akzeptiert[gegenstandId](spielstand, gegenstandId);
+        if (z) { setzeFigurZiel(z.fu, z.fv); figur.ankunft = aktion; }
+        else aktion();
+        return;
+    }
+    const tuer = findeTuerBei(x, y);
+    if (tuer && tuer.akzeptiert && tuer.akzeptiert[gegenstandId]) {
+        const z = tuer.laufziel || { fu: 0.5, fv: 0.5 };
+        setzeFigurZiel(z.fu, z.fv);
+        figur.ankunft = () => tuer.akzeptiert[gegenstandId](spielstand, gegenstandId);
+        return;
+    }
+    // Kein passendes Ziel — nichts tun, Gegenstand bleibt im Inventar.
+}
+
+// Initial: leeres Inventar rendern (versteckt, bis erster Gegenstand aufgenommen wird).
+aktualisiereInventar();
