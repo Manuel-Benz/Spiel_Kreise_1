@@ -102,7 +102,7 @@ const RAEUME = {
             { id: "A", label: "A", polygon: [[460, 600], [640, 600], [640, 240], [460, 240]],
               ziel: "buero",  laufziel: { fu: 0.26, fv: 0.92 } },
             { id: "B", label: "B", polygon: [[960, 600], [1140, 600], [1140, 240], [960, 240]],
-              ziel: "fitness", laufziel: { fu: 0.74, fv: 0.92 } },
+              ziel: "badezimmer", laufziel: { fu: 0.74, fv: 0.92 } },
             { id: "L", label: "L", polygon: seitenTuerPolygon(linkeWandPunkt),
               ziel: "garten", laufziel: { fu: 0.12, fv: 0.45 } },
             { id: "geheim", secret: true, schloss: "keller_schluessel",
@@ -143,12 +143,12 @@ const RAEUME = {
         tueren: [
             { id: "zurueck", pfeil: true, polygon: PFEIL_POLYGON,
               ziel: "haupt", laufziel: { fu: 0.5, fv: 0.05 } },
-            { id: "fitness", label: "F", polygon: seitenTuerPolygon(rechteWandPunkt),
-              ziel: "fitness", laufziel: { fu: 0.88, fv: 0.45 } },
+            { id: "badezimmer", label: "F", polygon: seitenTuerPolygon(rechteWandPunkt),
+              ziel: "badezimmer", laufziel: { fu: 0.88, fv: 0.45 } },
         ],
     },
-    fitness: {
-        name: "Fitnessraum",
+    badezimmer: {
+        name: "Badezimmer",
         farben: {
             decke: GRAU.b90, boden: GRAU.b90,
             hintereWand: GRAU.b70, linkeWand: GRAU.b70, rechteWand: GRAU.b70,
@@ -176,6 +176,14 @@ const spielstand = {
     freigeschalteteTueren: new Set(),
     inventar: {},
     gegenstaende: new Set(),   // Phase 6: aufgenommene Gegenstände (Set von IDs aus GEGENSTAENDE)
+    // Switch-States für Sanitärobjekte im Badezimmer (1 = Initialzustand, 2 = nach Handlung).
+    // Schlüssel-Konvention folgt den IDs: toilette_1 steuert toilet_1_1/_2, toilette_2 steuert toilet_2_1/_2.
+    // Konkrete Auslöse-Handlung wird später definiert; bis dahin per Konsole umschaltbar.
+    zustaende: {
+        badewanne: 1,
+        toilette_1: 1,  // toilet_1_1 (Ring unten, x=800) / toilet_1_2 (Ring oben)
+        toilette_2: 1,  // toilet_2_1 (Ring unten, x=600) / toilet_2_2 (Ring oben)
+    },
 };
 
 function istFrei(tuer) {
@@ -197,6 +205,48 @@ function verschliessen(schluesselId) {
 window.freischalten = freischalten;
 window.verschliessen = verschliessen;
 window.spielstand = spielstand;
+
+// ---------- Sanitärobjekt-Switch (Badezimmer) ----------
+// Setzt Sichtbarkeit von bathtub_1_1/1_2 und beider Toiletten (toilet_1_1/_2 + toilet_2_1/_2)
+// entsprechend spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
+function aktualisiereSanitaer() {
+    const setSichtbar = (id, sichtbar) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = sichtbar ? "" : "none";
+    };
+    setSichtbar("bathtub_1_1", spielstand.zustaende.badewanne === 1);
+    setSichtbar("bathtub_1_2", spielstand.zustaende.badewanne === 2);
+    setSichtbar("toilet_1_1", spielstand.zustaende.toilette_1 === 1);
+    setSichtbar("toilet_1_2", spielstand.zustaende.toilette_1 === 2);
+    setSichtbar("toilet_2_1", spielstand.zustaende.toilette_2 === 1);
+    setSichtbar("toilet_2_2", spielstand.zustaende.toilette_2 === 2);
+}
+
+function setzeBadewanne(zustand) {
+    spielstand.zustaende.badewanne = zustand === 2 ? 2 : 1;
+    aktualisiereSanitaer();
+    console.log(`Badewanne: Zustand ${spielstand.zustaende.badewanne} (bathtub_1_${spielstand.zustaende.badewanne})`);
+}
+function setzeToilette1(zustand) {
+    spielstand.zustaende.toilette_1 = zustand === 2 ? 2 : 1;
+    aktualisiereSanitaer();
+    console.log(`Toilette 1 (x=800): Zustand ${spielstand.zustaende.toilette_1} (toilet_1_${spielstand.zustaende.toilette_1})`);
+}
+function setzeToilette2(zustand) {
+    spielstand.zustaende.toilette_2 = zustand === 2 ? 2 : 1;
+    aktualisiereSanitaer();
+    console.log(`Toilette 2 (x=600): Zustand ${spielstand.zustaende.toilette_2} (toilet_2_${spielstand.zustaende.toilette_2})`);
+}
+function wechsleBadewanne()  { setzeBadewanne(spielstand.zustaende.badewanne === 1 ? 2 : 1); }
+function wechsleToilette1()  { setzeToilette1(spielstand.zustaende.toilette_1 === 1 ? 2 : 1); }
+function wechsleToilette2()  { setzeToilette2(spielstand.zustaende.toilette_2 === 1 ? 2 : 1); }
+
+window.setzeBadewanne = setzeBadewanne;
+window.setzeToilette1 = setzeToilette1;
+window.setzeToilette2 = setzeToilette2;
+window.wechsleBadewanne = wechsleBadewanne;
+window.wechsleToilette1 = wechsleToilette1;
+window.wechsleToilette2 = wechsleToilette2;
 
 // ---------- Sound (Schrittsounds via Web Audio) ----------
 
@@ -361,12 +411,16 @@ const OBJEKTE = {
         {
             id: "buero_notizzettel",
             aufnehmen: "notizzettel",
-            polygon: [[810, 635], [930, 635], [930, 710], [810, 710]],
+            polygon: [[822, 643], [918, 643], [918, 703], [822, 703]],
             laufziel: { fu: 0.5, fv: 0.85 },
             zeichnen: (ctx) => {
                 // Brief: Blatt mit Datum oben-rechts, Anrede, Textzeilen unterschiedlicher
                 // Länge und Unterschrift-Zickzack unten.
                 ctx.save();
+                // -20 % Skalierung um Brief-Mittelpunkt (870, 675).
+                ctx.translate(870, 675);
+                ctx.scale(0.8, 0.8);
+                ctx.translate(-870, -675);
                 ctx.fillStyle = "#fffbe6";
                 ctx.strokeStyle = "#333";
                 ctx.lineWidth = 1.5;
@@ -405,7 +459,7 @@ const OBJEKTE = {
             },
         },
     ],
-    fitness: [],
+    badezimmer: [],
     garten: [],
     keller: [],
 };
@@ -581,7 +635,7 @@ const HINDERNISSE = {
         { fu: 0.18, fv: 0.83, r: 0.10 },   // mitte (Lücke zwischen vorderen und hinteren Beinen)
         { fu: 0.25, fv: 0.93, r: 0.10 },   // hinten (zwei hintere Beine + rechter Schrank)
     ],
-    fitness: [
+    badezimmer: [
         // Octopus hinten-rechts: zentriert ca. fu=0.85 fv=0.80 (Inline-SVG-Mitte), kompakter Kreis.
         { fu: 0.85, fv: 0.80, r: 0.08 },
     ],
@@ -1379,6 +1433,7 @@ startButton.addEventListener("click", () => {
 // Auto-Start
 requestAnimationFrame(() => {
     baueRaumDeko();
+    aktualisiereSanitaer();
     resizeCanvas();
     if (!loopGestartet) {
         loopGestartet = true;
