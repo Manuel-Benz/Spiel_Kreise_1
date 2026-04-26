@@ -640,7 +640,14 @@ const HINDERNISSE = {
         { fu: 0.85, fv: 0.80, r: 0.08 },
     ],
     garten:  [],
-    keller:  [],
+    keller:  [
+        // Kamin (fireplace_1) hinten-links: Display-Footprint x=440-820 y=600 → fv≈0.95, fu≈0.33.
+        // Flache Ellipse, damit die Figur knapp davor stehen kann ohne durch das Möbel zu laufen.
+        { fu: 0.33, fv: 0.95, rx: 0.18, ry: 0.04 },
+        // Schatztruhe (chest_1) vorne-rechts: Display x=908-1118 y=810 → fv≈0.30, fu≈0.65.
+        // Breit + flach (rx > ry).
+        { fu: 0.65, fv: 0.30, rx: 0.10, ry: 0.04 },
+    ],
 };
 window.HINDERNISSE = HINDERNISSE;
 
@@ -800,7 +807,7 @@ function zeichneSonne() {
     const cx = 1200, cy = 200, r = 42;
     const gelb = "#ffd84a";
     ctx.strokeStyle = gelb;
-    ctx.lineWidth = 10;
+    ctx.lineWidth = 7;
     ctx.lineCap = "round";
     const N = 12;
     for (let i = 0; i < N; i++) {
@@ -1367,11 +1374,18 @@ function erzeugeStrauch({ fu, fv, bw, v }) {
 function baueGartenDeko() {
     const gruppe = document.querySelector('[data-raum="garten"]');
     if (!gruppe) return;
-    gruppe.innerHTML = "";  // Bestehende Inhalte entfernen (idempotent)
+    // NICHT innerHTML="" — sonst werden inline platzierte Deko-Elemente (z.B. Blumen)
+    // im HTML mit gelöscht. Stattdessen nur die programmatisch erzeugten Sträucher
+    // entfernen (Marker data-generated="strauch") und neu aufbauen.
+    gruppe.querySelectorAll('[data-generated="strauch"]').forEach(el => el.remove());
 
     // Sträucher innen: hinten zuerst zeichnen (höheres fv → weiter weg)
     const sortiert = [...STRAEUCHER_GARTEN].sort((a, b) => b.fv - a.fv);
-    sortiert.forEach(s => gruppe.appendChild(erzeugeStrauch(s)));
+    sortiert.forEach(s => {
+        const el = erzeugeStrauch(s);
+        el.setAttribute('data-generated', 'strauch');
+        gruppe.appendChild(el);
+    });
 }
 
 function baueRaumDeko() {

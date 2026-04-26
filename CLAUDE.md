@@ -28,9 +28,16 @@ CLAUDE.md         ← diese Datei
 | `octopus_1.svg`, `duck_1.svg` | Tintenfisch + Quietscheente im Badezimmer | Inline-SVG |
 | `bathtub_1_1/1_2.svg`, `toilet_2_1/2.svg` | Wanne + WC, je 2 Switch-States | Inline-SVG |
 | `skeleton_3.svg` | Tanzendes Skelett im Keller | `<image href>` |
+| `fireplace_1.svg` | Steinkamin im Keller | Inline-SVG |
+| `cake_1.svg`, `cake_2.svg` | Torten auf Tisch 1 im Hauptraum | Inline-SVG |
+| `candle_1..4.svg` | 4 Kerzen rund um den Kamin im Keller | Inline-SVG |
+| `chain_1.svg`, `chain_2.svg` | Ketten im Keller (Wand + Boden) | Inline-SVG |
+| `chest_1.svg` | Schatztruhe im Keller | Inline-SVG |
+| `flower_1..6.svg` | 6 Blumen im Garten (innen + aussen) | Inline-SVG |
+| `muffin_1..4.svg` | 4 Muffins auf dem Boden im Hauptraum | Inline-SVG |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg` | nicht aktiv | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=71`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache.
+**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=94`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache.
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -146,6 +153,8 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 2. **Möbel-Gruppe** `<g id="haupt-moebel">` — VOR den Pflanzen, damit Pflanzen mit kleinerem fv (näher zur Kamera) in Render-Order über dem Tisch landen:
    - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82. `data-fv="0.87"`. Perspektivisch korrigiert (rechte Tischplattenkante zum Fluchtpunkt 800/225 hin verlängert; rechtes Bein gespiegelt).
    - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante aus `lamp_lava_1.svg`. Wrapper `translate(362 584) scale(0.30) translate(-375 -728)`. `data-fv="0.87"`.
+   - **Torten** auf Tisch 1: `cake_1` (3-stöckig, links der Lampe) inline aus `assets/cake_1.svg` bei `x=275 y=512 75×68`; `cake_2` (Beerentorte, rechts der Lampe) inline aus `assets/cake_2.svg` bei `x=395 y=552 75×46`. Beide `data-fv="0.87"` (synchron mit Tisch). Alle IDs mit `c1_`/`c2_` prefixed (Konflikt mit `chair_1`-SVG bzw. zwischen den beiden Torten). Die schwarzen Outlines in `cake_1.svg` (`stroke="#000000"` an den Doppelpfaden) wurden beim Inlinen durch die Fill-Farbe (bzw. den Fill-Gradient) des direkten Geschwister-Pfads ersetzt — so verschwinden die schwarzen Ränder visuell. `cake_2.svg` hat keine schwarzen Outlines.
+   - **Muffins** auf dem Boden vor dem Tisch: `muffin_1..4` inline aus `assets/muffin_1..4.svg`, in einer Reihe bei x=485/695/925/1135 y≈800, je ~32×40. Alle `data-fv="0.20"` (vorne, Tiefensortierung). Original-SVGs haben keine IDs → kein Prefixing nötig.
 3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512`. Jede Pflanze hat `data-fv` für Tiefensortierung:
 
 | Pflanze | fu | fv | bw | r (Hindernis) |
@@ -188,13 +197,43 @@ Decke + linkeWand + hintereWand alle Himmelsblau → `zeichneZimmer()` füllt ei
 
 `zeichneGartenZaun()` (auf `ctxRaum`) malt in dieser Reihenfolge: Sonne → Horizont-Silhouetten → Gras (nahtlos) → Horizont-Büsche (`vor: true`) → Nah-Büsche (Canvas-Ellipsen) → Detail-Büsche `bush_1..4` (per `drawImage`) → Zaun hinten + links → rechte Hauswand drüber (clippt Büsche).
 
+`zeichneSonne()`: 12 Strahlen (`lineWidth: 7`, war 10 — auf Wunsch dünner) + gelber Kreis (r=42) bei (1200, 200).
+
+**Blumen** (`flower_1..6.svg`, inline) im Garten — IDs jeweils mit `f1_..f6_` prefixed:
+- *Innerhalb des Zauns* (auf der Wiese, mit `data-fv` für Tiefensortierung):
+  - `flower_1` (gelbe Blüte, 80×103, fv=0.25, vorne-links). Die 33 `fill="#FFCE00"` Blütenblätter wurden round-robin auf 8 leicht variierte Gelb-Tönungen verteilt (`#FFCE00`, `#FFD11A`, `#FFC000`, `#F8CB00`, `#FFD533`, `#FFC700`, `#F4C000`, `#FFD200`).
+  - `flower_2` (70×99, fv=0.40, mid-rechts)
+  - `flower_3` (50×79, fv=0.50, mid-links)
+- *Ausserhalb des Zauns* (kleine Blüten am Horizont, kein `data-fv`, oberhalb der Zaunkante y=420):
+  - `flower_4` (35×49, x=380), `flower_5` (30×37, x=700), `flower_6` (35×49, x=1080), Bottom alle ~y=415
+
+Hinweis Render-Ebene: SVG-`<g data-raum="garten">` liegt VOR dem Zaun (Canvas) im Stack. „Aussen"-Blumen sind deshalb nicht physisch hinter dem Zaun gerendert, sondern oberhalb der Zaunkante platziert (Bottom < 420), sodass sie wie ferne Blumen am Horizont wirken.
+
 **Detail-Büsche** (`BUESCHE`): SVGs als `Image`-Objekte geladen (`ladeBuschBild`), per `drawImage` gerastert (damit der Zaun sie verdecken kann). `bush_4` hat am `<g>` `stroke-width="25"` mit `stroke="{eigener fill}"` pro Pfad — Pfade „puffen" minimal, KEINE schwarze Outline.
 
 **Sträucher** (12 Stück) durch `baueGartenDeko()` beim Start erzeugt. 4 Varianten (`STRAUCH_VARIANTEN`) mit unterschiedlichen Blatt-Auswahlen und Grüntönen. Pfade aus `plant_strauch.svg`.
 
+**WICHTIG zu `baueGartenDeko()`:** entfernt nur Elemente mit `data-generated="strauch"`-Marker (NICHT `gruppe.innerHTML = ""`), damit statisch ins HTML eingebaute Garten-Deko (z.B. Blumen) erhalten bleibt. Beim Erstellen markiert die Funktion jeden Strauch-`<g>` mit `setAttribute("data-generated", "strauch")`. Wer programmatisch weitere Garten-Deko erzeugt, sollte denselben Marker setzen, falls die Inhalte bei einem Re-Build entfernt werden sollen.
+
 ### Keller
 
 Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90). **Skelett** aus `skeleton_3.svg` via `<image href>`, perspektivisch hinten-rechts (Füsse bei (1236, 645), 177×250). Farb-Invertierung via SVG-Filter `#invert` (schwarz → weiss). Schaukel-Animation: `<animateTransform type="rotate">` um die Füsse, ±6°, 2.5 s.
+
+**Kamin** (`assets/fireplace_1.svg`, inline) hinten-links: `<svg id="fireplace_1" x="440" y="350" width="380" height="250" viewBox="0 0 403.48514 265.84756">`. Bottom an Bodenniveau hintere Wand (y=600). Komplett inline (~280 KB, viele Gradients) — nötig, weil `<image href>` SVG-Filter und Gradient-Referenzen abkapselt. ID `layer1` aus dem Original wurde zu `fireplace_layer1` umbenannt (Konflikt mit `chair_1`-SVG im Büro). Hindernis: Ellipse `{ fu:0.33, fv:0.95, rx:0.18, ry:0.04 }`.
+
+**Kerzen** (`candle_1..4.svg`, inline) rund um den Kamin auf der hinteren Wand-Bodenkante:
+- `candle_1` (lila, 50×44) bei x=458 y=580 — vorne-links vom Kamin
+- `candle_2` (blau, 50×44) bei x=805 y=580 — vorne-rechts vom Kamin
+- `candle_3` (gelb, hohe Flamme, 38×54) bei x=590 y=575 — vorne-mitte
+- `candle_4` (Wachsstumpen, 45×64) bei x=935 y=568 — weiter rechts
+
+**Ketten** (`chain_1/2.svg`, inline):
+- `chain_2` (lange horizontale Kette, 320×115) hängt an hinterer Wand bei x=830 y=250 (zwischen Kamin und Skelett)
+- `chain_1` (kürzere Kette mit Kugel, 150×85) liegt auf dem Boden bei x=900 y=615
+
+**Schatztruhe** (`chest_1.svg`, inline) vorne-rechts: `<svg id="chest_1" x="908" y="716" width="210" height="94">`. `data-fv="0.30"` (Tiefensortierung — Figur kann davor und dahinter laufen). Hindernis: `{ fu:0.65, fv:0.30, rx:0.10, ry:0.04 }` (breit + flach).
+
+Alle Inline-Imports im Keller (Kamin, Kerzen, Ketten, Truhe) haben prefixierte IDs (`fireplace_…`/`cd1_…`–`cd4_…`/`ch1_…`/`ch2_…`/`ch_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett (Deko, Figur kann durchlaufen).
 
 ## Hindernis-System (Kollision)
 
@@ -350,6 +389,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 ## Stolpersteine
 
 - **Cache-Busting:** bei Änderungen an `script.js` oder `style.css` das `?v=N` in `index.html` hochzählen.
+- **`baueGartenDeko()` darf NICHT `innerHTML = ""` machen** — sonst werden statische Garten-Deko-Elemente (Blumen) bei jedem Aufruf gelöscht. Die Funktion entfernt nur noch `[data-generated="strauch"]`-Elemente.
 - **Pflanzen-/Tisch-Position ändern:** `HINDERNISSE` (Kollision) UND `data-fv` im HTML (Tiefensortierung) UND Transform (Rendering) müssen synchron bleiben.
 - **Möbel vor Pflanzen im DOM:** Tisch1 + Lavalampe sind in `<g id="haupt-moebel">` VOR `<g id="plants">` — sonst überdeckt der Tisch die davor stehenden Pflanzen.
 - **`<image href>`** funktioniert für externe SVGs (z.B. skeleton_3). Inline-SVG ist Pflicht, wenn einzelne Pfade per ID adressierbar sein sollen (z.B. zum Entfernen, Recolor, Stroke setzen) — externe SVGs sind eine Black Box.
