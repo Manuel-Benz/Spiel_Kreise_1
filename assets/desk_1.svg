@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0" y="0" width="266.6" height="232.03" viewBox="0, 0, 266.6, 232.03">
+  <defs>
+    <linearGradient id="Gradient_1" gradientUnits="userSpaceOnUse" x1="-131.783" y1="98.958" x2="-115.738" y2="98.958" gradientTransform="matrix(-1, 0, 0, 1, 0, 0)">
+      <stop offset="0" stop-color="#FAAB6C"/>
+      <stop offset="1" stop-color="#A57956"/>
+    </linearGradient>
+    <linearGradient id="Gradient_2" gradientUnits="userSpaceOnUse" x1="-241.906" y1="158.175" x2="-225.861" y2="158.175" gradientTransform="matrix(-1, 0, 0, 1, 0, 0)">
+      <stop offset="0" stop-color="#FAAB6C"/>
+      <stop offset="1" stop-color="#A57956"/>
+    </linearGradient>
+    <linearGradient id="Gradient_3" gradientUnits="userSpaceOnUse" x1="-26.854" y1="99.477" x2="-10.809" y2="99.477" gradientTransform="matrix(-1, 0, 0, 1, 0, 0)">
+      <stop offset="0" stop-color="#FAAB6C"/>
+      <stop offset="1" stop-color="#A57956"/>
+    </linearGradient>
+    <linearGradient id="Gradient_4" gradientUnits="userSpaceOnUse" x1="-124.361" y1="157.994" x2="-108.316" y2="157.994" gradientTransform="matrix(-1, 0, 0, 1, 0, 0)">
+      <stop offset="0" stop-color="#FAAB6C"/>
+      <stop offset="1" stop-color="#A57956"/>
+    </linearGradient>
+  </defs>
+  <g id="Camada_1">
+    <g id="path2858-1">
+      <path d="M131.783,25.864 L130.594,165.714 C130.158,174.582 119.115,173.792 116.53,168.487 L115.837,166.704 L115.738,25.474 L131.783,25.87 L131.783,25.87 z" fill="url(#Gradient_1)"/>
+      <path d="M131.783,25.864 L130.594,165.714 C130.158,174.582 119.115,173.792 116.53,168.487 L115.837,166.704 L115.738,25.474 L131.783,25.87 L131.783,25.87 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2858-1">
+      <path d="M241.906,85.081 L240.718,224.931 C240.281,233.799 229.239,233.01 226.654,227.704 L225.96,225.922 L225.861,84.692 L241.906,85.088 L241.906,85.088 z" fill="url(#Gradient_2)"/>
+      <path d="M241.906,85.081 L240.718,224.931 C240.281,233.799 229.239,233.01 226.654,227.704 L225.96,225.922 L225.861,84.692 L241.906,85.088 L241.906,85.088 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2858-1">
+      <path d="M26.854,26.383 L25.665,166.233 C25.229,175.101 14.186,174.312 11.601,169.006 L10.908,167.224 L10.809,25.994 L26.854,26.39 L26.854,26.39 z" fill="url(#Gradient_3)"/>
+      <path d="M26.854,26.383 L25.665,166.233 C25.229,175.101 14.186,174.312 11.601,169.006 L10.908,167.224 L10.809,25.994 L26.854,26.39 L26.854,26.39 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2864">
+      <path d="M264.781,64.29 L109.961,65.954 L109.961,55.178 L265.581,55.178 L264.789,64.29 z" fill="#A28975"/>
+      <path d="M264.781,64.29 L109.961,65.954 L109.961,55.178 L265.581,55.178 L264.789,64.29 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2858-1">
+      <path d="M124.361,84.9 L123.172,224.75 C122.736,233.618 111.693,232.828 109.108,227.523 L108.415,225.74 L108.316,84.51 L124.361,84.907 L124.361,84.907 z" fill="url(#Gradient_4)"/>
+      <path d="M124.361,84.9 L123.172,224.75 C122.736,233.618 111.693,232.828 109.108,227.523 L108.415,225.74 L108.316,84.51 L124.361,84.907 L124.361,84.907 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2860">
+      <path d="M251.311,63.11 L250.519,87.673 L113.449,88.069 L113.449,63.507 L251.319,63.111 z" fill="#D39A6D"/>
+      <path d="M251.311,63.11 L250.519,87.673 L113.449,88.069 L113.449,63.507 L251.319,63.111 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2862">
+      <path d="M112.731,87.87 L9.101,29.257 L9.101,8.834 L113.141,63.699 L113.055,87.275 L112.733,87.869 L112.733,87.869 z" fill="#EFBF9A"/>
+      <path d="M112.731,87.87 L9.101,29.257 L9.101,8.834 L113.141,63.699 L113.055,87.275 L112.733,87.869 L112.733,87.869 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path3682">
+      <path d="M265.771,54.19 L264.781,64.094 L109.281,65.877 L0.931,8.631 L0.931,0.906 L109.481,55.181 L265.771,54.19 z" fill="#CA8C5B"/>
+      <path d="M265.771,54.19 L264.781,64.094 L109.281,65.877 L0.931,8.631 L0.931,0.906 L109.481,55.181 L265.771,54.19 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2866">
+      <path d="M109.091,55.2 L1.111,1.259 L0.913,8.435 L108.633,65.54 L109.094,55.199 z" fill="#F3A96E"/>
+      <path d="M109.091,55.2 L1.111,1.259 L0.913,8.435 L108.633,65.54 L109.094,55.199 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+    <g id="path2868">
+      <path d="M266.047,53.684 L129.776,-0.188 L0.614,-0.014 L109.621,54.079 L266.057,53.683 z" fill="#F9AB6C"/>
+      <path d="M266.047,53.684 L129.776,-0.188 L0.614,-0.014 L109.621,54.079 L266.057,53.683 z" fill-opacity="0" stroke="#A28976" stroke-width="1.106"/>
+    </g>
+  </g>
+</svg>

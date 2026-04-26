@@ -626,6 +626,9 @@ const HINDERNISSE = {
         // linker Wand und Tisch hinter den Tisch durchschlüpfen. Tür A (laufziel fu=0.26 fv=0.92) und
         // Bookshelf (laufziel fu=0.5) liegen ausserhalb der Ellipse.
         { fu: 0.10, fv: 0.88, rx: 0.14, ry: 0.12 },
+        // Desk 1 (rechts hinten): Footprint fu 0.74–0.84, fv 0.80–0.91. Tür geheim
+        // (laufziel fu=0.88 fv=0.45) und Pflanze geranie (fu=0.94 fv=0.78) liegen ausserhalb.
+        { fu: 0.79, fv: 0.86, rx: 0.06, ry: 0.05 },
     ],
     buero: [
         // Tisch 2 (vorderlinks): Anker (240, 700) σ=0.55. L-förmiger Schreibtisch.
@@ -1404,6 +1407,10 @@ function klonePflanzenVorne() {
         const raumId = hintenGruppe.dataset.raum;
         const vorneGruppe = document.createElementNS(SVG_NS, "g");
         vorneGruppe.setAttribute("data-raum", raumId);
+        // Filter (z.B. saturate-#grell) vom Original übernehmen, sonst leuchten Möbel
+        // in der Front-Ebene (Figur dahinter) nicht so kräftig wie in der Rück-Ebene.
+        const filter = hintenGruppe.getAttribute("filter");
+        if (filter) vorneGruppe.setAttribute("filter", filter);
         // Nur der aktuelle Raum ist sichtbar (Rest display:none wie in der Rück-Ebene).
         if (raumId !== aktuellerRaum) vorneGruppe.style.display = "none";
         svgLayerVorne.appendChild(vorneGruppe);

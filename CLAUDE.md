@@ -35,9 +35,12 @@ CLAUDE.md         ← diese Datei
 | `chest_1.svg` | Schatztruhe im Keller | Inline-SVG |
 | `flower_1..6.svg` | 6 Blumen im Garten (innen + aussen) | Inline-SVG |
 | `muffin_1..4.svg` | 4 Muffins auf dem Boden im Hauptraum | Inline-SVG |
+| `desk_1.svg` | Holz-Schreibtisch (3D-Perspektive) im Hauptraum hinten-rechts | Inline-SVG (Gradients durch solid #A57956 ersetzt — siehe Stolpersteine) |
+| `desk_2..4.svg` | 3 kleine Möbel-Akzente im Hauptraum (Hocker mit stilisierter Figur, Beistelltisch, Anrichte mit Schubladen) | Inline-SVG |
+| `cupboard_1..3.svg` | 3 Schränke vorne im Badezimmer | `<image href>` (mit `?v=2` Cache-Bust). cupboard_1: Asset geändert (Gradients entfernt). cupboard_3: Asset geändert (Holztöne aufgehellt). cupboard_2: unverändert. |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg` | nicht aktiv | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=94`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache.
+**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=99`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat.
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -100,9 +103,9 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 
 | ID | Name | Türen → Ziel | Wandfarben | Inhalt |
 |---|---|---|---|---|
-| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 mit Lavalampe |
+| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 (Lavalampe, Torten) + Muffins + Desk1..4 |
 | `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl |
-| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente |
+| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, 3 Cupboards |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
 | `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts |
 
@@ -154,6 +157,11 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
    - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82. `data-fv="0.87"`. Perspektivisch korrigiert (rechte Tischplattenkante zum Fluchtpunkt 800/225 hin verlängert; rechtes Bein gespiegelt).
    - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante aus `lamp_lava_1.svg`. Wrapper `translate(362 584) scale(0.30) translate(-375 -728)`. `data-fv="0.87"`.
    - **Torten** auf Tisch 1: `cake_1` (3-stöckig, links der Lampe) inline aus `assets/cake_1.svg` bei `x=275 y=512 75×68`; `cake_2` (Beerentorte, rechts der Lampe) inline aus `assets/cake_2.svg` bei `x=395 y=552 75×46`. Beide `data-fv="0.87"` (synchron mit Tisch). Alle IDs mit `c1_`/`c2_` prefixed (Konflikt mit `chair_1`-SVG bzw. zwischen den beiden Torten). Die schwarzen Outlines in `cake_1.svg` (`stroke="#000000"` an den Doppelpfaden) wurden beim Inlinen durch die Fill-Farbe (bzw. den Fill-Gradient) des direkten Geschwister-Pfads ersetzt — so verschwinden die schwarzen Ränder visuell. `cake_2.svg` hat keine schwarzen Outlines.
+   - **Desk 1** (`assets/desk_1.svg`, hellholz Schreibtisch in 3D-Perspektive): inline `<svg id="desk_1" data-fv="0.80" x="1051" y="532" width="147" height="128" viewBox="0 0 266.6 232.03">`. Anker front-rechtes Bein an Screen (1180, 660), σ=0.55. Footprint fu 0.74–0.84, fv 0.80–0.91. Hindernis-Ellipse `{ fu:0.79, fv:0.86, rx:0.06, ry:0.05 }`. **data-fv=0.80 am Front-Bein-Fuss** (NICHT 0.86 Mitte) — sonst verschwinden seitlich vorbeilaufend die Tischbeine, weil der Tisch zwischen 0.80 und 0.86 noch in der Rück-Ebene bleibt. **Bein-Gradients durch solid #A57956 ersetzt** — Original hatte 4 lineare Gradienten, beim Klonen entstanden Duplikate die in manchen Browsern paint-server-Lookup-Probleme verursachten (siehe Stolpersteine). Stroke = jeweiliger Fill (keine schwarzen Outlines).
+   - **Desk 2..4** (klein, Deko, kein Hindernis): drei Möbel-Akzente in mid-Bereich des Raums.
+     - `desk_2`: Hocker mit stilisierter Figur oben drauf (`assets/desk_2.svg`), inline x=521 y=701, 40×49, data-fv="0.50". Doppelpfade (fill + stroke fast gleicher Farbe) zu fill+stroke=Fill kombiniert.
+     - `desk_3`: kleiner Beistelltisch (`assets/desk_3.svg`), inline x=964 y=698, 58×37, data-fv="0.55". Nur Fills im Original.
+     - `desk_4`: breite Anrichte mit Schubladen (`assets/desk_4.svg`), inline x=723 y=627, 66×79, data-fv="0.65". **WEISSE STROKES sind ABSICHT** — sie zeichnen die Kanten/Nähte und geben den 3D-Effekt (Front, Top, Seiten klar abgegrenzt). Unter saturate(#grell) bleibt Weiss neutral. `path2174` = standalone Naht-Linien-Path (6 M/L-Segmente) zwischen den Faces.
    - **Muffins** auf dem Boden vor dem Tisch: `muffin_1..4` inline aus `assets/muffin_1..4.svg`, in einer Reihe bei x=485/695/925/1135 y≈800, je ~32×40. Alle `data-fv="0.20"` (vorne, Tiefensortierung). Original-SVGs haben keine IDs → kein Prefixing nötig.
 3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512`. Jede Pflanze hat `data-fv` für Tiefensortierung:
 
@@ -190,6 +198,10 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
   - **Shared `<style>` Block** im `<g data-raum="badezimmer">` für `.st1-.st10` (von allen Toiletten-SVGs geerbte CSS-Klassen), einmalig definiert.
 
   Hinweis zur Nummerierung: Die "1"/"2" hinter `toilet_` ist KEINE räumliche Reihenfolge — folgt den ursprünglichen Asset-Namen. Toilette 2 (x=600) wurde zuerst umgesetzt (`toilet_2_*.svg`-Frontansicht), Toilette 1 (x=800) später als Klon hinzugefügt.
+- **Cupboards** (3 Schränke vorne, klein/Deko, kein Hindernis) via `<image href="assets/cupboard_X.svg?v=2">` statt Inline — cupboard_2/3 sind je ~100 KB Inkscape-SVGs, Inlinen würde index.html aufblähen. `<image>` kapselt zudem den ID-Scope, also keine Konflikte mit anderen Inline-Gradients. `?v=2` Cache-Bust nötig wegen Asset-Modifikation.
+  - `cupboard_1`: vorne-links, x=160 y=710 97×137, data-fv="0.20". **Asset modifiziert** — `<defs>` mit 22 Linear-Gradients und alle 22 Gradient-Overlay-Pfade entfernt (auf Wunsch flacher/cartoonig, passt zum saturate-Look). Nur Solid-Color-Basispfade bleiben.
+  - `cupboard_2`: vorne-mitte, x=755 y=753 90×120, data-fv="0.10". Asset unverändert.
+  - `cupboard_3`: vorne-rechts, x=1294 y=762 49×82, data-fv="0.20". **Asset modifiziert** — 14 dunkle Holz-Hex-Codes durch hellere ersetzt (Mapping: `#70483a→#d4a878`, `#574b36→#c8a878`, `#4a3027/#402922/#3b2620→#a87858`, `#52352b/#4f332a/#57382e→#b88868`, `#4d4230→#b89868`, `#291b15/#211512/#211611→#886848`, `#1c120f/#140d0b→#785838`). Bluish/Glas-Töne (#7396a1, #c4e0e8 …) und Mid-Tans (#ab956b, #a8916a …) unverändert.
 
 ### Garten
 
@@ -255,7 +267,7 @@ Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk 
 Architektur-Problem: Der Figur-Canvas liegt fix zwischen den SVG-Ebenen. Damit Pflanzen je nach Tiefe VOR oder HINTER der Figur erscheinen können, liegen sie in zwei Ebenen:
 
 1. Jede Pflanze (und Tisch1 + Lavalampe) hat ein `data-fv="…"`-Attribut.
-2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, und ALLE `[data-fv]`-Elemente werden hineingeklont.
+2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, **inklusive `filter`-Attribut** (sonst leuchtet der saturate-#grell-Effekt nur in der Rück-Ebene und Möbel sehen heller aus, sobald die Figur dahintersteht). ALLE `[data-fv]`-Elemente werden hineingeklont.
 3. `aktualisierePflanzenTiefe()` läuft am Ende jedes `draw()`:
    - Für jedes `[data-fv]` in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv`. Sonst sichtbar.
    - In Front-Ebene umgekehrt.
@@ -397,6 +409,9 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell für Bookshelf-Sättigung, #invert für Skelett-Farbinversion).
 - **Body-CSS:** `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none` — verhindert Scroll/Verschieben.
 - **Sanitärobjekt-Switch-Partner** (Wanne 1_1/1_2, Toilette 1_1/1_2, 2_1/2_2) müssen exakt dieselbe Position/Größe haben — sonst „springt" das Objekt beim Umschalten.
+- **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` (z.B. `<linearGradient>`) ein `data-fv` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. SVG paint-server-Lookup nimmt den ERSTEN DOM-Treffer — wenn das die Rück-Ebene ist und deren Parent `display:none` hat (Figur dahinter), kann der paint-server in manchen Browsern nicht aufgelöst werden → Pfade rendern unsichtbar (so verschwanden die desk_1-Beine). **Workaround:** Solid colors statt Gradient verwenden, ODER Gradients in den globalen `<defs>` von `#object-layer` ziehen (nur einmal definiert). Latent betroffen: `cake_1`/`cake_2` mit `c1_/c2_`-prefixed Gradients — fällt nicht auf, da die Torten data-fv=0.87 haben und die Figur fast nie dahinter läuft.
+- **`klonePflanzenVorne()` muss den `filter` mitkopieren:** Ohne `vorneGruppe.setAttribute("filter", ...)` leuchten Möbel in der Front-Ebene (Figur dahinter) nicht im saturate-#grell-Look — sie bleiben blasser als in der Rück-Ebene. Behoben: Funktion liest `filter` vom Original-`<g data-raum>` und setzt ihn auf den Klon.
+- **Weisse Strokes unter `#grell` sind unproblematisch:** Sättigung wirkt nur auf farbige Pixel — Weiss bleibt Weiss. Bewusste weisse Outlines (z.B. `desk_4` für 3D-Struktur durch Naht-Linien `path2174` + Aussenränder) müssen NICHT auf Fill-Farbe konvertiert werden. Schwarze Strokes wären problematisch (siehe `cake_1`-Konvention) — die werden durch ihre Nachbar-Fill-Farbe ersetzt.
 
 ## Roadmap
 

@@ -1180,6 +1180,124 @@
   </g>
 </svg>
                     </g>
+                    <!-- Desk 1 (assets/desk_1.svg, hellholz Schreibtisch in 3D-Perspektive).
+                         • Anker front-right Bein-Fuss = SVG (234, 233) → Screen (1180, 660), σ=0.55.
+                         • Original hat pro Pfad ZWEI Pfade (Fill + separater Stroke #A28976). Hier zu
+                           je einem Pfad mit fill+stroke=ihrem-Fill kombiniert (puffen sich minimal auf,
+                           keine schwarzen/uneinheitlichen Outlines). Gradient-Strokes via url(#desk1_gN).
+                         • Original-`<g id="path2858-1">`-IDs (4× Duplikate!) entfernt — würden mit
+                           anderen Inline-SVGs kollidieren.
+                         • Bein-Gradients (Original: 4× linearGradient mit IDs desk1_g1..g4) durch
+                           solid #A57956 ersetzt. Grund: beim Klonen via cloneNode(true) in die Front-
+                           Ebene wurden die Gradient-IDs dupliziert. SVG paint-server-Lookup nimmt den
+                           ERSTEN DOM-Treffer — das ist die Rück-Ebene, deren Parent display:none hat,
+                           sobald die Figur dahintersteht. Manche Browser können solche paint-server
+                           dann nicht auflösen → Beine wurden unsichtbar. Solid color umgeht das.
+                         • Footprint: fu 0.74–0.84, fv 0.80–0.91. data-fv="0.80" am FRONT-Bein-Fuss
+                           (statt 0.86 Mitte) → sobald die Figur die Tisch-Vorderkante passiert
+                           (figur.fv > 0.80), wandert der gesamte Desk in die Front-Ebene und überdeckt
+                           die Figur. Mit 0.86 verschwanden seitlich vorbeilaufend die Tischbeine,
+                           weil der Tisch zwischen 0.80 und 0.86 noch in der Rück-Ebene blieb. -->
+                    <svg id="desk_1" data-fv="0.80" x="1051" y="532" width="147" height="128" viewBox="0 0 266.6 232.03" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="overflow:visible">
+                        <!-- Bein hinten-mitte (Original Gradient_1) -->
+                        <path d="M131.783,25.864 L130.594,165.714 C130.158,174.582 119.115,173.792 116.53,168.487 L115.837,166.704 L115.738,25.474 L131.783,25.87 L131.783,25.87 z" fill="#A57956" stroke="#A57956" stroke-width="1.106"/>
+                        <!-- Bein vorne-rechts (Original Gradient_2) -->
+                        <path d="M241.906,85.081 L240.718,224.931 C240.281,233.799 229.239,233.01 226.654,227.704 L225.96,225.922 L225.861,84.692 L241.906,85.088 L241.906,85.088 z" fill="#A57956" stroke="#A57956" stroke-width="1.106"/>
+                        <!-- Bein hinten-links (Original Gradient_3) -->
+                        <path d="M26.854,26.383 L25.665,166.233 C25.229,175.101 14.186,174.312 11.601,169.006 L10.908,167.224 L10.809,25.994 L26.854,26.39 L26.854,26.39 z" fill="#A57956" stroke="#A57956" stroke-width="1.106"/>
+                        <!-- Apron-Streifen unter rechter Tischplatte (Original path2864) -->
+                        <path d="M264.781,64.29 L109.961,65.954 L109.961,55.178 L265.581,55.178 L264.789,64.29 z" fill="#A28975" stroke="#A28975" stroke-width="1.106"/>
+                        <!-- Bein vorne-mitte (Original Gradient_4) -->
+                        <path d="M124.361,84.9 L123.172,224.75 C122.736,233.618 111.693,232.828 109.108,227.523 L108.415,225.74 L108.316,84.51 L124.361,84.907 L124.361,84.907 z" fill="#A57956" stroke="#A57956" stroke-width="1.106"/>
+                        <!-- Tischplatten-Vorderkante rechts (Original path2860) -->
+                        <path d="M251.311,63.11 L250.519,87.673 L113.449,88.069 L113.449,63.507 L251.319,63.111 z" fill="#D39A6D" stroke="#D39A6D" stroke-width="1.106"/>
+                        <!-- Linke Tischplatten-Seitenfläche (Original path2862) -->
+                        <path d="M112.731,87.87 L9.101,29.257 L9.101,8.834 L113.141,63.699 L113.055,87.275 L112.733,87.869 L112.733,87.869 z" fill="#EFBF9A" stroke="#EFBF9A" stroke-width="1.106"/>
+                        <!-- Rückkante Tischplatte (Original path3682) -->
+                        <path d="M265.771,54.19 L264.781,64.094 L109.281,65.877 L0.931,8.631 L0.931,0.906 L109.481,55.181 L265.771,54.19 z" fill="#CA8C5B" stroke="#CA8C5B" stroke-width="1.106"/>
+                        <!-- Diagonale Tischplatten-Seitenkante links (Original path2866) -->
+                        <path d="M109.091,55.2 L1.111,1.259 L0.913,8.435 L108.633,65.54 L109.094,55.199 z" fill="#F3A96E" stroke="#F3A96E" stroke-width="1.106"/>
+                        <!-- Top-Tischplatte (Original path2868) -->
+                        <path d="M266.047,53.684 L129.776,-0.188 L0.614,-0.014 L109.621,54.079 L266.057,53.683 z" fill="#F9AB6C" stroke="#F9AB6C" stroke-width="1.106"/>
+                    </svg>
+                    <!-- Desk 4 (assets/desk_4.svg, breite Anrichte mit Schubladen).
+                         • Anker front-bottom = SVG (~92, 432) → Screen (740, 705), σ=0.18 → 66×79 px.
+                         • WEISSE STROKES sind hier ABSICHT — sie zeichnen die Kanten/Nähte des
+                           Möbelstücks und geben den 3D-Effekt (Front, Top, Seiten klar abgegrenzt).
+                           Unter saturate(#grell) bleibt Weiss neutral (Sättigung wirkt nur auf Farbe),
+                           also keine Knallgefahr. path2174 = standalone Naht-Linien zwischen den Faces.
+                         • Alle Original-IDs (path2178 ×3, path2195 ×2 — Duplikate!) entfernt.
+                         • data-fv="0.65" → Mitte des Footprints. -->
+                    <svg data-fv="0.65" x="723" y="627" width="66" height="79" viewBox="0 0 369.06 441" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+                        <!-- Hauptkörper: Tischplatte + Beine + Sockel (Original path2170) — weisser Aussenrand. -->
+                        <path d="M25.59,365.506 L30.64,373.586 C36.41,373.886 42.43,373.926 50.85,371.566 L49.84,330.156 C57.99,329.386 67.42,332.746 86.2,366.516 L85.19,432.176 C91.93,437.986 98.66,433.986 105.39,432.176 L125.6,371.566 C192.5,346.686 247.93,349.356 317.53,359.446 L324.6,410.966 C327.89,415.286 335.14,413.666 343.79,409.956 L350.86,47.306 L365,43.266 L365,38.216 L273.08,10.946 L12.46,18.016 L12.46,29.126 L21.55,31.146 L25.59,365.506 z" fill="#B3722E" stroke="#FFFFFF" stroke-width="1"/>
+                        <!-- Linke Seitenwand (path2172) — weisser Rand. -->
+                        <path d="M36.7,292.38 L83.17,333.8 L81.15,90.35 L35.69,66.11 L36.7,292.38 z" fill="#AE7759" stroke="#FFFFFF" stroke-width="1"/>
+                        <!-- Drei dunkle Knöpfe / Griffe (Original 3× path2178 — selbe ID, IDs entfernt) -->
+                        <path d="M233.68,294.4 C233.68,298.3 229.61,301.47 224.59,301.47 C219.57,301.47 215.5,298.3 215.5,294.4 C215.5,290.5 219.57,287.33 224.59,287.33 C229.61,287.33 233.68,290.5 233.68,294.4 z" fill="#864C26"/>
+                        <path d="M231.66,201.466 C231.66,205.366 227.59,208.536 222.57,208.536 C217.55,208.536 213.48,205.366 213.48,201.466 C213.48,197.566 217.55,194.396 222.57,194.396 C227.59,194.396 231.66,197.566 231.66,201.466 z" fill="#864C26"/>
+                        <path d="M234.69,106.51 C234.69,110.41 230.62,113.58 225.6,113.58 C220.58,113.58 216.51,110.41 216.51,106.51 C216.51,102.61 220.58,99.44 225.6,99.44 C230.62,99.44 234.69,102.61 234.69,106.51 z" fill="#864C26"/>
+                        <!-- Naht-/Kantenlinien (Original path2174): standalone weisse Linien-Segmente,
+                             die Frontfläche von Top/Seiten trennen → 3D-Effekt. -->
+                        <path d="M81.69,59.67 L352.9,47.77 M92.19,58.49 L90.24,379.25 L87.21,431.78 M21.45,31.99 L82.04,59.67 M11.38,18.38 L84.17,50.16 L365.96,38.48 M109.5,340.74 L111.48,69.24 M111.69,69.14 L325.61,58.53 L323.23,326.78" fill="none" stroke="#FFFFFF" stroke-width="1"/>
+                        <!-- Schubladen-Trennstreifen (Original 2× path2195 — Duplikate, IDs entfernt) — weisser Rand. -->
+                        <path d="M324.57,150.39 L110.78,162.55 L110.89,150.33 L324.88,138.31 L324.57,150.39 z" fill="#C28856" stroke="#FFFFFF" stroke-width="1"/>
+                        <path d="M323.856,245.344 L110.066,257.504 L110.176,245.284 L324.166,233.264 L323.856,245.344 z" fill="#C28856" stroke="#FFFFFF" stroke-width="1"/>
+                        <!-- Untere Schublade gewölbt (path3175) — weisser Rand. -->
+                        <path d="M325.21,361.93 C247.36,351.02 173.89,352.38 109.46,379.08 L109.57,339.58 L323.56,324.88 L325.21,361.93 z" fill="#C28856" stroke="#FFFFFF" stroke-width="1"/>
+                    </svg>
+                    <!-- Desk 3 (assets/desk_3.svg, kleiner Beistelltisch in 3D).
+                         • Anker front-bottom = SVG (~88, 122) → Screen (990, 735), σ=0.30 → 58×37 px.
+                         • Nur Fills, keine Strokes im Original — keine Outline-Korrektur nötig.
+                         • IDs entfernt (path108089 ×2, path108087 ×2 — Duplikate).
+                         • data-fv="0.55". -->
+                    <svg data-fv="0.55" x="964" y="698" width="58" height="37" viewBox="0 0 192.065 123.042" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+                        <path d="M186.969,11.638 L185.458,87.71 L177.335,90.567 L175.246,88.292 L171.858,13.781" fill="#D08520"/>
+                        <path d="M162.682,11.638 L169.029,87.71 L177.334,90.567 L173.833,14.138" fill="#A66113"/>
+                        <path d="M132.727,4.792 L131.216,80.863 L123.093,83.721 L121.005,81.446 L117.617,6.935" fill="#D08520"/>
+                        <path d="M108.441,4.792 L114.787,80.863 L123.092,83.721 L119.592,7.292" fill="#A66113"/>
+                        <path d="M171.194,14.463 L170.732,27.919 L87.994,59.897 L87.458,43.29" fill="#E6A450"/>
+                        <path d="M28.351,32.754 L24.423,108.826 L16.209,111.683 L14.192,109.408 L13.173,34.897" fill="#D08520"/>
+                        <path d="M18.708,36.326 L20.136,51.683 L71.387,59.361 L69.601,43.29" fill="#E6A450"/>
+                        <path d="M91.234,43.613 L89.724,119.685 L81.6,122.542 L79.512,120.267 L76.124,45.756" fill="#D08520"/>
+                        <path d="M66.948,43.613 L73.294,119.685 L81.599,122.542 L78.099,46.113" fill="#E6A450"/>
+                        <path d="M4.065,32.754 L7.994,108.826 L16.208,111.683 L15.136,35.254" fill="#E6A450"/>
+                        <path d="M191.43,7.062 L191.565,11.638 L83.172,47.308 C55.817,44.553 23.945,42.743 0.5,33.136 L1.654,28.558" fill="#D08520"/>
+                        <path d="M104.952,0.814 C125.059,-0.776 168.574,4.077 191.43,7.062 L83.351,41.861 C55.292,38.858 27.621,35.143 1.565,28.469 z" fill="#A66113"/>
+                    </svg>
+                    <!-- Desk 2 (assets/desk_2.svg, kleiner Hocker-Tisch mit stilisierter Figur oben).
+                         • Anker front-bottom = SVG (~62, 163) → Screen (540, 750), σ=0.30 → 40×49 px.
+                         • Original hatte pro `<g>` zwei Pfade (Fill + Stroke fast gleicher Farbe);
+                           hier zu einem Pfad mit fill+stroke = ihrem Fill kombiniert (konsistent mit desk_1).
+                         • IDs entfernt. data-fv="0.50". -->
+                    <svg data-fv="0.50" x="521" y="701" width="40" height="49" viewBox="0 0 133.726 163.415" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+                        <!-- Bein 1 vorderseitig + seitlich -->
+                        <path d="M63.317,57.227 L62.288,133.299 L56.755,136.156 L55.332,133.881 L55.803,60.128" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M46.775,57.227 L51.098,133.299 L56.754,136.156 L56.895,58.97" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Bein 2 -->
+                        <path d="M129.987,69.854 L128.958,145.926 L123.425,148.783 L122.002,146.508 L122.473,72.755" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M113.445,69.854 L117.768,145.926 L123.424,148.783 L123.565,71.597" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Querverstrebung rechts -->
+                        <path d="M120.61,73.444 L120.388,95.957 L87.939,109.866 L86.393,82.652" fill="#E6A450" stroke="#E6A450" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Bein 3 -->
+                        <path d="M20.511,70.854 L19.482,146.925 L13.949,149.783 L12.526,147.508 L10.219,72.997" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M3.969,70.854 L8.292,146.925 L13.948,149.783 L11.564,73.354" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Querverstrebung links -->
+                        <path d="M14.991,74.678 L15.409,100.137 L78.908,111.351 L76.996,83.789" fill="#E6A450" stroke="#E6A450" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Bein 4 -->
+                        <path d="M90.464,83.986 L89.435,160.057 L83.902,162.915 L82.479,160.64 L80.172,86.129" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M73.922,83.986 L78.245,160.057 L83.901,162.915 L81.517,86.486" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Tischplatten-Streifen + Top -->
+                        <path d="M133.226,64.906 L133.008,70.771 L82.107,86.67 C55.406,83.48 27.703,79.816 1.202,72.246 L0.589,67.92" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M56.036,56.058 L133.178,65.344 L82.286,81.594 C54.837,78.539 33.125,74.328 0.5,68.201 z" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Knubbel an Tischvorderkante -->
+                        <path d="M45.023,92.767 C45.023,94.545 43.61,95.987 41.866,95.987 C40.123,95.987 38.709,94.545 38.709,92.767 C38.709,90.989 40.123,89.547 41.866,89.547 C43.61,89.547 45.023,90.989 45.023,92.767 z" fill="#D08520" stroke="#D08520" stroke-width="1" stroke-linejoin="round"/>
+                        <path d="M43.255,93.651 C43.255,96.336 41.079,98.512 38.394,98.512 C35.709,98.512 33.532,96.336 33.532,93.651 C33.532,90.966 35.709,88.79 38.394,88.79 C41.079,88.79 43.255,90.966 43.255,93.651 z" fill="#A66113" stroke="#A66113" stroke-width="1" stroke-linejoin="round"/>
+                        <!-- Stilisierte Figur oben drauf: grauer Sitz/Kopf + pinker Hut-Deckel + pinker Hut-Körper -->
+                        <path d="M80.785,46.883 C80.785,55.819 72.646,63.063 62.608,63.063 C52.569,63.063 44.43,55.819 44.43,46.883 C44.43,37.947 52.569,30.703 62.608,30.703 C72.646,30.703 80.785,37.947 80.785,46.883 z" fill="#53536C"/>
+                        <path d="M79.532,3.471 C79.532,5.648 75.564,7.413 70.668,7.413 C65.773,7.413 61.805,5.648 61.805,3.471 C61.805,1.294 65.773,0.5 70.668,0.5 C75.564,0.5 79.532,1.294 79.532,3.471 z" fill="#C83771"/>
+                        <path d="M34,27.086 C51.87,36.446 77.098,35.292 91.579,26.763 L70.876,-2.326 C67.921,-1.215 59.718,-0.138 53.085,-2.649 z" fill="#D35F8D"/>
+                    </svg>
                     <!-- Muffins auf dem Boden vor dem Tisch (Reihe von 4). data-fv=0.20 →
                          Tiefensortierung. Keine IDs in den Original-SVGs → kein Prefixing nötig. -->
                     <svg id="muffin_1" data-fv="0.20" x="485" y="800" width="32" height="44" viewBox="0 0 543 740" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -7154,6 +7272,25 @@
                         <path d="M94.157,196.953 C96.228,196.953 97.532,196.883 97.751,196.851 L97.243,190.336 C97.048,190.336 77.149,191.719 66.618,182.422 C52.563,169.929 54.47,170.929 43.024,154.117 C43.313,155.054 49.985,176.429 62.282,187.328 C72.017,195.914 87.259,196.953 94.157,196.953" fill="#F3B229"/>
                         <path d="M83.493,132.226 C83.493,132.226 65.821,118.172 56.087,117.461 C46.149,116.765 36.423,122.164 44.524,133.586 C50.407,141.898 53.806,144.672 53.806,144.672 C53.806,144.672 71.345,137.469 83.493,132.226" fill="#F3B229"/>
                     </svg>
+
+                    <!-- Cupboards (assets/cupboard_1..3.svg) als <image href> referenziert statt inline.
+                         • cupboard_2 (105 KB) und cupboard_3 (122 KB) sind Inkscape-SVGs mit hunderten
+                           Pfaden + Metadaten — Inlinen würde index.html stark aufblähen ohne Mehrwert
+                           (kein per-ID-Manipulieren nötig, keine problematischen Strokes — alle 3
+                           Dateien haben stroke:none oder gar keine Strokes).
+                         • cupboard_1 hat eigene Gradient-IDs (Gradient_1..22) — `<image>` kapselt
+                           den Scope, also keine Konflikte mit desk_1/cake_*-Gradients.
+                         • Alle drei klein (~13% Skalierung) als Deko vorne im Raum platziert.
+                         • Kein Hindernis — Figur kann durchlaufen (kann später ergänzt werden).
+                         • data-fv aus dem Front-Anker (Boden-Position des Cupboards). -->
+                    <!-- cupboard_1: vorne-links (Höhe 744×1052 → 97×137 px).
+                         ?v=2 zwingt Browser zu Neufetch nach Asset-Änderung (Gradients entfernt). -->
+                    <image data-fv="0.20" x="160" y="710" width="97" height="137" href="assets/cupboard_1.svg?v=2" preserveAspectRatio="xMidYMid meet"/>
+                    <!-- cupboard_3: vorne-rechts (kleiner, 373×631 → 49×82 px).
+                         ?v=2 zwingt Browser zu Neufetch nach Asset-Änderung (Holztöne aufgehellt). -->
+                    <image data-fv="0.20" x="1294" y="762" width="49" height="82" href="assets/cupboard_3.svg?v=2" preserveAspectRatio="xMidYMid meet"/>
+                    <!-- cupboard_2: vorne-mitte (696×924 → 90×120 px). -->
+                    <image data-fv="0.10" x="755" y="753" width="90" height="120" href="assets/cupboard_2.svg" preserveAspectRatio="xMidYMid meet"/>
                 </g>
             </svg>
             <canvas id="figure-canvas"></canvas>
@@ -7175,6 +7312,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=94"></script>
+    <script src="script.js?v=99"></script>
 </body>
 </html>
