@@ -876,7 +876,7 @@ const figur = {
 
 const GEHPHASE_SCHRITT = 0.36;
 const BEIN_HUB = 0.22;
-const FIGUR_SKALA = 1.0;
+const FIGUR_SKALA = 0.95;
 
 // Laufbereich: Abstand, damit der Körper nicht in die Wände ragt.
 const FIGUR_FU_MIN = 0.06;
