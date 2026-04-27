@@ -181,8 +181,9 @@ const spielstand = {
     // Konkrete Auslöse-Handlung wird später definiert; bis dahin per Konsole umschaltbar.
     zustaende: {
         badewanne: 1,
-        toilette_1: 1,  // toilet_1_1 (Ring unten, x=800) / toilet_1_2 (Ring oben)
+        toilette_1: 1,  // toilet_1_1 (Ring unten, x=1090) / toilet_1_2 (Ring oben)
         toilette_2: 1,  // toilet_2_1 (Ring unten, x=600) / toilet_2_2 (Ring oben)
+        octopus_da: true,  // Tintenfisch sitzt auf toilet_1 — solange true, blockiert er die Spülung dort.
     },
 };
 
@@ -211,8 +212,13 @@ window.spielstand = spielstand;
 // entsprechend spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
 function aktualisiereSanitaer() {
     const setSichtbar = (id, sichtbar) => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = sichtbar ? "" : "none";
+        // Attribute-Selector statt #id: findet ALLE Elemente mit dieser ID, auch Klone in
+        // #object-layer-vorne (Klone haben dieselbe ID — invalides HTML, aber funktional OK).
+        // Wir toggeln eine CSS-Klasse `sanitar-aus` (mit display:none !important im <style>),
+        // die die Inline-display-Setzung von aktualisierePflanzenTiefe() überschreibt.
+        document.querySelectorAll(`[id="${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
     };
     setSichtbar("bathtub_1_1", spielstand.zustaende.badewanne === 1);
     setSichtbar("bathtub_1_2", spielstand.zustaende.badewanne === 2);
@@ -459,7 +465,28 @@ const OBJEKTE = {
             },
         },
     ],
-    badezimmer: [],
+    badezimmer: [
+        // Toilette 1 (rechts, x=1090..1290): Klick toggelt Spülung sofort (kein laufziel —
+        // Spülung ist eine Knopf-Aktion, Figur muss nicht erst hinlaufen). ABER solange der
+        // Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert er die Spülung.
+        {
+            id: "toilet_1",
+            polygon: [[1090, 420], [1290, 420], [1290, 670], [1090, 670]],
+            aktion: (s) => {
+                if (s.zustaende.octopus_da) {
+                    zeigeOverlayText("Auf dieser Toilette sitzt ein Tintenfisch.\nDu kannst die Spülung erst betätigen, wenn er weg ist.");
+                } else {
+                    wechsleToilette1();
+                }
+            },
+        },
+        // Toilette 2 (links, x=600..800): Klick toggelt Spülung sofort. Hier sitzt nichts drauf.
+        {
+            id: "toilet_2",
+            polygon: [[600, 420], [800, 420], [800, 670], [600, 670]],
+            aktion: () => wechsleToilette2(),
+        },
+    ],
     garten: [],
     keller: [],
 };
@@ -467,7 +494,7 @@ const OBJEKTE = {
 function objektIstAktiv(obj) {
     if (obj.aufgenommen) return false;
     // Aktiv, wenn eines der Interaktions-Felder gesetzt ist.
-    return !!(AUFGABEN[obj.aufgabe] || obj.aufnehmen || obj.akzeptiert);
+    return !!(AUFGABEN[obj.aufgabe] || obj.aufnehmen || obj.akzeptiert || obj.aktion);
 }
 
 function zeigeAufgabe(id) {
@@ -607,10 +634,13 @@ function wechsleRaum(zielId) {
 }
 
 // ---------- Hindernisse (Kollision) ----------
-// Kreise im fu/fv-System (0..1). Figur kann nicht durch sie hindurchlaufen.
-// Radien sind grob am sichtbaren Fussabdruck der Pflanze orientiert — Pflanzen mit
-// grösserer bw bekommen grössere r. Werte lassen sich in der Konsole live ändern:
-//   HINDERNISSE.haupt[0].r = 0.08
+// Drei Hindernis-Typen im fu/fv-System (0..1):
+//   • Kreis:    { fu, fv, r }                      — runde/kompakte Objekte (Pflanzen, Octopus)
+//   • Ellipse:  { fu, fv, rx, ry }                 — flache/breite Objekte (Tisch1, Kamin)
+//   • Viereck:  { punkte: [[fu,fv], ...] }         — konvexes Polygon, ideal für rechteckige
+//                                                     Möbel mit gerader Kante (Schrank, Truhe).
+// Konvex bedeutet: alle Innenwinkel < 180°. 4 Punkte sind üblich, 3+ funktionieren.
+// Werte lassen sich live in der Konsole ändern:  HINDERNISSE.haupt[0].r = 0.08
 const HINDERNISSE = {
     haupt: [
         // Radien sind am Fussabdruck der Pflanze orientiert (Topfbasis, nicht Blätter).
@@ -631,12 +661,19 @@ const HINDERNISSE = {
         { fu: 0.79, fv: 0.86, rx: 0.06, ry: 0.05 },
     ],
     buero: [
-        // Tisch 2 (vorderlinks): Anker (240, 700) σ=0.55. L-förmiger Schreibtisch.
-        // 4 Beine bei fu/fv: (0.13, 0.67), (0.02, 0.78), (0.20, 0.96), (0.30, 0.90).
-        // 3 Kreise decken den gesamten Footprint ab, lassen aber Tür F (fu=0.88) und PFEIL frei.
-        { fu: 0.10, fv: 0.72, r: 0.10 },   // vorne (zwei vordere Beine + Schubladenkasten)
-        { fu: 0.18, fv: 0.83, r: 0.10 },   // mitte (Lücke zwischen vorderen und hinteren Beinen)
-        { fu: 0.25, fv: 0.93, r: 0.10 },   // hinten (zwei hintere Beine + rechter Schrank)
+        // Tisch 2 (vorderlinks): 3 Kreise decken den L-förmigen Schreibtisch-Footprint ab.
+        // Werte interaktiv per Drag-and-Drop im Debug-Modus eingestellt (Manuel).
+        { fu: 0.0975, fv: 0.8172, r: 0.1 },     // [0] vorne
+        { fu: 0.1745, fv: 0.7503, r: 0.1 },     // [1] mitte
+        { fu: 0.2548, fv: 0.8168, r: 0.1 },     // [2] hinten
+        // cupboard_1 (rechts an Wand): Viereck am tatsächlichen Boden-Footprint des Schranks.
+        // Werte interaktiv eingestellt (Drag-and-Drop, Manuel) — kompakter als der visuelle
+        // Pixel-Footprint, nur der Bereich, in dem die Figur physisch im Schrank wäre.
+        // Schrank hat KEIN data-fv → immer in Rück-Ebene, Figur überdeckt korrekt.
+        { punkte: [[0.7268, 0.9031], [0.9424, 0.808], [0.9991, 0.9295], [0.7411, 0.9996]] },  // [3]
+        // bookshelf_2 (hinten an Wand bei x=700..1300): Viereck am tatsächlichen Boden-Footprint
+        // hinten an der Wand. Werte interaktiv eingestellt (Drag-and-Drop, Manuel).
+        { punkte: [[0.3339, 0.9058], [0.6748, 0.9009], [0.68, 0.9999], [0.3286, 0.9998]] },   // [4]
     ],
     badezimmer: [
         // Octopus hinten-rechts: zentriert ca. fu=0.85 fv=0.80 (Inline-SVG-Mitte), kompakter Kreis.
@@ -654,69 +691,154 @@ const HINDERNISSE = {
 };
 window.HINDERNISSE = HINDERNISSE;
 
-// Hindernisse können entweder Kreise (h.r) oder Ellipsen (h.rx + h.ry) sein.
-// Für Backward-Compat fallen rx/ry auf r zurück, wenn nicht gesetzt.
+// ---------- Form-Helper: Type-Dispatch zwischen Kreis/Ellipse/Viereck ----------
+// Center (Schwerpunkt) eines Hindernisses — für Slide-Algorithmus (Distanz-Suche).
+function hindernisCenter(h) {
+    if (h.punkte) {
+        let fu = 0, fv = 0;
+        for (const p of h.punkte) { fu += p[0]; fv += p[1]; }
+        return { fu: fu / h.punkte.length, fv: fv / h.punkte.length };
+    }
+    return { fu: h.fu, fv: h.fv };
+}
+
+// Konservativer Maximal-Radius (vom Center) — für Pre-Filter im Slide-Algorithmus.
+function hindernisMaxRadius(h) {
+    if (h.punkte) {
+        const c = hindernisCenter(h);
+        let max = 0;
+        for (const p of h.punkte) {
+            const dfu = p[0] - c.fu, dfv = p[1] - c.fv;
+            const d = Math.sqrt(dfu * dfu + dfv * dfv);
+            if (d > max) max = d;
+        }
+        return max;
+    }
+    return Math.max(h.rx ?? h.r, h.ry ?? h.r);
+}
+
+// Punkt-im-konvexes-Polygon-Test (Cross-Product-Variante). Innen ⇔ alle Cross-Vorzeichen
+// gleich (oder 0). Funktioniert für jede konvexe Polygon-Punkte-Reihenfolge.
+function pktInKonvexPolygon(fu, fv, punkte) {
+    let pos = 0, neg = 0;
+    for (let i = 0; i < punkte.length; i++) {
+        const p1 = punkte[i];
+        const p2 = punkte[(i + 1) % punkte.length];
+        const cross = (p2[0] - p1[0]) * (fv - p1[1]) - (p2[1] - p1[1]) * (fu - p1[0]);
+        if (cross > 0) pos++;
+        else if (cross < 0) neg++;
+    }
+    return pos === 0 || neg === 0;
+}
+
+// Test: Liegt (fu, fv) IM Hindernis (innerhalb der Form, nicht auf der Grenze)?
+function istInForm(h, fu, fv) {
+    if (h.punkte) return pktInKonvexPolygon(fu, fv, h.punkte);
+    const dfu = fu - h.fu, dfv = fv - h.fv;
+    const rx = h.rx ?? h.r, ry = h.ry ?? h.r;
+    return (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry) < 1;
+}
+
+// Projektion eines Punktes auf eine Strecke (clamped). Liefert nächstgelegenen Punkt.
+function projektionAufKante(fu, fv, p1, p2) {
+    const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-12) return { fu: p1[0], fv: p1[1] };
+    let t = ((fu - p1[0]) * dx + (fv - p1[1]) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return { fu: p1[0] + t * dx, fv: p1[1] + t * dy };
+}
+
+// Nächster Punkt am Hindernis-Rand zur Position (fu, fv). Plus Normale (nach aussen).
+// Genutzt von slide, setzeFigurZiel und Safety-Net.
+function naechsterRandUndNormale(h, fu, fv) {
+    if (h.punkte) {
+        // Nächste Kante finden, auf sie projizieren.
+        let bestPkt = null, bestKante = -1, bestDist = Infinity;
+        for (let i = 0; i < h.punkte.length; i++) {
+            const j = (i + 1) % h.punkte.length;
+            const p = projektionAufKante(fu, fv, h.punkte[i], h.punkte[j]);
+            const ddu = p.fu - fu, ddv = p.fv - fv;
+            const d = ddu * ddu + ddv * ddv;
+            if (d < bestDist) { bestDist = d; bestPkt = p; bestKante = i; }
+        }
+        // Außen-Normale = senkrecht zur Kantenrichtung, vom Center weg gerichtet.
+        const k1 = h.punkte[bestKante];
+        const k2 = h.punkte[(bestKante + 1) % h.punkte.length];
+        const ex = k2[0] - k1[0], ey = k2[1] - k1[1];
+        const elen = Math.sqrt(ex * ex + ey * ey) || 1;
+        // Zwei Kandidaten, der vom Center weg zeigende ist die Außen-Normale.
+        const c = hindernisCenter(h);
+        let nx = -ey / elen, ny = ex / elen;
+        if ((bestPkt.fu - c.fu) * nx + (bestPkt.fv - c.fv) * ny < 0) { nx = -nx; ny = -ny; }
+        return { fu: bestPkt.fu, fv: bestPkt.fv, nx, ny, kante: bestKante };
+    }
+    // Ellipse: Radial vom Center (Approximation des nächsten Randpunkts).
+    const dfu = fu - h.fu, dfv = fv - h.fv;
+    const rx = h.rx ?? h.r, ry = h.ry ?? h.r;
+    const dEll = (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry);
+    if (dEll < 1e-6) return { fu: h.fu + rx, fv: h.fv, nx: 1, ny: 0, kante: -1 };
+    const k = 1 / Math.sqrt(dEll);
+    const randFu = h.fu + dfu * k, randFv = h.fv + dfv * k;
+    // Außen-Normale = Ellipsen-Gradient.
+    let nx = (randFu - h.fu) / (rx * rx);
+    let ny = (randFv - h.fv) / (ry * ry);
+    const nlen = Math.sqrt(nx * nx + ny * ny) || 1;
+    return { fu: randFu, fv: randFv, nx: nx / nlen, ny: ny / nlen, kante: -1 };
+}
+
+// ---------- Hauptfunktionen Hindernis-System ----------
 function istImHindernis(fu, fv) {
     const hs = HINDERNISSE[aktuellerRaum] || [];
-    for (const h of hs) {
-        const dfu = fu - h.fu;
-        const dfv = fv - h.fv;
-        const rx = h.rx ?? h.r;
-        const ry = h.ry ?? h.r;
-        if ((dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry) < 1) return true;
-    }
+    for (const h of hs) if (istInForm(h, fu, fv)) return true;
     return false;
 }
 
 // Gleit-Manöver: Ist der direkte Schritt blockiert, versucht die Figur einen Schritt
-// TANGENTIAL am nächstgelegenen blockierenden Hindernis entlang. So „umrundet" sie die
-// Pflanze Frame für Frame, statt davor stehen zu bleiben.
+// TANGENTIAL am nächstgelegenen blockierenden Hindernis entlang. So „umrundet" sie das
+// Hindernis Frame für Frame, statt davor stehen zu bleiben.
 // ux, uy = gewünschte Laufrichtung (Einheitsvektor); schritt = Schrittweite.
 // Rückgabe: { fu, fv } mit neuer Position, oder null wenn kein Ausweichen möglich.
 function slideUmHindernis(ux, uy, schritt) {
     const hs = HINDERNISSE[aktuellerRaum] || [];
-    // Finde das in Laufrichtung am nächsten liegende blockierende Hindernis.
-    let blocker = null;
-    let bestDist = Infinity;
+    // Finde das in Laufrichtung am nächsten liegende blockierende Hindernis (per Center).
+    let blocker = null, bestAlong = Infinity;
     for (const h of hs) {
-        const dfu = h.fu - figur.fu;
-        const dfv = h.fv - figur.fv;
-        const along = dfu * ux + dfv * uy;           // Projektion auf Laufrichtung
+        const c = hindernisCenter(h);
+        const dfu = c.fu - figur.fu, dfv = c.fv - figur.fv;
+        const along = dfu * ux + dfv * uy;
         if (along <= 0) continue;                    // Hindernis liegt hinter uns
-        const perp = dfu * uy - dfv * ux;            // senkrechter Versatz (signed)
-        const r = Math.max(h.rx ?? h.r, h.ry ?? h.r);  // konservative Grenze für Ellipsen
-        if (Math.abs(perp) > r + 0.02) continue;     // Hindernis liegt nicht im Pfad
-        if (along < bestDist) {
-            bestDist = along;
-            blocker = h;
-        }
+        const perp = dfu * uy - dfv * ux;
+        const r = hindernisMaxRadius(h);
+        if (Math.abs(perp) > r + 0.02) continue;     // nicht im Pfad
+        if (along < bestAlong) { bestAlong = along; blocker = h; }
     }
     if (!blocker) return null;
 
-    // Tangent-Richtung senkrecht zum Ellipsen-Gradient an der Figur-Position. Für Kreise
-    // (rx = ry = r) reduziert sich das auf die alte Kreis-Tangente.
-    const rx = blocker.rx ?? blocker.r;
-    const ry = blocker.ry ?? blocker.r;
-    const gradX = (figur.fu - blocker.fu) / (rx * rx);
-    const gradY = (figur.fv - blocker.fv) / (ry * ry);
-    const gradLen = Math.sqrt(gradX * gradX + gradY * gradY);
-    if (gradLen < 1e-6) return null;
-    const perpX = -gradY / gradLen;
-    const perpY =  gradX / gradLen;
+    // Tangente an der Hindernis-Grenze: senkrecht zur Außen-Normale am nächsten Randpunkt.
+    const rand = naechsterRandUndNormale(blocker, figur.fu, figur.fv);
+    const perpX = -rand.ny, perpY = rand.nx;
     // Bevorzugte Seite: positives Dot mit Laufrichtung — Figur gleitet Richtung Ziel.
     const dot = perpX * ux + perpY * uy;
     const sides = [
-        { tx: dot >= 0 ? perpX : -perpX, ty: dot >= 0 ? perpY : -perpY },
-        { tx: dot >= 0 ? -perpX : perpX, ty: dot >= 0 ? -perpY : perpY },
+        { tx: dot >= 0 ?  perpX : -perpX, ty: dot >= 0 ?  perpY : -perpY },
+        { tx: dot >= 0 ? -perpX :  perpX, ty: dot >= 0 ? -perpY :  perpY },
     ];
-    // Fallback: wenn die bevorzugte Seite gegen eine Wand (Laufbereich-Clamp) oder in ein
-    // anderes Hindernis führt, die ANDERE Seite probieren.
     for (const { tx, ty } of sides) {
         const slidFu = figur.fu + tx * schritt;
         const slidFv = figur.fv + ty * schritt;
         if (slidFu < FIGUR_FU_MIN || slidFu > FIGUR_FU_MAX) continue;
         if (slidFv < FIGUR_FV_MIN || slidFv > FIGUR_FV_MAX) continue;
         if (istImHindernis(slidFu, slidFv)) continue;
+        // Oszillations-Schutz: Slide-Schritt, der ungefähr zur letzten Position zurückführen
+        // würde (innerhalb halber Schrittweite), wird abgelehnt. Verhindert Hin-und-Her-Pendeln,
+        // wenn die Figur direkt auf eine Hindernis-Kante zudrückt und beide Tangenten-Seiten
+        // im Wechsel gewählt würden.
+        if (figur.letztePosFu !== undefined &&
+            Math.abs(slidFu - figur.letztePosFu) < schritt * 0.5 &&
+            Math.abs(slidFv - figur.letztePosFv) < schritt * 0.5) {
+            continue;
+        }
         return { fu: slidFu, fv: slidFv };
     }
     return null;
@@ -745,6 +867,11 @@ const figur = {
     geschwindigkeit: 0.016,
     gehphase: 0,
     ankunft: null,   // optional: () => void, wird einmalig aufgerufen, wenn figur das Ziel erreicht
+    // Vorherige Position (vor dem letzten Bewegungs-Schritt). Wird vom Slide-Algorithmus
+    // genutzt, um Oszillation zu erkennen: ein Slide-Schritt, der zurück zur letztePos führt,
+    // wird abgelehnt → andere Seite probieren oder stoppen.
+    letztePosFu: undefined,
+    letztePosFv: undefined,
 };
 
 const GEHPHASE_SCHRITT = 0.36;
@@ -1164,6 +1291,86 @@ function zeichneObjekte() {
     }
 }
 
+// Debug-Render: Hindernisse als halbtransparente Polygone auf den Front-Canvas zeichnen.
+// Aktiv, wenn window.HINDERNIS_DEBUG === true. Konsolen-Toggle: hindernisDebug(true|false).
+// Pro Hindernis eine eindeutige Farbe (HSL) + Index-Beschriftung. Vierecke zeigen Eckpunkte
+// (klickbare-aussehende Marker) mit "<hindernisIdx>.<eckIdx>", sodass per Konsole gezielt
+// verschoben werden kann: HINDERNISSE.buero[3].punkte[0] = [0.70, 0.62]
+function zeichneHindernisseDebug() {
+    if (!window.HINDERNIS_DEBUG) return;
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    hs.forEach((h, idx) => {
+        const farbe   = `hsla(${(idx * 67) % 360}, 75%, 50%, 0.30)`;
+        const linie   = `hsla(${(idx * 67) % 360}, 75%, 30%, 0.95)`;
+        const punktBg = `hsla(${(idx * 67) % 360}, 80%, 25%, 1)`;
+        ctx.fillStyle = farbe;
+        ctx.strokeStyle = linie;
+        ctx.lineWidth = 2;
+        if (h.punkte) {
+            // Polygon füllen
+            ctx.beginPath();
+            h.punkte.forEach((p, i) => {
+                const [x, y] = bodenPunkt(p[0], p[1]);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // Eckpunkt-Marker mit "<hidx>.<eckIdx>"-Label
+            h.punkte.forEach((p, i) => {
+                const [x, y] = bodenPunkt(p[0], p[1]);
+                ctx.fillStyle = punktBg;
+                ctx.beginPath();
+                ctx.arc(x, y, 11, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 13px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(`${idx}.${i}`, x, y);
+            });
+        } else {
+            // Kreis/Ellipse: 32-fach gesampelte Kontur, perspektivisch korrekt auf den Boden projiziert
+            const rx = h.rx ?? h.r;
+            const ry = h.ry ?? h.r;
+            ctx.beginPath();
+            const SAMPLES = 36;
+            for (let s = 0; s < SAMPLES; s++) {
+                const theta = (s * 2 * Math.PI) / SAMPLES;
+                const fu = h.fu + Math.cos(theta) * rx;
+                const fv = h.fv + Math.sin(theta) * ry;
+                const [x, y] = bodenPunkt(fu, fv);
+                if (s === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // Center-Marker mit Index
+            const [cx, cy] = bodenPunkt(h.fu, h.fv);
+            ctx.fillStyle = punktBg;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 11, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 13px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(`${idx}`, cx, cy);
+        }
+    });
+}
+
+// Konsolen-Helfer: Debug-Anzeige der Hindernisse ein/aus.
+window.hindernisDebug = (an = true) => {
+    window.HINDERNIS_DEBUG = !!an;
+    if (typeof draw === "function") draw();
+    return window.HINDERNIS_DEBUG ? "Hindernis-Debug AN" : "Hindernis-Debug AUS";
+};
+// Default: AUS. Per Konsole einschalten: hindernisDebug(true).
+if (typeof window.HINDERNIS_DEBUG === "undefined") window.HINDERNIS_DEBUG = false;
+
 function draw() {
     // Hintere Ebene: Zimmer + Türen + Objekte (unter der SVG-Dekoration)
     ctx = ctxRaum;
@@ -1175,6 +1382,7 @@ function draw() {
     ctx = ctxFigur;
     ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneFigur();
+    zeichneHindernisseDebug();   // Debug-Overlay (nur wenn HINDERNIS_DEBUG=true)
     // Pflanzen mit data-fv zwischen Rück- und Front-SVG togglen (perspektivische Tiefensortierung).
     aktualisierePflanzenTiefe();
 }
@@ -1191,22 +1399,16 @@ function beendeSchrittWennInLuft() {
 
 function aktualisiereFigur() {
     // Safety-Net: Falls die Figur (z.B. nach einer Hindernis-Anpassung) in einem Hindernis
-    // gelandet ist, vor allem anderen radial nach aussen schieben. So bleibt sie nicht
-    // dauerhaft stecken, weil istImHindernis am Anfang jedes Schritts true wäre.
+    // gelandet ist, vor allem anderen zum nächsten Randpunkt schieben (entlang Außen-Normale).
+    // Form-agnostisch über naechsterRandUndNormale().
     const hsCur = HINDERNISSE[aktuellerRaum] || [];
     for (const h of hsCur) {
-        const dfuC = figur.fu - h.fu;
-        const dfvC = figur.fv - h.fv;
-        const rxC = h.rx ?? h.r;
-        const ryC = h.ry ?? h.r;
-        const dEllC = (dfuC * dfuC) / (rxC * rxC) + (dfvC * dfvC) / (ryC * ryC);
-        if (dEllC < 1) {
-            const k = 1.05 / Math.sqrt(Math.max(dEllC, 1e-6));
-            figur.fu = h.fu + dfuC * k;
-            figur.fv = h.fv + dfvC * k;
-            figur.fu = Math.max(FIGUR_FU_MIN, Math.min(FIGUR_FU_MAX, figur.fu));
-            figur.fv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, figur.fv));
-        }
+        if (!istInForm(h, figur.fu, figur.fv)) continue;
+        const r = naechsterRandUndNormale(h, figur.fu, figur.fv);
+        figur.fu = r.fu + r.nx * 0.005;
+        figur.fv = r.fv + r.ny * 0.005;
+        figur.fu = Math.max(FIGUR_FU_MIN, Math.min(FIGUR_FU_MAX, figur.fu));
+        figur.fv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, figur.fv));
     }
 
     const dx = figur.zielFu - figur.fu;
@@ -1249,6 +1451,9 @@ function aktualisiereFigur() {
     // Tatsächliche Bewegungsrichtung (kann von gewünschter Richtung abweichen, falls gegleitet wurde).
     const bewegDx = neueFu - figur.fu;
     const bewegDy = neueFv - figur.fv;
+    // Letzte Position für Oszillations-Schutz im nächsten Slide-Schritt merken.
+    figur.letztePosFu = figur.fu;
+    figur.letztePosFv = figur.fv;
     figur.fu = neueFu;
     figur.fv = neueFv;
 
@@ -1414,23 +1619,32 @@ function klonePflanzenVorne() {
         // Nur der aktuelle Raum ist sichtbar (Rest display:none wie in der Rück-Ebene).
         if (raumId !== aktuellerRaum) vorneGruppe.style.display = "none";
         svgLayerVorne.appendChild(vorneGruppe);
-        // Alle Elemente mit data-fv klonen (rekursiv — Pflanzen stecken z.B. in einem
+        // Alle Elemente mit data-y-fuss klonen (rekursiv — Pflanzen stecken z.B. in einem
         // <g id="plants">-Wrapper). Transforms sind absolut, also kein Problem beim Verschieben.
-        hintenGruppe.querySelectorAll('[data-fv]').forEach(pflanze => {
+        hintenGruppe.querySelectorAll('[data-y-fuss]').forEach(pflanze => {
             vorneGruppe.appendChild(pflanze.cloneNode(true));
         });
     });
 }
 
+// Liest den Pixel-y des Möbel-/Pflanzen-Fußes (data-y-fuss="…" im 1600×900-System)
+// und rechnet ihn in fv (0..1) um, wie es die Tiefen-Sortier-Logik braucht.
+// Boden-Polygon: y=900 (vorne, fv=0) → y=600 (hinten, fv=1). Also fv = (900 - y) / 300.
+function elementFv(el) {
+    return (900 - parseFloat(el.dataset.yFuss)) / 300;
+}
+
 function aktualisierePflanzenTiefe() {
-    // Für alle data-fv-Pflanzen im Rück- UND Front-Layer die Sichtbarkeit togglen.
+    // Für alle Möbel/Pflanzen mit data-y-fuss im Rück- UND Front-Layer die Sichtbarkeit togglen.
     // Entscheidung: wer tiefer im Raum ist (grösseres fv), liegt weiter hinten → Figur liegt davor.
-    svgLayer.querySelectorAll('[data-fv]').forEach(el => {
-        const fv = parseFloat(el.dataset.fv);
+    // Sanitärobjekt-Switch: Elemente mit class="sanitar-aus" haben CSS `display:none !important`,
+    // das die inline-display-Setzung hier überschreibt → Switch-Partner bleiben versteckt.
+    svgLayer.querySelectorAll('[data-y-fuss]').forEach(el => {
+        const fv = elementFv(el);
         el.style.display = (figur.fv > fv) ? "none" : "";
     });
-    svgLayerVorne.querySelectorAll('[data-fv]').forEach(el => {
-        const fv = parseFloat(el.dataset.fv);
+    svgLayerVorne.querySelectorAll('[data-y-fuss]').forEach(el => {
+        const fv = elementFv(el);
         el.style.display = (figur.fv > fv) ? "" : "none";
     });
 }
@@ -1564,29 +1778,98 @@ function findeTuerBei(x, y) {
 
 function setzeFigurZiel(fu, fv) {
     // Wenn das Ziel in einem Hindernis liegt (z.B. Tür-Laufziel nahe einer Pflanze oder
-    // Klick direkt auf die Pflanze), zum nächstgelegenen Punkt leicht ausserhalb verschieben.
-    // Funktioniert für Kreise (h.r) und Ellipsen (h.rx/h.ry).
+    // Klick direkt aufs Hindernis), zum nächstgelegenen Punkt leicht ausserhalb verschieben.
+    // Funktioniert für Kreise/Ellipsen (radial) und Vierecke (auf nächste Kante projizieren).
     const hs = HINDERNISSE[aktuellerRaum] || [];
     for (const h of hs) {
-        const dfu = fu - h.fu;
-        const dfv = fv - h.fv;
-        const rx = h.rx ?? h.r;
-        const ry = h.ry ?? h.r;
-        const dEll = (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry);
-        if (dEll < 1) {
-            // Ziel liegt innerhalb. Entlang der Radial-Richtung nach aussen schieben (1.05 * Rand).
-            if (dEll < 1e-6) {
-                fu = h.fu + rx + 0.005;          // Fallback: Ziel genau in der Mitte
-            } else {
-                const k = 1.05 / Math.sqrt(dEll);
-                fu = h.fu + dfu * k;
-                fv = h.fv + dfv * k;
-            }
-        }
+        if (!istInForm(h, fu, fv)) continue;
+        const r = naechsterRandUndNormale(h, fu, fv);
+        // Knapp ausserhalb des Randes platzieren (entlang Außen-Normale).
+        fu = r.fu + r.nx * 0.005;
+        fv = r.fv + r.ny * 0.005;
     }
     figur.zielFu = Math.max(FIGUR_FU_MIN, Math.min(FIGUR_FU_MAX, fu));
     figur.zielFv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, fv));
 }
+
+// ---------- Hindernis-Edit (Debug-Modus, Drag-and-Drop) ----------
+// Aktiv nur wenn window.HINDERNIS_DEBUG === true. Sucht zuerst Eckpunkt-Marker (oder Center
+// von Kreisen/Ellipsen) im 14-px-Radius. Treffer → Drag startet, Spiel-Klick wird NICHT
+// ausgelöst (Figur läuft nicht los, Türen werden nicht geöffnet).
+let hindernisDrag = null;   // { hidx, eckIdx | null }   (null = Kreis/Ellipse-Center)
+
+function findeHindernisGriffBei(x, y) {
+    if (!window.HINDERNIS_DEBUG) return null;
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    const TREFFER = 14;
+    for (let hidx = 0; hidx < hs.length; hidx++) {
+        const h = hs[hidx];
+        if (h.punkte) {
+            for (let i = 0; i < h.punkte.length; i++) {
+                const [px, py] = bodenPunkt(h.punkte[i][0], h.punkte[i][1]);
+                if (Math.hypot(x - px, y - py) <= TREFFER) {
+                    return { hidx, eckIdx: i };
+                }
+            }
+        } else {
+            const [cx, cy] = bodenPunkt(h.fu, h.fv);
+            if (Math.hypot(x - cx, y - cy) <= TREFFER) {
+                return { hidx, eckIdx: null };
+            }
+        }
+    }
+    return null;
+}
+
+function aktualisiereHindernisDrag(clientX, clientY) {
+    if (!hindernisDrag) return;
+    const [x, y] = canvasZuLogisch(clientX, clientY);
+    const fuFv = screenZuBoden(x, y);
+    if (!fuFv) return;
+    const h = HINDERNISSE[aktuellerRaum][hindernisDrag.hidx];
+    if (hindernisDrag.eckIdx !== null) {
+        h.punkte[hindernisDrag.eckIdx] = [+fuFv[0].toFixed(4), +fuFv[1].toFixed(4)];
+    } else {
+        h.fu = +fuFv[0].toFixed(4);
+        h.fv = +fuFv[1].toFixed(4);
+    }
+    draw();
+}
+
+function beendeHindernisDrag() {
+    if (!hindernisDrag) return;
+    // Nur kompakte 1-Zeilen-Bestätigung beim Loslassen — den vollen Code holst du dir jederzeit
+    // mit dumpHindernisse() (siehe Konsolen-Helfer unten).
+    const { hidx, eckIdx } = hindernisDrag;
+    const h = HINDERNISSE[aktuellerRaum][hidx];
+    if (eckIdx !== null) {
+        const p = h.punkte[eckIdx];
+        console.log(`✓ ${aktuellerRaum}[${hidx}].punkte[${eckIdx}] = [${p[0]}, ${p[1]}]`);
+    } else {
+        console.log(`✓ ${aktuellerRaum}[${hidx}] center → fu=${h.fu}, fv=${h.fv}`);
+    }
+    hindernisDrag = null;
+}
+
+// Konsolen-Helfer: gibt das komplette HINDERNISSE-Array für den aktuellen (oder einen
+// gewünschten) Raum als fertiges Code-Snippet aus. Nach dem Drag-und-Drop-Tunen einmal
+// aufrufen → die ausgegebene Zeile ersetzt die Definition direkt im script.js.
+window.dumpHindernisse = (raum = aktuellerRaum) => {
+    const hs = HINDERNISSE[raum] || [];
+    const lines = hs.map((h, i) => {
+        if (h.punkte) {
+            const repr = h.punkte.map(p => `[${p[0]}, ${p[1]}]`).join(", ");
+            return `    { punkte: [${repr}] },   // [${i}]`;
+        }
+        if (h.rx !== undefined) {
+            return `    { fu: ${h.fu}, fv: ${h.fv}, rx: ${h.rx}, ry: ${h.ry} },   // [${i}]`;
+        }
+        return `    { fu: ${h.fu}, fv: ${h.fv}, r: ${h.r} },   // [${i}]`;
+    });
+    const out = `HINDERNISSE.${raum} = [\n${lines.join("\n")}\n];`;
+    console.log(out);
+    return out;
+};
 
 canvas.addEventListener("pointerdown", (e) => {
     if (wechselInGang) return;   // Während Fade nichts annehmen
@@ -1594,6 +1877,15 @@ canvas.addEventListener("pointerdown", (e) => {
     ensureAudio();               // Audio-Kontext beim ersten Klick initialisieren
 
     const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
+
+    // 0) Hindernis-Edit (nur Debug-Modus): Eckpunkt-Marker getroffen? → Drag, kein Spiel-Klick.
+    const griff = findeHindernisGriffBei(x, y);
+    if (griff) {
+        hindernisDrag = griff;
+        canvas.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        return;
+    }
 
     // 1) Türen — zuerst hinlaufen, dann Aktion
     const tuer = findeTuerBei(x, y);
@@ -1617,6 +1909,7 @@ canvas.addEventListener("pointerdown", (e) => {
         const aktion = () => {
             if (obj.aufnehmen) nimmAufGegenstand(obj);
             else if (obj.aufgabe) zeigeAufgabe(obj.aufgabe);
+            else if (typeof obj.aktion === "function") obj.aktion(spielstand);
         };
         if (z) {
             setzeFigurZiel(z.fu, z.fv);
@@ -1635,11 +1928,32 @@ canvas.addEventListener("pointerdown", (e) => {
     }
 });
 
-// Cursor-Feedback: pointer, wenn unter dem Cursor eine Tür oder ein Aufgaben-Objekt liegt
+// Cursor-Feedback: pointer, wenn unter dem Cursor eine Tür, ein Aufgaben-Objekt oder
+// (im Debug-Modus) ein Hindernis-Griff liegt; "grabbing" während aktivem Drag.
 canvas.addEventListener("pointermove", (e) => {
+    if (hindernisDrag) {
+        aktualisiereHindernisDrag(e.clientX, e.clientY);
+        canvas.style.cursor = "grabbing";
+        return;
+    }
     const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
+    const ueberGriff = findeHindernisGriffBei(x, y);
     const ueber = findeTuerBei(x, y) || findeObjektBei(x, y);
-    canvas.style.cursor = ueber ? "pointer" : "default";
+    canvas.style.cursor = ueberGriff ? "grab" : (ueber ? "pointer" : "default");
+});
+
+// Drag-Ende: Endpunkt loggen (Snippet zum Einfügen in HINDERNISSE-Definition).
+canvas.addEventListener("pointerup", (e) => {
+    if (hindernisDrag) {
+        beendeHindernisDrag();
+        try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+});
+canvas.addEventListener("pointercancel", (e) => {
+    if (hindernisDrag) {
+        beendeHindernisDrag();
+        try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
 });
 
 // ---------- Overlay (Phase 2 Info-Text + Phase 3 Aufgaben-UI) ----------

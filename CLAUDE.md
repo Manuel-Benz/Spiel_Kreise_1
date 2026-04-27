@@ -37,10 +37,10 @@ CLAUDE.md         ← diese Datei
 | `muffin_1..4.svg` | 4 Muffins auf dem Boden im Hauptraum | Inline-SVG |
 | `desk_1.svg` | Holz-Schreibtisch (3D-Perspektive) im Hauptraum hinten-rechts | Inline-SVG (Gradients durch solid #A57956 ersetzt — siehe Stolpersteine) |
 | `desk_2..4.svg` | 3 kleine Möbel-Akzente im Hauptraum (Hocker mit stilisierter Figur, Beistelltisch, Anrichte mit Schubladen) | Inline-SVG |
-| `cupboard_1..3.svg` | 3 Schränke vorne im Badezimmer | `<image href>` (mit `?v=2` Cache-Bust). cupboard_1: Asset geändert (Gradients entfernt). cupboard_3: Asset geändert (Holztöne aufgehellt). cupboard_2: unverändert. |
+| `cupboard_1..3.svg` | cupboard_2 im Badezimmer; cupboard_1 im Büro (gespiegelt); cupboard_3 im Hauptraum | `<image href>` (mit `?v=2` Cache-Bust). cupboard_1: Asset geändert (Gradients entfernt). cupboard_3: Asset geändert (Holztöne aufgehellt). cupboard_2: unverändert. |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg` | nicht aktiv | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=99`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat.
+**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=118`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat.
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -49,7 +49,7 @@ Vier Ebenen, damit Pflanzen perspektivisch VOR oder HINTER der Figur erscheinen 
 1. `#game-canvas` (`ctxRaum`) — Zimmer (Wände, Boden, Decke), Türen, Raum-spezifisches Canvas-Drawing (Garten-Zaun + Sonne, rasterisierte Detail-Büsche).
 2. `#object-layer` (SVG, viewBox `0 0 1600 900`) — pro Raum eine Gruppe `<g data-raum="…">`. Bookshelf, Skelett, Sträucher, Pflanzen-Originale, Tische.
 3. `#figure-canvas` (`ctxFigur`) — nur die animierte Figur.
-4. `#object-layer-vorne` (SVG, gleiche viewBox) — Klone aller `[data-fv]`-Elemente. Pro Frame togglet JS Sichtbarkeit zwischen Rück- und Front-Ebene → Pflanze überdeckt Figur, sobald `figur.fv > pflanze.fv`.
+4. `#object-layer-vorne` (SVG, gleiche viewBox) — Klone aller `[data-y-fuss]`-Elemente. Pro Frame togglet JS Sichtbarkeit zwischen Rück- und Front-Ebene → Pflanze überdeckt Figur, sobald `figur.fv > pflanze.fv`.
 
 In `draw()` wird `let ctx` zwischen `ctxRaum` und `ctxFigur` umgeschaltet:
 
@@ -103,9 +103,9 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 
 | ID | Name | Türen → Ziel | Wandfarben | Inhalt |
 |---|---|---|---|---|
-| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 (Lavalampe, Torten) + Muffins + Desk1..4 |
-| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl |
-| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, 3 Cupboards |
+| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 (Lavalampe, Torten) + Muffins + Desk1..4 + cupboard_3 |
+| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) |
+| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2 |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
 | `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts |
 
@@ -116,7 +116,7 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 - `eintrittsRichtung(fu, fv)` setzt `figur.richtung` "in den Raum hinein"
 - ruft `draw()`
 
-Klick-Pipeline (`pointerdown`): zuerst Tür-Polygone → `starteRaumwechsel()` (Fade) — sonst aktive Objekte → Aufgabe/Aufnehmen — sonst `screenZuBoden` → Figur läuft hin.
+Klick-Pipeline (`pointerdown`): zuerst Hindernis-Drag (nur HINDERNIS_DEBUG-Modus) → Tür-Polygone → `starteRaumwechsel()` (Fade) — sonst aktive Objekte (`obj.aufgabe` / `obj.aufnehmen` / `obj.aktion` / `obj.akzeptiert`) — sonst `screenZuBoden` → Figur läuft hin.
 
 ## Türen
 
@@ -154,16 +154,16 @@ Für andere Levels neuen Filter ergänzen: `values=ZIEL/2`. ID-Suffix beschreibt
 Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 1. **Bookshelf** an hinterer Wand: `<g id="bookshelf" transform="translate(650 310) scale(0.5)">`. 5 Regale, Pflanzen in Regal 1 + 5. (Saturierung kommt jetzt vom Parent `<g data-raum="haupt" filter="url(#grell)">` — siehe Farb-Palette.)
 2. **Möbel-Gruppe** `<g id="haupt-moebel">` — VOR den Pflanzen, damit Pflanzen mit kleinerem fv (näher zur Kamera) in Render-Order über dem Tisch landen:
-   - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82. `data-fv="0.87"`. Perspektivisch korrigiert (rechte Tischplattenkante zum Fluchtpunkt 800/225 hin verlängert; rechtes Bein gespiegelt).
-   - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante aus `lamp_lava_1.svg`. Wrapper `translate(362 584) scale(0.30) translate(-375 -728)`. `data-fv="0.87"`.
-   - **Torten** auf Tisch 1: `cake_1` (3-stöckig, links der Lampe) inline aus `assets/cake_1.svg` bei `x=275 y=512 75×68`; `cake_2` (Beerentorte, rechts der Lampe) inline aus `assets/cake_2.svg` bei `x=395 y=552 75×46`. Beide `data-fv="0.87"` (synchron mit Tisch). Alle IDs mit `c1_`/`c2_` prefixed (Konflikt mit `chair_1`-SVG bzw. zwischen den beiden Torten). Die schwarzen Outlines in `cake_1.svg` (`stroke="#000000"` an den Doppelpfaden) wurden beim Inlinen durch die Fill-Farbe (bzw. den Fill-Gradient) des direkten Geschwister-Pfads ersetzt — so verschwinden die schwarzen Ränder visuell. `cake_2.svg` hat keine schwarzen Outlines.
-   - **Desk 1** (`assets/desk_1.svg`, hellholz Schreibtisch in 3D-Perspektive): inline `<svg id="desk_1" data-fv="0.80" x="1051" y="532" width="147" height="128" viewBox="0 0 266.6 232.03">`. Anker front-rechtes Bein an Screen (1180, 660), σ=0.55. Footprint fu 0.74–0.84, fv 0.80–0.91. Hindernis-Ellipse `{ fu:0.79, fv:0.86, rx:0.06, ry:0.05 }`. **data-fv=0.80 am Front-Bein-Fuss** (NICHT 0.86 Mitte) — sonst verschwinden seitlich vorbeilaufend die Tischbeine, weil der Tisch zwischen 0.80 und 0.86 noch in der Rück-Ebene bleibt. **Bein-Gradients durch solid #A57956 ersetzt** — Original hatte 4 lineare Gradienten, beim Klonen entstanden Duplikate die in manchen Browsern paint-server-Lookup-Probleme verursachten (siehe Stolpersteine). Stroke = jeweiliger Fill (keine schwarzen Outlines).
+   - **Tisch 1** (`assets/table_1.svg`): Anker bottom-left = SVG (262.6, 578) → Screen (270, 640), σ=0.82. `data-y-fuss="639"`. Perspektivisch korrigiert (rechte Tischplattenkante zum Fluchtpunkt 800/225 hin verlängert; rechtes Bein gespiegelt).
+   - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante aus `lamp_lava_1.svg`. Wrapper `translate(362 584) scale(0.30) translate(-375 -728)`. `data-y-fuss="639"`.
+   - **Torten** auf Tisch 1: `cake_1` (3-stöckig, links der Lampe) inline aus `assets/cake_1.svg` bei `x=275 y=512 75×68`; `cake_2` (Beerentorte, rechts der Lampe) inline aus `assets/cake_2.svg` bei `x=395 y=552 75×46`. Beide `data-y-fuss="639"` (synchron mit Tisch). Alle IDs mit `c1_`/`c2_` prefixed (Konflikt mit `chair_1`-SVG bzw. zwischen den beiden Torten). Die schwarzen Outlines in `cake_1.svg` (`stroke="#000000"` an den Doppelpfaden) wurden beim Inlinen durch die Fill-Farbe (bzw. den Fill-Gradient) des direkten Geschwister-Pfads ersetzt — so verschwinden die schwarzen Ränder visuell. `cake_2.svg` hat keine schwarzen Outlines.
+   - **Desk 1** (`assets/desk_1.svg`, hellholz Schreibtisch in 3D-Perspektive): inline `<svg id="desk_1" data-y-fuss="660" x="1051" y="532" width="147" height="128" viewBox="0 0 266.6 232.03">`. Anker front-rechtes Bein an Screen (1180, 660), σ=0.55. Footprint fu 0.74–0.84, fv 0.80–0.91. Hindernis-Ellipse `{ fu:0.79, fv:0.86, rx:0.06, ry:0.05 }`. **data-y-fuss=0.80 am Front-Bein-Fuss** (NICHT 0.86 Mitte) — sonst verschwinden seitlich vorbeilaufend die Tischbeine, weil der Tisch zwischen 0.80 und 0.86 noch in der Rück-Ebene bleibt. **Bein-Gradients durch solid #A57956 ersetzt** — Original hatte 4 lineare Gradienten, beim Klonen entstanden Duplikate die in manchen Browsern paint-server-Lookup-Probleme verursachten (siehe Stolpersteine). Stroke = jeweiliger Fill (keine schwarzen Outlines).
    - **Desk 2..4** (klein, Deko, kein Hindernis): drei Möbel-Akzente in mid-Bereich des Raums.
-     - `desk_2`: Hocker mit stilisierter Figur oben drauf (`assets/desk_2.svg`), inline x=521 y=701, 40×49, data-fv="0.50". Doppelpfade (fill + stroke fast gleicher Farbe) zu fill+stroke=Fill kombiniert.
-     - `desk_3`: kleiner Beistelltisch (`assets/desk_3.svg`), inline x=964 y=698, 58×37, data-fv="0.55". Nur Fills im Original.
-     - `desk_4`: breite Anrichte mit Schubladen (`assets/desk_4.svg`), inline x=723 y=627, 66×79, data-fv="0.65". **WEISSE STROKES sind ABSICHT** — sie zeichnen die Kanten/Nähte und geben den 3D-Effekt (Front, Top, Seiten klar abgegrenzt). Unter saturate(#grell) bleibt Weiss neutral. `path2174` = standalone Naht-Linien-Path (6 M/L-Segmente) zwischen den Faces.
-   - **Muffins** auf dem Boden vor dem Tisch: `muffin_1..4` inline aus `assets/muffin_1..4.svg`, in einer Reihe bei x=485/695/925/1135 y≈800, je ~32×40. Alle `data-fv="0.20"` (vorne, Tiefensortierung). Original-SVGs haben keine IDs → kein Prefixing nötig.
-3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512`. Jede Pflanze hat `data-fv` für Tiefensortierung:
+     - `desk_2`: Hocker mit stilisierter Figur oben drauf (`assets/desk_2.svg`), inline x=521 y=701, 40×49, data-y-fuss="750". Doppelpfade (fill + stroke fast gleicher Farbe) zu fill+stroke=Fill kombiniert.
+     - `desk_3`: kleiner Beistelltisch (`assets/desk_3.svg`), inline x=964 y=698, 58×37, data-y-fuss="735". Nur Fills im Original. **Horizontal gespiegelt** via `<g transform="translate(192.065 0) scale(-1 1)">`-Wrapper um alle Pfade.
+     - `desk_4`: breite Anrichte mit Schubladen (`assets/desk_4.svg`), inline x=723 y=627, 66×79, data-y-fuss="705". **WEISSE STROKES sind ABSICHT** — sie zeichnen die Kanten/Nähte und geben den 3D-Effekt (Front, Top, Seiten klar abgegrenzt). Unter saturate(#grell) bleibt Weiss neutral. `path2174` = standalone Naht-Linien-Path (6 M/L-Segmente) zwischen den Faces.
+   - **Muffins** auf dem Boden vor dem Tisch: `muffin_1..4` inline aus `assets/muffin_1..4.svg`, in einer Reihe bei x=485/695/925/1135 y≈800, je ~32×40. Alle `data-y-fuss="840"` (vorne, Tiefensortierung). Original-SVGs haben keine IDs → kein Prefixing nötig.
+3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512`. Jede Pflanze hat `data-y-fuss` für Tiefensortierung:
 
 | Pflanze | fu | fv | bw | r (Hindernis) |
 |---|---|---|---|---|
@@ -176,32 +176,35 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 
 Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "bookshelf_umfang"` + `akzeptiert.notizzettel` (Drop-Target).
 
+4. **cupboard_3** (`assets/cupboard_3.svg?v=2`, aus Badezimmer hierher verschoben): kleiner Schrank rechts. `<image>` x=1500 y=640 49×82, `data-y-fuss="765"`. Kein Hindernis. **Asset modifiziert** — 14 dunkle Holz-Hex-Codes durch hellere ersetzt (Mapping: `#70483a→#d4a878`, `#574b36→#c8a878`, `#4a3027/#402922/#3b2620→#a87858`, `#52352b/#4f332a/#57382e→#b88868`, `#4d4230→#b89868`, `#291b15/#211512/#211611→#886848`, `#1c120f/#140d0b→#785838`). Bluish/Glas-Töne und Mid-Tans unverändert.
+
 ### Büro
 
-- **Tisch 2** (`assets/table_2.svg`, L-Schreibtisch): Anker = front-left-leg-Fuss SVG (311, 613) → Screen (240, 700), σ=0.55. Vorderlinks. **Helle Holz-Palette** (Original-Hex-Codes global ersetzt: `#512F18→#8B6740`, `#C77137→#DEAA6F` usw.). Metallbeine grau, Schubladengriffe `#D1C6BF`.
+- **Tisch 2** (`assets/table_2.svg`, L-Schreibtisch): Anker = front-left-leg-Fuss SVG (311, 613) → Screen (240, 700), σ=0.55. Vorderlinks. **Helle Holz-Palette** (Original-Hex-Codes global ersetzt: `#512F18→#8B6740`, `#C77137→#DEAA6F` usw.). Metallbeine grau, Schubladengriffe `#D1C6BF`. **Stroke = Fill** auf allen 22 Polygons/Rects (ursprünglich hatten alle eine ~10% dunklere stroke-Farbe als Rand → wurde auf Fill-Farbe gesetzt, damit die Möbelteile randlos wie aus einem Guss wirken).
 - **Tischlampe** auf Tisch 2 (handgezeichnet inline, klassische Schreibtischlampe). Standfuss bei Screen (340, 495). Schirm um -20° gedreht, zwei Flächen-Hälften (`#987230` rechts/Licht, `#7a5a20` links/Schatten) mit gekrümmter Bezier-Unterkante; halbtransparenter Lichtkegel `#fff5b8` opacity 0.20.
 - **Demo-Notizzettel** am Boden (`OBJEKTE.buero[0]`): per `zeichnen`-Callback als Brief auf Canvas gemalt. `aufnehmen: "notizzettel"`. Drop auf Bookshelf zeigt Hinweis-Overlay.
-- **Bücherregal** `#bookshelf_2` (Inline-SVG, ursprünglich aus `assets/bookshelf_2.svg`): hinten-rechts an Wand, `x=700, y=270, 600×600`. Eigene Saturierung: `filter="url(#grell-mild)"`. Kein Hindernis (an Wand).
+- **Bücherregal** `#bookshelf_2` (Inline-SVG, ursprünglich aus `assets/bookshelf_2.svg`): hinten-rechts an Wand, `x=700, y=270, 600×600`. Eigene Saturierung: `filter="url(#grell-mild)"`. **Hindernis** (Pixel-genau, deckt den ganzen visuellen Bookshelf-Footprint auf dem Boden ab): Trapez-Viereck `[[0.4351,0.10],[0.8247,0.10],[0.9912,0.97],[0.4017,0.97]]`. Vorderkante = Bookshelf-Bottom-Pixel y=870 → fv=0.10. Linksrand x=700 wandert perspektivisch (fv=0.10→fu=0.4351; fv=0.97→fu=0.4017), Rechtsrand x=1300 analog. Tür F-laufziel (0.88, 0.45) liegt knapp im Trapez → `setzeFigurZiel` schiebt es an die rechte Kante (≈0.896, 0.447); Tür bleibt aufrufbar. Tür "zurueck" (0.5, 0.05) klar vor dem Trapez. Lücke fu=0.35..0.43 zwischen Tisch 2 und Bookshelf bleibt durchquerbar.
 - **Schreibtischstuhl** `#chair_1` (Inline-SVG): vor Tisch 2 (im DOM nach Tisch = visuell davor), `x=200, y=440, 180×290`, an y-Mittelachse gespiegelt via `transform="matrix(-1 0 0 1 580 0)"`. Eigene Saturierung: `filter="url(#grell-mild)"`. Manuelle Säuberung der SVG: `path1545` (Detail) entfernt; alle übrigen Pfade haben `stroke = ihr Fill` mit `stroke-width:1` (puffen sich minimal auf, keine schwarze Outline). Kein eigenes Hindernis (im Footprint des Tisches).
+- **cupboard_1** (`assets/cupboard_1.svg?v=7`): aus Badezimmer hierher verschoben, rechts (gross). `<image>` mit `x=980 y=106 width=400 height=600`, kein transform. Sichtbar bei (980,106)..(1380,706). **KEIN data-y-fuss** — Schrank bleibt immer in der Rück-Ebene, Figur überdeckt seine Pixel. Das Hindernis verhindert ohnehin, dass die Figur logisch hinter den Schrank-Boden gerät, also passt es visuell. **Hindernis** in `HINDERNISSE.buero[3]`: Viereck am tatsächlichen Boden-Footprint (interaktiv mit dem Drag-and-Drop-Editor von Manuel eingestellt — kompakter als der Pixel-Bounding-Box, deckt nur den Bereich ab, in dem die Figur physisch im Schrank wäre). **Asset modifiziert** — ursprünglich `<defs>` mit 22 Linear-Gradients und Gradient-Overlay-Pfade entfernt; zusätzlich manuelle Bearbeitungen durch Manuel inkl. Spiegelung im Asset selbst.
 
 ### Badezimmer
 
-- **Tintenfisch** (`assets/octopus_1.svg`) inline, hinten-rechts. Anker `<svg class="octopus" x="970" y="408" width="440" height="330" viewBox="0 0 640.08 479.93">`. CSS in `style.css`:
+- **Tintenfisch** (`assets/octopus_1.svg`) inline, hinten-rechts. Anker `<svg class="octopus" data-y-fuss="700" x="970" y="408" width="440" height="330" viewBox="0 0 640.08 479.93">`. **DOM-zuletzt** in der Badezimmer-Gruppe (nach cupboard_2 verschoben), damit er alle anderen Möbel überdeckt — `data-y-fuss` regelt nur die Tiefen-Sortierung gegenüber der Figur, nicht zwischen Möbeln; dafür gilt DOM-Reihenfolge. CSS in `style.css`:
   - `.octopus *:not(#path4647) { stroke: none !important }` — entfernt schwarze Outlines global, AUSSER beim Mund.
   - **Augen-Pupillen** (path3950, path3950-4): liegen IM Auge, behalten Inline-`fill:#000`.
   - **Mund** (`#path4647`): offene Kurve, nur Stroke, Farbe `#5a0000` (dunkelrot).
-- **Sanitärobjekte** (Renderreihenfolge hinten → vorn). Drei Switch-Paare: jeweils zwei `<svg>`-Blöcke an exakt derselben Position/Größe, einer initial sichtbar, der andere `display:none`. Konvention: `#X_1` = Initialzustand (Ring unten / blaues Wasser), `#X_2` = nach Handlung (Ring oben / klares Wasser):
-  - **Toilette 2** (x=600, Frontansicht „grauer Schatten-Layer"): `#toilet_2_1` / `#toilet_2_2` bei (600, 420) 200×250
-  - **Toilette 1** (x=800, visueller Klon der ersten): `#toilet_1_1` / `#toilet_1_2` bei (800, 420) 200×250
-  - **Badewanne**: `#bathtub_1_1` (blaues Wasser `#A7C5EA`) / `#bathtub_1_2` (klares Wasser `#FCFCFC`) bei (130, 440) 600×200
+- **Sanitärobjekte** (Renderreihenfolge hinten → vorn). Drei Switch-Paare: jeweils zwei `<svg>`-Blöcke an exakt derselben Position/Größe, einer initial sichtbar, der andere `display:none`. Konvention: `#X_1` = Initialzustand, `#X_2` = nach Handlung. Sitzring ist rot eingefärbt (Inline-Fills `#FF5C5C` dunkel + `#FF8C8C` hell), Wasser bei der Wanne wechselt von blau (`#A7C5EA`) zu klar (`#FCFCFC`).
+  - **Toilette 2** (links): `#toilet_2_1` / `#toilet_2_2` bei (600, 420) 200×250, data-y-fuss=670
+  - **Toilette 1** (rechts, visueller Klon): `#toilet_1_1` / `#toilet_1_2` bei (1090, 420) 200×250, data-y-fuss=670
+  - **Badewanne**: `#bathtub_1_1` / `#bathtub_1_2` bei (130, 440) 600×200
   - `duck_1` schwimmt auf der Wanne
-  - **Shared `<style>` Block** im `<g data-raum="badezimmer">` für `.st1-.st10` (von allen Toiletten-SVGs geerbte CSS-Klassen), einmalig definiert.
+  - **`<g transform="translate(37 -9)">`-Wrapper** in `toilet_2_2` und `toilet_1_2`: Die beiden Switch-Partner-Assets haben ihre Pfade im viewBox um (-37, +9) verschoben — der Wrapper gleicht das aus, sodass _1 und _2 deckungsgleich liegen.
+  - **CSS `.sanitar-aus { display: none !important }`** im `<style>`-Block — wird von `setSichtbar()` togglet. `!important` schlägt die Inline-display-Setzung von `aktualisierePflanzenTiefe()`, sodass der versteckte Switch-Partner zuverlässig unsichtbar bleibt.
 
-  Hinweis zur Nummerierung: Die "1"/"2" hinter `toilet_` ist KEINE räumliche Reihenfolge — folgt den ursprünglichen Asset-Namen. Toilette 2 (x=600) wurde zuerst umgesetzt (`toilet_2_*.svg`-Frontansicht), Toilette 1 (x=800) später als Klon hinzugefügt.
-- **Cupboards** (3 Schränke vorne, klein/Deko, kein Hindernis) via `<image href="assets/cupboard_X.svg?v=2">` statt Inline — cupboard_2/3 sind je ~100 KB Inkscape-SVGs, Inlinen würde index.html aufblähen. `<image>` kapselt zudem den ID-Scope, also keine Konflikte mit anderen Inline-Gradients. `?v=2` Cache-Bust nötig wegen Asset-Modifikation.
-  - `cupboard_1`: vorne-links, x=160 y=710 97×137, data-fv="0.20". **Asset modifiziert** — `<defs>` mit 22 Linear-Gradients und alle 22 Gradient-Overlay-Pfade entfernt (auf Wunsch flacher/cartoonig, passt zum saturate-Look). Nur Solid-Color-Basispfade bleiben.
-  - `cupboard_2`: vorne-mitte, x=755 y=753 90×120, data-fv="0.10". Asset unverändert.
-  - `cupboard_3`: vorne-rechts, x=1294 y=762 49×82, data-fv="0.20". **Asset modifiziert** — 14 dunkle Holz-Hex-Codes durch hellere ersetzt (Mapping: `#70483a→#d4a878`, `#574b36→#c8a878`, `#4a3027/#402922/#3b2620→#a87858`, `#52352b/#4f332a/#57382e→#b88868`, `#4d4230→#b89868`, `#291b15/#211512/#211611→#886848`, `#1c120f/#140d0b→#785838`). Bluish/Glas-Töne (#7396a1, #c4e0e8 …) und Mid-Tans (#ab956b, #a8916a …) unverändert.
+  **Toiletten-Klick** in `OBJEKTE.badezimmer`: `toilet_1`-Polygon (1090..1290, 420..670) und `toilet_2`-Polygon (600..800, 420..670), beide ohne `laufziel` → Klick toggelt sofort, Figur bleibt stehen. `toilet_1` zeigt Hinweistext, solange `spielstand.zustaende.octopus_da === true` (Tintenfisch sitzt drauf) — `toilet_2` togglet immer.
+
+  Hinweis Nummerierung: Die "1"/"2" hinter `toilet_` folgt den Asset-Namen, nicht der räumlichen Lage.
+- **cupboard_2** (`assets/cupboard_2.svg?v=2`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=300 height=500, data-y-fuss="650". Asset wurde von Manuel vereinfacht (deshalb `?v=2`). cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
 
 ### Garten
 
@@ -212,11 +215,11 @@ Decke + linkeWand + hintereWand alle Himmelsblau → `zeichneZimmer()` füllt ei
 `zeichneSonne()`: 12 Strahlen (`lineWidth: 7`, war 10 — auf Wunsch dünner) + gelber Kreis (r=42) bei (1200, 200).
 
 **Blumen** (`flower_1..6.svg`, inline) im Garten — IDs jeweils mit `f1_..f6_` prefixed:
-- *Innerhalb des Zauns* (auf der Wiese, mit `data-fv` für Tiefensortierung):
+- *Innerhalb des Zauns* (auf der Wiese, mit `data-y-fuss` für Tiefensortierung):
   - `flower_1` (gelbe Blüte, 80×103, fv=0.25, vorne-links). Die 33 `fill="#FFCE00"` Blütenblätter wurden round-robin auf 8 leicht variierte Gelb-Tönungen verteilt (`#FFCE00`, `#FFD11A`, `#FFC000`, `#F8CB00`, `#FFD533`, `#FFC700`, `#F4C000`, `#FFD200`).
   - `flower_2` (70×99, fv=0.40, mid-rechts)
   - `flower_3` (50×79, fv=0.50, mid-links)
-- *Ausserhalb des Zauns* (kleine Blüten am Horizont, kein `data-fv`, oberhalb der Zaunkante y=420):
+- *Ausserhalb des Zauns* (kleine Blüten am Horizont, kein `data-y-fuss`, oberhalb der Zaunkante y=420):
   - `flower_4` (35×49, x=380), `flower_5` (30×37, x=700), `flower_6` (35×49, x=1080), Bottom alle ~y=415
 
 Hinweis Render-Ebene: SVG-`<g data-raum="garten">` liegt VOR dem Zaun (Canvas) im Stack. „Aussen"-Blumen sind deshalb nicht physisch hinter dem Zaun gerendert, sondern oberhalb der Zaunkante platziert (Bottom < 420), sodass sie wie ferne Blumen am Horizont wirken.
@@ -243,36 +246,57 @@ Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90). **Skelett** aus `skelet
 - `chain_2` (lange horizontale Kette, 320×115) hängt an hinterer Wand bei x=830 y=250 (zwischen Kamin und Skelett)
 - `chain_1` (kürzere Kette mit Kugel, 150×85) liegt auf dem Boden bei x=900 y=615
 
-**Schatztruhe** (`chest_1.svg`, inline) vorne-rechts: `<svg id="chest_1" x="908" y="716" width="210" height="94">`. `data-fv="0.30"` (Tiefensortierung — Figur kann davor und dahinter laufen). Hindernis: `{ fu:0.65, fv:0.30, rx:0.10, ry:0.04 }` (breit + flach).
+**Schatztruhe** (`chest_1.svg`, inline) vorne-rechts: `<svg id="chest_1" x="908" y="716" width="210" height="94">`. `data-y-fuss="810"` (Tiefensortierung — Figur kann davor und dahinter laufen). Hindernis: `{ fu:0.65, fv:0.30, rx:0.10, ry:0.04 }` (breit + flach).
 
 Alle Inline-Imports im Keller (Kamin, Kerzen, Ketten, Truhe) haben prefixierte IDs (`fireplace_…`/`cd1_…`–`cd4_…`/`ch1_…`/`ch2_…`/`ch_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett (Deko, Figur kann durchlaufen).
 
 ## Hindernis-System (Kollision)
 
-`HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist entweder ein **Kreis** mit `{ fu, fv, r }` oder eine **Ellipse** mit `{ fu, fv, rx, ry }`. Funktionen `istImHindernis`, `slideUmHindernis`, `setzeFigurZiel` benutzen `h.rx ?? h.r` und `h.ry ?? h.r` → Kreise mit `r` bleiben rückwärts-kompatibel.
+`HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist eine von drei Formen:
 
-- `istImHindernis(fu, fv)`: `(dfu/rx)² + (dfv/ry)² < 1` (Ellipsen-Gleichung).
-- `setzeFigurZiel(fu, fv)`: liegt das Ziel innerhalb, schiebt es radial nach aussen auf 1.05 × Ellipsen-Rand und clamped auf den Laufbereich. Safety Net für Tür-Laufziele nahe Pflanzen.
+- **Kreis**: `{ fu, fv, r }` — runde/kompakte Objekte (Pflanzen, Octopus).
+- **Ellipse**: `{ fu, fv, rx, ry }` — flache/breite Objekte (Tisch1, Kamin, Truhe).
+- **Viereck (konvex, polygon)**: `{ punkte: [[fu1,fv1], [fu2,fv2], [fu3,fv3], [fu4,fv4]] }` — rechteckige Möbel mit gerader Kante (Schrank, ggf. später Truhe/Schreibtisch). Konvex bedeutet: alle Innenwinkel < 180°. 3+ Punkte erlaubt, beliebige Reihenfolge (Cross-Product-Test).
+
+Form-Helper (alle in `script.js` direkt vor `istImHindernis`):
+- `istInForm(h, fu, fv)` — Type-Dispatch zwischen Ellipse-Gleichung und `pktInKonvexPolygon`.
+- `hindernisCenter(h)` — Schwerpunkt (für Slide-Distanz-Suche).
+- `hindernisMaxRadius(h)` — konservativer Maximal-Radius vom Center (Pre-Filter).
+- `naechsterRandUndNormale(h, fu, fv)` — gibt nächsten Punkt am Rand + Außen-Normale zurück. Für Vierecke: Projektion auf nächste Kante; für Ellipsen: radial vom Center.
+
+Hauptfunktionen:
+- `istImHindernis(fu, fv)`: iteriert via `istInForm`.
+- `setzeFigurZiel(fu, fv)`: liegt das Ziel im Hindernis, schiebt es zum nächsten Randpunkt (entlang Außen-Normale, +0.005 Puffer). Safety Net für Tür-Laufziele.
 - `slideUmHindernis(ux, uy, schritt)`:
-  1. Sucht das blockierende Hindernis (in Laufrichtung, senkrechter Versatz ≤ max(rx, ry) + 0.02).
-  2. Tangenten-Richtung senkrecht zum **Ellipsen-Gradient** an Figur-Position.
+  1. Sucht das blockierende Hindernis per Center-Distanz (in Laufrichtung, senkrechter Versatz ≤ MaxRadius + 0.02).
+  2. Tangente = senkrecht zur **Außen-Normale am nächsten Randpunkt** (für Ellipsen → Gradient, für Vierecke → Kanten-Senkrechte).
   3. Bevorzugt die Seite mit positivem Dot zur Laufrichtung.
-  4. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren. Nur wenn beide blockiert sind, stoppt die Figur.
-- **Safety-Net** in `aktualisiereFigur`: vor jedem Schritt wird geprüft, ob die Figur in einem Hindernis ist. Falls ja → radial nach aussen schieben + clamp.
+  4. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren.
+  5. **Oszillations-Schutz:** Slide-Schritt, der innerhalb `schritt*0.5` der letzten Position liegt (`figur.letztePosFu/Fv`), wird abgelehnt → andere Seite. Wenn beide Seiten geblockt oder zur letztePos zurückführen, return null → Figur stoppt. Verhindert Hin-und-Her-Pendeln, wenn die Figur frontal auf eine Hindernis-Kante drückt und das Ziel hinter dem Hindernis nicht erreichbar ist (z.B. Klick hinter cupboard_1).
+- **Safety-Net** in `aktualisiereFigur`: vor jedem Schritt: in einem Hindernis? Falls ja → zum nächsten Randpunkt + clamp.
 
-Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern.
+Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern. Vierecke umgekehrt: präziser visueller Footprint mit kleinem Puffer (z.B. cupboard_1 mit 3% Puffer um den sichtbaren Schrank-Linksrand).
 
-## Tiefensortierung (data-fv-Toggle)
+**Hindernis-Werte nicht raten — interaktiv platzieren.** Hindernis-Positionen werden NICHT im Code geschätzt (Pixel-/Perspektive-Berechnungen sind unzuverlässig), sondern interaktiv per Drag-and-Drop-Editor:
+1. `hindernisDebug(true)` in der Browser-Konsole → farbige Overlays + Eckpunkt-Marker.
+2. Eckpunkte mit der Maus an die richtige Position ziehen (jeder Drag schreibt eine kompakte Bestätigung in die Konsole).
+3. `dumpHindernisse()` (oder `dumpHindernisse("haupt")` etc.) → fertiges Code-Snippet für den ganzen Raum.
+4. Snippet 1:1 in `HINDERNISSE.<raum>` in `script.js` einfügen.
+5. `hindernisDebug(false)` ausschalten.
+
+Erst sinnvoll, wenn die Möbel im Raum stehen — sonst muss neu gedragt werden, sobald sich Möbel-Positionen ändern. Code-Vorschläge zu Hindernis-Werten dienen nur als Diskussions-Platzhalter, nicht als Endwerte.
+
+## Tiefensortierung (data-y-fuss-Toggle)
 
 Architektur-Problem: Der Figur-Canvas liegt fix zwischen den SVG-Ebenen. Damit Pflanzen je nach Tiefe VOR oder HINTER der Figur erscheinen können, liegen sie in zwei Ebenen:
 
-1. Jede Pflanze (und Tisch1 + Lavalampe) hat ein `data-fv="…"`-Attribut.
-2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, **inklusive `filter`-Attribut** (sonst leuchtet der saturate-#grell-Effekt nur in der Rück-Ebene und Möbel sehen heller aus, sobald die Figur dahintersteht). ALLE `[data-fv]`-Elemente werden hineingeklont.
+1. Jede Pflanze (und Tisch1 + Lavalampe) hat ein `data-y-fuss="…"`-Attribut.
+2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, **inklusive `filter`-Attribut** (sonst leuchtet der saturate-#grell-Effekt nur in der Rück-Ebene und Möbel sehen heller aus, sobald die Figur dahintersteht). ALLE `[data-y-fuss]`-Elemente werden hineingeklont.
 3. `aktualisierePflanzenTiefe()` läuft am Ende jedes `draw()`:
-   - Für jedes `[data-fv]` in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv`. Sonst sichtbar.
+   - Für jedes `[data-y-fuss]` in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv`. Sonst sichtbar.
    - In Front-Ebene umgekehrt.
 
-Bookshelf, Skelett, Sträucher, Tisch2 haben KEIN `data-fv` und bleiben nur in der Rück-Ebene — sie stehen perspektivisch immer hinter der Figur.
+Bookshelf, Skelett, Sträucher, Tisch2 haben KEIN `data-y-fuss` und bleiben nur in der Rück-Ebene — sie stehen perspektivisch immer hinter der Figur.
 
 `wechsleRaum()` togglet `<g data-raum>`-Sichtbarkeit in BEIDEN SVG-Ebenen simultan.
 
@@ -284,11 +308,11 @@ const spielstand = {
     freigeschalteteTueren: new Set(),  // eingesammelte Schlüssel-IDs
     inventar: {},                      // gefundene Zahlen / Infos (Cross-Room-Lookup)
     gegenstaende: new Set(),           // physische Inventar-Gegenstände
-    zustaende: { badewanne: 1, toilette_1: 1, toilette_2: 1 },  // 1 = Initialstate, 2 = nach Handlung (Badezimmer)
+    zustaende: { badewanne: 1, toilette_1: 1, toilette_2: 1, octopus_da: true },  // 1 = Initialstate, 2 = nach Handlung. octopus_da = sitzt der Tintenfisch noch auf toilet_1?
 };
 ```
 
-**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet `display` der sechs `<svg>`-Blöcke (`#bathtub_1_1/1_2`, `#toilet_1_1/1_2`, `#toilet_2_1/2_2`) basierend auf `spielstand.zustaende`. Wird beim Init und nach jeder Zustandsänderung aufgerufen. Auslösende Handlungen sind noch zu definieren — dann genügt im `bei_richtig`-Callback ein `setzeBadewanne(2)`, `setzeToilette1(2)` oder `setzeToilette2(2)`. Die beiden Toiletten sind unabhängig schaltbar.
+**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` der sechs `<svg>`-Blöcke (`#bathtub_1_1/1_2`, `#toilet_1_1/1_2`, `#toilet_2_1/2_2`) per `querySelectorAll('[id="…"]').classList.toggle()` basierend auf `spielstand.zustaende`. Über `[id="…"]` (Attribute-Selektor) werden auch die Klone in `#object-layer-vorne` erfasst. Wird beim Init und nach jeder Zustandsänderung aufgerufen. Toiletten sind klickbar: `OBJEKTE.badezimmer` enthält `toilet_1` und `toilet_2` mit `aktion`-Callback (kein `laufziel` → sofortiges Toggle ohne Hinlaufen). **toilet_1 ist gesperrt, solange `spielstand.zustaende.octopus_da === true`** — Klick zeigt Hinweistext. Sobald `octopus_da = false`, togglet der Klick `wechsleToilette1()`. Aufgaben können auch direkt `setzeBadewanne(2)`, `setzeToilette1(2)`, `setzeToilette2(2)` aufrufen.
 
 **Dev-Helfer in der Browserkonsole:**
 ```js
@@ -301,6 +325,10 @@ setzeBadewanne(2)                      // Wanne-State setzen (1 oder 2)
 setzeToilette1(2) / setzeToilette2(2)  // Toiletten setzen
 wechsleBadewanne() / wechsleToilette1() / wechsleToilette2()  // togglen
 spielstand                              // aktueller Zustand inspizieren
+hindernisDebug(true|false)              // Hindernisse als farbige Overlays + Eckpunkt-Marker
+                                         // mit "<hindernisIdx>.<eckIdx>"-Label rendern.
+                                         // Default OFF. Eckpunkte sind dragbar im Debug-Modus.
+dumpHindernisse() / dumpHindernisse("haupt")  // Aktuelles HINDERNISSE.<raum>-Array als Code-Snippet
 ```
 
 ## Aufgaben + Overlay
@@ -393,38 +421,34 @@ makeSVG(tag, attrs, kinder)        // SVG-Element-Factory (namespaced)
 erzeugeStrauch({fu, fv, bw, v})    // <g> mit transformierter Strauch-Grafik
 baueGartenDeko()                   // füllt <g data-raum="garten"> mit 12 Sträuchern (idempotent)
 baueRaumDeko()                     // Dispatch + klonePflanzenVorne(); 1× beim Start
-klonePflanzenVorne()               // klont alle [data-fv]-Elemente in #object-layer-vorne
+klonePflanzenVorne()               // klont alle [data-y-fuss]-Elemente in #object-layer-vorne
 ladeBuschBild(src)                 // cached Image-Loader für Detail-Büsche
 zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 ```
 
 ## Stolpersteine
 
-- **Cache-Busting:** bei Änderungen an `script.js` oder `style.css` das `?v=N` in `index.html` hochzählen.
-- **`baueGartenDeko()` darf NICHT `innerHTML = ""` machen** — sonst werden statische Garten-Deko-Elemente (Blumen) bei jedem Aufruf gelöscht. Die Funktion entfernt nur noch `[data-generated="strauch"]`-Elemente.
-- **Pflanzen-/Tisch-Position ändern:** `HINDERNISSE` (Kollision) UND `data-fv` im HTML (Tiefensortierung) UND Transform (Rendering) müssen synchron bleiben.
-- **Möbel vor Pflanzen im DOM:** Tisch1 + Lavalampe sind in `<g id="haupt-moebel">` VOR `<g id="plants">` — sonst überdeckt der Tisch die davor stehenden Pflanzen.
-- **`<image href>`** funktioniert für externe SVGs (z.B. skeleton_3). Inline-SVG ist Pflicht, wenn einzelne Pfade per ID adressierbar sein sollen (z.B. zum Entfernen, Recolor, Stroke setzen) — externe SVGs sind eine Black Box.
-- **Detail-Büsche per `drawImage`** statt `<image href>` — damit der Zaun sie verdecken kann (würde in der SVG-Mittel-Ebene nicht gehen).
-- **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell für Bookshelf-Sättigung, #invert für Skelett-Farbinversion).
+- **Cache-Busting:** bei Änderungen an `script.js`, `style.css` oder einem `<image href>`-Asset das `?v=N` hochzählen, sonst hängt der Browser im alten Cache.
+- **`baueGartenDeko()` darf NICHT `innerHTML = ""` machen** — sonst werden statische Garten-Deko-Elemente (Blumen) bei jedem Aufruf gelöscht. Die Funktion entfernt nur `[data-generated="strauch"]`-Elemente.
+- **Möbel-Position ändern:** `HINDERNISSE` (Kollision) UND `data-y-fuss` (Tiefensortierung) UND Transform/x/y (Rendering) müssen synchron bleiben. Hindernisse am besten interaktiv mit Drag-Editor justieren.
+- **DOM-Reihenfolge zwischen Möbeln:** Tiefensortierung via `data-y-fuss` regelt nur **vor/hinter Figur**, NICHT zwischen Möbeln in derselben Ebene. Innerhalb einer Ebene gilt DOM-Reihenfolge — späteres Element überdeckt früheres. Beispiel: Octopus DOM-zuletzt im Badezimmer, sonst überdecken cupboard_2/Toilette ihn. Ähnlich: Tisch1 + Lavalampe DOM-vor `<g id="plants">`.
+- **`<image href>` vs. Inline-SVG:** `<image href>` ist eine Black Box (kein per-Pfad-Zugriff, eigener ID-Scope). Inline-SVG nötig, wenn man einzelne Pfade adressieren muss (Recolor, ID umbenennen, Pfad entfernen).
+- **Detail-Büsche per `drawImage`** statt `<image href>` — damit der Zaun sie verdecken kann.
+- **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell, #grell-mild, #invert).
 - **Body-CSS:** `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none` — verhindert Scroll/Verschieben.
-- **Sanitärobjekt-Switch-Partner** (Wanne 1_1/1_2, Toilette 1_1/1_2, 2_1/2_2) müssen exakt dieselbe Position/Größe haben — sonst „springt" das Objekt beim Umschalten.
-- **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` (z.B. `<linearGradient>`) ein `data-fv` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. SVG paint-server-Lookup nimmt den ERSTEN DOM-Treffer — wenn das die Rück-Ebene ist und deren Parent `display:none` hat (Figur dahinter), kann der paint-server in manchen Browsern nicht aufgelöst werden → Pfade rendern unsichtbar (so verschwanden die desk_1-Beine). **Workaround:** Solid colors statt Gradient verwenden, ODER Gradients in den globalen `<defs>` von `#object-layer` ziehen (nur einmal definiert). Latent betroffen: `cake_1`/`cake_2` mit `c1_/c2_`-prefixed Gradients — fällt nicht auf, da die Torten data-fv=0.87 haben und die Figur fast nie dahinter läuft.
-- **`klonePflanzenVorne()` muss den `filter` mitkopieren:** Ohne `vorneGruppe.setAttribute("filter", ...)` leuchten Möbel in der Front-Ebene (Figur dahinter) nicht im saturate-#grell-Look — sie bleiben blasser als in der Rück-Ebene. Behoben: Funktion liest `filter` vom Original-`<g data-raum>` und setzt ihn auf den Klon.
-- **Weisse Strokes unter `#grell` sind unproblematisch:** Sättigung wirkt nur auf farbige Pixel — Weiss bleibt Weiss. Bewusste weisse Outlines (z.B. `desk_4` für 3D-Struktur durch Naht-Linien `path2174` + Aussenränder) müssen NICHT auf Fill-Farbe konvertiert werden. Schwarze Strokes wären problematisch (siehe `cake_1`-Konvention) — die werden durch ihre Nachbar-Fill-Farbe ersetzt.
+- **Switch-Partner exakte Position:** `bathtub_1_1/1_2`, `toilet_1_1/1_2`, `toilet_2_1/2_2` müssen deckungsgleich liegen — sonst „springt" das Objekt beim Umschalten. toilet_1_2 / toilet_2_2 brauchen einen `<g transform="translate(37 -9)">`-Wrapper, weil die Pfade im Asset-viewBox verschoben sind.
+- **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` ein `data-y-fuss` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. Paint-server-Lookup nimmt den ersten DOM-Treffer — wenn dessen Parent `display:none` ist, rendern Pfade unsichtbar (so verschwanden früher die desk_1-Beine). **Workaround:** Solid colors statt Gradient.
+- **`klonePflanzenVorne()` muss `filter` mitkopieren** — sonst sehen Möbel in der Front-Ebene blasser aus (kein `#grell`-Saturate). Funktion liest `filter` vom Original-`<g data-raum>` und setzt ihn auf den Klon.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen), Tiefensortierung, Sanitär-Switch (Badezimmer) — alles drin. Demo-Aufgabe `bookshelf_umfang` mit Cross-Room-Lookup funktioniert. Büro inhaltlich gefüllt (Schreibtisch, Lampe, Bücherregal, Bürostuhl). Saturierungs-Override-Konvention (`#grell-mild`/`#grell-soft`) etabliert.
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen + konvexe Vierecke), Tiefensortierung via `data-y-fuss` (Pixel-Y des Möbel-Fußes), Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor — alles drin. Möbel in Hauptraum, Büro, Badezimmer, Garten, Keller weitgehend platziert. Demo-Aufgabe `bookshelf_umfang` mit Cross-Room-Lookup funktioniert.
 
-**Phase 4: Inhalte (mit Manuel)**
-- 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius)
-- Linearer Lösungsweg I → II → III → IV, aber Infos aus Raum A werden in Raum C gebraucht
-- Auslösende Handlungen für Sanitär-Switch festlegen (welche Aufgabe → `setzeBadewanne(2)` etc.)
-
-**Phase 5 Restpunkte (nach Phase 4)**
-- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar)
-- `localStorage` für Fortschritt (erst nach Phase 4 sinnvoll)
+**Offen:**
+- 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius), linear I → IV mit Cross-Room-Lookups.
+- Auslösende Handlungen für Sanitär-Switch (welche Aufgabe → `setzeBadewanne(2)`, Octopus weg etc.).
+- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar).
+- `localStorage` für Fortschritt (erst nach Inhalten sinnvoll).
 
 ## Git-Workflow
 
