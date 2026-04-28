@@ -105,7 +105,7 @@ const RAEUME = {
               ziel: "badezimmer", laufziel: { fu: 0.74, fv: 0.92 } },
             { id: "L", label: "L", polygon: seitenTuerPolygon(linkeWandPunkt),
               ziel: "garten", laufziel: { fu: 0.12, fv: 0.45 } },
-            { id: "geheim", secret: true, schloss: "keller_schluessel",
+            { id: "geheim", secret: true,
               polygon: [rechteWandPunkt(0.325, 0), rechteWandPunkt(0.575, 0), rechteWandPunkt(0.575, 0.4), rechteWandPunkt(0.325, 0.4)],
               ziel: "keller", laufziel: { fu: 0.88, fv: 0.45 } },
         ],
@@ -378,9 +378,8 @@ const AUFGABEN = {
         loesung: 31.4,
         toleranz: 0.2,
         bei_richtig: {
-            schluessel: "keller_schluessel",
             inventar: { umfang_demo_cm: 31.4 },
-            belohnung_text: "Richtig! Du hast einen geheimen Schlüssel gefunden.",
+            belohnung_text: "Richtig! Den Umfang merkst du dir für später.",
         },
     },
 };
@@ -466,12 +465,12 @@ const OBJEKTE = {
         },
     ],
     badezimmer: [
-        // Toilette 1 (rechts, x=1090..1290): Klick toggelt Spülung sofort (kein laufziel —
+        // Toilette 1 (rechts, x=1040..1240): Klick toggelt Spülung sofort (kein laufziel —
         // Spülung ist eine Knopf-Aktion, Figur muss nicht erst hinlaufen). ABER solange der
         // Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert er die Spülung.
         {
             id: "toilet_1",
-            polygon: [[1090, 420], [1290, 420], [1290, 670], [1090, 670]],
+            polygon: [[1040, 420], [1240, 420], [1240, 670], [1040, 670]],
             aktion: (s) => {
                 if (s.zustaende.octopus_da) {
                     zeigeOverlayText("Auf dieser Toilette sitzt ein Tintenfisch.\nDu kannst die Spülung erst betätigen, wenn er weg ist.");
@@ -480,10 +479,10 @@ const OBJEKTE = {
                 }
             },
         },
-        // Toilette 2 (links, x=600..800): Klick toggelt Spülung sofort. Hier sitzt nichts drauf.
+        // Toilette 2 (links, x=590..790): Klick toggelt Spülung sofort. Hier sitzt nichts drauf.
         {
             id: "toilet_2",
-            polygon: [[600, 420], [800, 420], [800, 670], [600, 670]],
+            polygon: [[590, 420], [790, 420], [790, 670], [590, 670]],
             aktion: () => wechsleToilette2(),
         },
     ],
@@ -648,7 +647,7 @@ const HINDERNISSE = {
         { fu: 0.034, fv: 0.787, r: 0.03 }, // yucca (vor dem Tisch links, nach -10x/-50y verschoben)
         { fu: 0.94, fv: 0.78, r: 0.03 },   // geranie (hinten-rechts)
         { fu: 0.12, fv: 0.50, r: 0.035 },  // setzling (mitte-links) — muss Tür L (fv 0.45) frei lassen
-        { fu: 0.85, fv: 0.45, r: 0.025 },  // kraeuter (mitte-rechts) — muss Tür geheim (fu 0.88) frei lassen
+        // kraeuter wurde in den Keller verschoben (auf Kaminsims), kein Boden-Hindernis mehr
         { fu: 0.87, fv: 0.15, r: 0.05 },   // blume (vorne-rechts, grösser)
         { fu: 0.15, fv: 0.12, r: 0.05 },   // tulpe (vorne-links, grösser)
         // Tisch 1 + Lavalampe: ELLIPSE statt Kreis (rx > ry → flach), Center hinter den Tisch verschoben
@@ -1596,8 +1595,333 @@ function baueGartenDeko() {
     });
 }
 
+// Bild auf der linken Wand im Büro (Wand-Koords via linkeWandPunkt). Rahmen + Leinwand
+// als Polygone, Kreise als 12-Punkt-cubic-Bezier-Pfade ebenfalls in Wand-(u,v) — also
+// alle Punkte werden bilinear auf die schräge Wand abgebildet, dadurch entsteht die
+// perspektivische Verzerrung automatisch (Fluchtpunkt 800/225).
+const BUERO_BILD = {
+    // Rahmen-Mitte (uMid=0.365, vMid=0.595), Größe Δu=0.555 × Δv=0.345 (×1.5 ggü. Original).
+    rahmen:   { uMin: 0.0875, uMax: 0.6425, vMin: 0.4225, vMax: 0.7675 },
+    leinwand: { uMin: 0.1145, uMax: 0.6155, vMin: 0.4555, vMax: 0.7345 },
+    rahmenFarbe:   "#2a1c10",
+    leinwandFarbe: "#f3e6c8",
+    kreise: [
+        // (cu, cv) und r um den Faktor 1.5 von der neuen Mitte (0.365, 0.595) skaliert.
+        { cu: 0.2225, cv: 0.5245, r: 0.075, farbe: "#E63946" },  // rot, vorne unten
+        { cu: 0.2975, cv: 0.6445, r: 0.075, farbe: "#1D9BF0" },  // blau, vorne oben
+        { cu: 0.4175, cv: 0.5845, r: 0.090, farbe: "#FFD43B" },  // gelb, mitte (gross)
+        { cu: 0.5075, cv: 0.6595, r: 0.057, farbe: "#06D6A0" },  // grün, hinten oben
+        { cu: 0.5375, cv: 0.5245, r: 0.060, farbe: "#9B5DE5" },  // violett, hinten unten
+        { cu: 0.3575, cv: 0.5095, r: 0.045, farbe: "#FF8A00" },  // orange, klein vorne
+    ],
+};
+
+function wandQuadPunkte(uMin, uMax, vMin, vMax) {
+    return [[uMin, vMin], [uMax, vMin], [uMax, vMax], [uMin, vMax]]
+        .map(([u, v]) => linkeWandPunkt(u, v))
+        .map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`)
+        .join(" ");
+}
+
+function wandKreisPfad(cu, cv, r) {
+    const k = 0.5523;  // cubic-Bezier-Approximation für Kreis
+    const uvPunkte = [
+        [cu+r,   cv    ], [cu+r,   cv+r*k], [cu+r*k, cv+r  ],
+        [cu,     cv+r  ], [cu-r*k, cv+r  ], [cu-r,   cv+r*k],
+        [cu-r,   cv    ], [cu-r,   cv-r*k], [cu-r*k, cv-r  ],
+        [cu,     cv-r  ], [cu+r*k, cv-r  ], [cu+r,   cv-r*k],
+    ];
+    const [P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11] = uvPunkte.map(([u,v]) => linkeWandPunkt(u, v));
+    const f = (p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
+    return `M ${f(P0)} ` +
+           `C ${f(P1)} ${f(P2)} ${f(P3)} ` +
+           `C ${f(P4)} ${f(P5)} ${f(P6)} ` +
+           `C ${f(P7)} ${f(P8)} ${f(P9)} ` +
+           `C ${f(P10)} ${f(P11)} ${f(P0)} Z`;
+}
+
+function baueBueroBild() {
+    const gruppe = document.querySelector('[data-raum="buero"]');
+    if (!gruppe) return;
+    gruppe.querySelectorAll('[data-generated="bueroBild"]').forEach(el => el.remove());
+
+    const r = BUERO_BILD.rahmen;
+    const l = BUERO_BILD.leinwand;
+    const wrapper = makeSVG("g", { "data-generated": "bueroBild" });
+    wrapper.appendChild(makeSVG("defs", {}, [
+        makeSVG("clipPath", { id: "bueroBildClip" }, [
+            makeSVG("polygon", { points: wandQuadPunkte(l.uMin, l.uMax, l.vMin, l.vMax) }),
+        ]),
+    ]));
+    wrapper.appendChild(makeSVG("polygon", {
+        points: wandQuadPunkte(r.uMin, r.uMax, r.vMin, r.vMax),
+        fill: BUERO_BILD.rahmenFarbe,
+    }));
+    wrapper.appendChild(makeSVG("polygon", {
+        points: wandQuadPunkte(l.uMin, l.uMax, l.vMin, l.vMax),
+        fill: BUERO_BILD.leinwandFarbe,
+    }));
+    const kreiseG = makeSVG("g", { "clip-path": "url(#bueroBildClip)" });
+    BUERO_BILD.kreise.forEach(k => {
+        kreiseG.appendChild(makeSVG("path", {
+            d: wandKreisPfad(k.cu, k.cv, k.r),
+            fill: k.farbe,
+            opacity: "0.92",
+        }));
+    });
+    wrapper.appendChild(kreiseG);
+
+    // DOM-zuerst — Bild liegt an der Wand und wird von allen Möbeln (Tisch, Stuhl,
+    // Bookshelf, cupboard_1) im DOM überdeckt.
+    gruppe.prepend(wrapper);
+}
+
+// Keller-Kerzen: ~50 Kerzen in einem Halbkreis-Cluster um das Skelett (Standpunkt fu=0.90,
+// fv=0.85). Cluster-basierte Verteilung erzeugt Häufungen und dünn besetzte Bereiche;
+// jede Kerze ist ein einfaches SVG-Modell (Schatten, Wachs-Rect, Schimmer, Docht, 2-stufige
+// Flamme). Wachs in rötlicher Palette (Höhe stark variabel, Breite ±2 px), Position
+// und Größe per Boden-Perspektive (s = 1 - 0.45·fv) skaliert. Deterministischer PRNG
+// (mulberry32, seed 73) → bei jedem Reload identisches Layout.
+const KELLER_SKELETT_POS = { fu: 0.90, fv: 0.85 };
+const KELLER_KERZE_FARBEN = [
+    "#A93226", "#922B21", "#C0392B", "#E74C3C", "#CB4335",
+    "#7B241C", "#943126", "#B03A2E", "#641E16", "#7D3C32",
+    "#D35400", "#78281F", "#A93226", "#922B21",  // Doppel = Häufungs-Bias auf Dunkelrot
+    "#E8C99B",  // gelegentlicher cremeweisser Akzent
+];
+const KELLER_KERZE_CLUSTER = [
+    // winkel in Grad: 0=+fu (rechts vom Skelett), 90=−fv (vor Skelett, Richtung Spieler),
+    // 180=−fu (links), 270=+fv (hinter Skelett, Richtung Wand).
+    { winkel:  50, radius: 0.06, dichte: 4 },  // rechts neben Skelett (eng)
+    { winkel:  75, radius: 0.15, dichte: 7 },  // rechts-vorne
+    { winkel: 100, radius: 0.25, dichte: 8 },  // vorne (weiter weg)
+    { winkel: 125, radius: 0.18, dichte: 9 },  // links-vorne (Häufung)
+    { winkel: 150, radius: 0.32, dichte: 5 },  // links-vorne (weiter weg, dünner)
+    { winkel: 175, radius: 0.20, dichte: 8 },  // links
+    { winkel: 200, radius: 0.10, dichte: 6 },  // links-hinten (klein wegen Wand)
+    { winkel: 220, radius: 0.08, dichte: 3 },  // schmaler Streifen hinter Skelett
+];
+
+function mulberry32(seed) {
+    return function() {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// Kerzen-Templates: Original-SVG-Inhalt aus assets/candle_2.svg und candle_3.svg
+// (ohne outer <svg>-Tag), Wachs-Hex-Codes durch Platzhalter ersetzt:
+//   __WACHS__         = Hauptfarbe (rot)
+//   __WACHS_HELL__    = ~18 % heller davon (Tropfen/Highlight-Stops)
+//   __WACHS_DUNKEL__  = ~45 % dunkler davon (Schatten-Stop in Gradient_1)
+// `bodenAnker` = relative y-Position des visuellen Kerzenfußes im viewBox (für Sortierung
+// und Boden-Ausrichtung). Die Flammen bleiben mit ihren Originalfarben gelb-orange.
+const KERZE_TEMPLATE_2 = {
+    // viewBox eng auf Wachs-Stamm (rect3041 x 128-208 = 80 viewBox-Einheiten); mit
+    // 84 viewBox-Width nimmt der Wachs ~95 % der gerenderten Pixel-Breite ein.
+    // Schatten-Ellipse (x 123-215) und geschmolzene Wachs-Oberkante (x 111-223) ragen
+    // seitlich aus der viewBox heraus → overflow="visible" rendert sie trotzdem.
+    viewBox: "126 12 84 275",
+    bodenAnker: 0.924,  // Schatten-Mitte y≈266 in 12..287 → (266-12)/275
+    inhalt: `<defs>
+<radialGradient id="Gradient_1" gradientUnits="userSpaceOnUse" cx="523.71" cy="323.407" r="120.34" gradientTransform="matrix(0.396, 0.01, -0.003, 0.112, -37.967, 72.116)">
+<stop offset="0" stop-color="__WACHS_DUNKEL__"/>
+<stop offset="0.429" stop-color="__WACHS_HELL__"/>
+<stop offset="1" stop-color="__WACHS_HELL__"/>
+</radialGradient>
+<radialGradient id="Gradient_2" gradientUnits="userSpaceOnUse" cx="650.243" cy="158.42" r="53.232" gradientTransform="matrix(-0.32, 0.029, 0.063, 0.576, 371.65, -28.671)">
+<stop offset="0" stop-color="#FFFDEC"/>
+<stop offset="0.429" stop-color="#FFEA00"/>
+<stop offset="1" stop-color="#F1B100" stop-opacity="0.656"/>
+</radialGradient>
+</defs>
+<g id="layer1"><g id="g3915">
+<path d="M214.233,266.569 C214.233,274.829 193.806,281.526 168.609,281.526 C143.412,281.526 122.985,274.829 122.985,266.569 C122.985,258.308 143.412,251.611 168.609,251.611 C193.806,251.611 214.233,258.308 214.233,266.569 z" fill="#000000" id="path3811-6"/>
+<path d="M127.889,106.654 L208.312,106.654 L208.312,262.648 C208.633,282.757 128.668,282.979 127.889,262.648 z" fill="__WACHS__" id="rect3041"/>
+<path d="M129.127,103.035 C119.906,111.057 111.034,158.336 130.543,167.177 C146.603,174.452 138.118,127.346 143.569,132.284 C144.769,133.371 146.646,135.072 148.1,136.389 C150.878,138.906 156.04,132.41 157.729,132.028 C163.935,130.622 189.435,138.718 196.242,126.383 C198.118,122.983 204.041,142.906 206.154,143.573 C213.084,145.761 210.456,136.338 211.251,134.081 C222.988,100.756 200.682,99.188 168.206,99.188 C154.465,99.188 138.824,94.599 129.127,103.036 z" fill="url(#Gradient_1)" id="path3835"/>
+<path d="M168.111,83.566 C164.638,77.648 171.215,80.933 172.343,82.122 C169.896,85.673 176.143,91.626 176.074,96.788 C176.01,101.585 172.607,107.113 172.642,112.418 C172.801,113.87 166.823,114.486 166.835,112.418 C167.457,107.261 171.39,101.348 171.913,96.103 C172.396,91.258 170.201,88.219 168.11,83.566 z" fill="#803300" id="rect4002-1"/>
+<path d="M156.911,64.642 C144.915,76.637 162.024,96.911 173.415,96.911 C184.806,96.911 197.2,85.963 194.04,73.327 C190.783,60.302 177.722,38.99 184.993,17.581 C169.867,34.23 168.907,52.645 156.911,64.642 z" fill="url(#Gradient_2)" id="path3987-7"/>
+<path d="M131.35,119.674 C131.35,129.226 130.544,140.164 129.221,140.164 C127.899,140.164 127.092,127.364 127.092,117.811 C127.092,108.258 134.818,107.166 136.141,107.166 C137.463,107.166 131.35,110.121 131.35,119.674 z" fill="#FFFFFF" id="path4132"/>
+</g></g>`,
+};
+const KERZE_TEMPLATE_3 = {
+    // viewBox eng auf Wachs-Stamm (path3153 x 287-460 = 173 viewBox-Einheiten = 100 % der
+    // gerenderten Pixel-Breite). Flamme oben (path3141/4333 x 213-504) ragt seitlich
+    // raus → overflow="visible" zeigt sie. y-Range: 5..1050 deckt Flammen­spitze + Boden ab.
+    viewBox: "287 5 173 1045",
+    bodenAnker: 0.981,  // Schatten path7745 Mitte y≈1030 in 5..1050 → (1030-5)/1045
+    inhalt: `<g id="Layer_1">
+<path d="M394.706,9.341 C300.566,121.697 373.232,33.614 300.566,121.697 C213.434,227.33 380.058,341.589 462.82,205.513 C504.473,137.044 408.314,61.934 394.706,9.345 z" fill="#F04218" fill-opacity="0.902" id="path3141"/>
+<path d="M389.316,100.277 C343.181,173.374 378.792,116.066 343.181,173.374 C300.481,242.1 382.138,316.438 422.696,227.913 C443.109,183.359 395.985,134.492 389.316,100.277 z" fill="#FFFF00" id="path4333"/>
+<path d="M373.089,224.095 C376.903,238.295 385.916,253.585 376.335,272.745 C368.9,287.615 369.593,300.907 373.089,314.903 C375.847,325.947 375.518,327.888 373.089,337.605" fill-opacity="0" stroke="#000000" stroke-width="6.811" id="path4211"/>
+<g id="path3153">
+<path d="M291.282,314.415 L460.503,268.5 L447.234,1025.963 L287.956,1025.963 L291.282,314.415 z" fill="__WACHS__" fill-opacity="0.982"/>
+<path d="M291.282,314.415 L460.503,268.5 L447.234,1025.963 L287.956,1025.963 L291.282,314.415 z" fill-opacity="0" stroke="__WACHS_HELL__" stroke-width="6.16" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<path d="M378.044,171.144 C362.07,197.105 374.4,176.752 362.07,197.105 C347.285,221.514 375.558,247.915 389.601,216.475 C396.669,200.651 380.353,183.296 378.044,171.144 z" fill="#FFFFFF" fill-opacity="0.739" id="path5538"/>
+<path d="M297.571,525.861 C222.858,658.622 263.268,571.208 255.833,632.753 C238.636,775.14 284.528,845.8 292.145,711.348 C296.844,628.247 290.692,576.952 297.571,525.861 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path3145"/>
+<path d="M286.481,405.699 C294.177,490.128 289.636,422.294 294.177,490.128 C300.227,580.675 278.626,640.302 247.524,531.582 C237.161,495.349 274.88,440.592 286.481,405.699 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path4202"/>
+<path d="M298.694,311.656 C263.177,392.578 290.749,329.137 263.177,392.578 C230.112,468.663 287.99,556.645 291.146,453.396 C293.098,389.581 295.573,349.648 298.694,311.656 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path7718"/>
+<path d="M299.001,685.524 C277.241,777.149 294.165,705.434 277.241,777.149 C256.945,863.145 292.769,924.27 289.988,823.189 C288.138,756.173 296.004,722.88 299.001,685.524 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path7722"/>
+<path d="M459.311,395.177 C443.545,502.308 448.641,424.701 440.185,508.607 C427.426,635.205 456.507,672.05 472.841,547.78 C484.272,460.797 462.943,435.223 459.311,395.177 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path4195"/>
+<path d="M437.029,613.99 C425.349,723.584 462.535,624.762 453.556,710.61 C442.807,813.563 441.286,901.534 481.514,778.648 C503.069,712.778 440.65,661.88 437.029,613.99 z" fill="__WACHS_HELL__" fill-opacity="0.86" id="path2166"/>
+<path d="M451.411,264.981 C469.028,366.175 455.452,287.036 469.028,366.175 C485.305,461.069 403.169,496.201 433.703,401.795 C453.953,339.205 447.631,302.462 451.411,264.981 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path4174"/>
+<path d="M467.416,506.905 C485.691,592.196 471.616,525.373 485.691,592.196 C502.581,672.323 433.669,749.884 449.141,647.703 C458.698,584.546 463.522,544.817 467.416,506.905 z" fill="__WACHS_HELL__" fill-opacity="0.97" id="path4193"/>
+<path d="M416.635,1040.539 C381.421,1045.109 331.835,1044.054 303.956,1038.141 C276.077,1032.229 279.722,1023.542 312.241,1018.4 C344.759,1013.259 394.697,1013.474 425.721,1018.889 C456.744,1024.304 457.928,1033.012 428.41,1038.677" fill="__WACHS_HELL__" id="path7745"/>
+<path d="M444.287,279.672 C414.44,292.88 362.18,307.926 325.532,313.86 C288.884,319.794 280.757,314.527 307.063,301.892 C333.37,289.256 384.845,273.702 424.034,266.548 C463.223,259.393 476.324,263.157 453.803,275.101" fill="#FF7F2A" id="path7764"/>
+</g>`,
+};
+
+function hexZuRgb(hex) {
+    return [parseInt(hex.slice(1,3), 16), parseInt(hex.slice(3,5), 16), parseInt(hex.slice(5,7), 16)];
+}
+function rgbZuHex(r, g, b) {
+    return "#" + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+}
+function dunklerHex(hex, anteil) {
+    const [r, g, b] = hexZuRgb(hex);
+    return rgbZuHex(r * (1 - anteil), g * (1 - anteil), b * (1 - anteil));
+}
+function hellerHex(hex, anteil) {
+    const [r, g, b] = hexZuRgb(hex);
+    return rgbZuHex(r + (255 - r) * anteil, g + (255 - g) * anteil, b + (255 - b) * anteil);
+}
+
+function erzeugeKerzeAusTemplate(template, idx, attrs, wachs, gespiegelt) {
+    const idPrefix = `cd${idx}_`;
+    const wachsHell = hellerHex(wachs, 0.18);
+    const wachsDunkel = dunklerHex(wachs, 0.45);
+    let inhalt = template.inhalt
+        .split("__WACHS_DUNKEL__").join(wachsDunkel)
+        .split("__WACHS_HELL__").join(wachsHell)
+        .split("__WACHS__").join(wachs)
+        .replace(/id="([^"]+)"/g, (_, id) => `id="${idPrefix}${id}"`)
+        .replace(/url\(#([^)]+)\)/g, (_, id) => `url(#${idPrefix}${id})`);
+    // Horizontale Spiegelung um die Kerzen-Mittelachse (cx = x + width/2): scale(-1,1)
+    // wirkt an x=0, danach translate verschiebt um 2·cx zurück → Spiegelung an x=cx.
+    let transformAttr = "";
+    if (gespiegelt) {
+        const cx = parseFloat(attrs.x) + parseFloat(attrs.width) / 2;
+        transformAttr = ` transform="matrix(-1 0 0 1 ${(2 * cx).toFixed(1)} 0)"`;
+    }
+    const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(" ");
+    const xml = `<svg xmlns="http://www.w3.org/2000/svg" ${attrStr} viewBox="${template.viewBox}" preserveAspectRatio="none" overflow="visible" data-generated="kerze"${transformAttr}>${inhalt}</svg>`;
+    return new DOMParser().parseFromString(xml, "image/svg+xml").documentElement;
+}
+
+function baueKellerKerzen() {
+    const gruppe = document.querySelector('[data-raum="keller"]');
+    if (!gruppe) return;
+    gruppe.querySelectorAll('[data-generated="kerze"]').forEach(el => el.remove());
+
+    const rand = mulberry32(73);
+    const kerzen = [];
+    KELLER_KERZE_CLUSTER.forEach(cl => {
+        for (let i = 0; i < cl.dichte; i++) {
+            // Pseudo-Gauss: Mittelwert aus 3 uniformen Samples → weiche Cluster-Ränder
+            const winkelOffset = (rand() + rand() + rand() - 1.5) * 12;
+            const radiusOffset = (rand() + rand() - 1) * 0.05;
+            const winkel = (cl.winkel + winkelOffset) * Math.PI / 180;
+            const radius = Math.max(0.04, cl.radius + radiusOffset);
+            const fu = Math.max(0.05, Math.min(0.95, KELLER_SKELETT_POS.fu + radius * Math.cos(winkel)));
+            const fv = Math.max(0.30, Math.min(0.97, KELLER_SKELETT_POS.fv - radius * Math.sin(winkel)));
+            // Breite pseudo-normalverteilt 14..21 (Mittel ~17.5) via Mittelwert aus 3 Uniform-Samples
+            const breiteBasis = 14 + ((rand() + rand() + rand()) / 3) * 7;
+            const hoeheBasis  = 30 + rand() * 38;  // 30..68 px — Höhe stark variabel
+            const farbe  = KELLER_KERZE_FARBEN[Math.floor(rand() * KELLER_KERZE_FARBEN.length)];
+            const modell = rand() < 0.45 ? KERZE_TEMPLATE_2 : KERZE_TEMPLATE_3;
+            const gespiegelt = rand() < 0.5;  // ~50 % horizontal gespiegelt → Variation
+            kerzen.push({ fu, fv, breiteBasis, hoeheBasis, farbe, modell, gespiegelt });
+        }
+    });
+
+    // Hintere zuerst zeichnen (höheres fv) — innerhalb der Rück-Ebene gilt DOM-Reihenfolge
+    kerzen.sort((a, b) => b.fv - a.fv);
+
+    kerzen.forEach((k, i) => {
+        const [bx, by] = bodenPunkt(k.fu, k.fv);
+        // Keine Tiefen-Skala für die Pixel-Größe — der Cluster ist räumlich klein und die
+        // Kerzen sollen exakt der breiteBasis (21–25 px) entsprechen, nicht halbiert davon.
+        const breite = k.breiteBasis;
+        const hoehe  = k.hoeheBasis;
+        const x = bx - breite / 2;
+        const y = by - hoehe * k.modell.bodenAnker;  // Boden des Templates trifft auf by
+        gruppe.appendChild(erzeugeKerzeAusTemplate(k.modell, i, {
+            x: x.toFixed(1),
+            y: y.toFixed(1),
+            width:  breite.toFixed(1),
+            height: hoehe.toFixed(1),
+            "data-y-fuss": by.toFixed(0),
+        }, k.farbe, k.gespiegelt));
+    });
+}
+
+// Runder Teppich in der Mitte des Hauptraums. Konzentrische Kreise werden in
+// Boden-(fu, fv)-Koords gesampelt und mit `bodenPunkt()` auf Screen abgebildet —
+// die Trapez-Verzerrung des Bodens (Fluchtpunkt 800/225) macht aus jedem fu/fv-Kreis
+// automatisch eine perspektivische Ellipse. Der größte Ring wird zuerst gezeichnet,
+// jeder kleinere Ring überdeckt den größeren in der Mitte → 12 konzentrische Bänder.
+const HAUPT_TEPPICH = {
+    cu: 0.5,            // Boden-fu der Teppich-Mitte
+    cv: 0.683,          // Boden-fv der Teppich-Mitte (40 px höher als 0.55: Δfv = 40/300)
+    rMax: 0.20,         // Welt-Radius in Boden-Einheiten (gleich für fu+fv = physisch rund)
+    samples: 72,        // Polyline-Punkte pro Kreis (5°-Schritte)
+    // 12 dezente, niedrig gesättigte Farben von aussen (Index 0) nach innen (Index 11) —
+    // gedämpfte Sand-/Braun-/Graubraun-Töne, damit der Hauptraum-saturate(2)-Filter sie
+    // nicht ins Knallige zieht. Wechsel dunkel/hell für sichtbare konzentrische Bänder.
+    farben: [
+        "#5C4A3A",  // dunkelbraun (Aussenrand)
+        "#B0A088",  // warmer Sandton
+        "#7A6855",  // mittelbraun
+        "#C2B099",  // hellbeige
+        "#6B5A48",  // gedämpft dunkel
+        "#A89478",  // gedämpftes Ocker
+        "#7E6A55",  // mittel-warm braun
+        "#B5A48E",  // helle Bordüre
+        "#735F4D",  // warm-grau
+        "#A39079",  // Sand
+        "#604D3C",  // dunkel
+        "#4A3A2D",  // dunkler Mittelpunkt
+    ],
+};
+
+function bodenKreisPfad(cu, cv, r, samples) {
+    let d = "";
+    for (let i = 0; i <= samples; i++) {
+        const t = (i / samples) * 2 * Math.PI;
+        const [x, y] = bodenPunkt(cu + r * Math.cos(t), cv + r * Math.sin(t));
+        d += (i === 0 ? "M " : " L ") + x.toFixed(1) + "," + y.toFixed(1);
+    }
+    return d + " Z";
+}
+
+function baueHauptTeppich() {
+    const gruppe = document.querySelector('[data-raum="haupt"]');
+    if (!gruppe) return;
+    gruppe.querySelectorAll('[data-generated="teppich"]').forEach(el => el.remove());
+
+    const t = HAUPT_TEPPICH;
+    const wrapper = makeSVG("g", { "data-generated": "teppich" });
+    // Aussen → innen: jeder kleinere Ring wird im DOM später eingefügt → überdeckt den
+    // größeren in der Mitte → konzentrische Bänder.
+    for (let i = 0; i < t.farben.length; i++) {
+        const r = t.rMax * (1 - i / t.farben.length);
+        wrapper.appendChild(makeSVG("path", {
+            d: bodenKreisPfad(t.cu, t.cv, r, t.samples),
+            fill: t.farben[i],
+        }));
+    }
+    // DOM-zuerst — Teppich liegt unter allen Möbeln/Pflanzen des Hauptraums.
+    gruppe.prepend(wrapper);
+}
+
 function baueRaumDeko() {
     baueGartenDeko();
+    baueBueroBild();
+    baueKellerKerzen();
+    baueHauptTeppich();
     klonePflanzenVorne();
 }
 
@@ -1621,8 +1945,40 @@ function klonePflanzenVorne() {
         svgLayerVorne.appendChild(vorneGruppe);
         // Alle Elemente mit data-y-fuss klonen (rekursiv — Pflanzen stecken z.B. in einem
         // <g id="plants">-Wrapper). Transforms sind absolut, also kein Problem beim Verschieben.
+        // WICHTIG: alle IDs im Klon mit `v_<idx>_` prefixen + url(#id)-Refs umschreiben.
+        // Sonst entstehen ID-Duplikate zwischen Rück- und Front-Ebene; Browser-Paint-Server-
+        // Lookup nimmt den ersten DOM-Treffer (= Rück-Ebene). Wenn die Rück-Ebene auf
+        // display:none togglet ist, rendern Pfade mit Gradient-fill leer → Flammen
+        // verschwinden (so passierte das mit candle_2-Kerzen, die `cd<i>_Gradient_2` haben).
+        let klonIdx = 0;
         hintenGruppe.querySelectorAll('[data-y-fuss]').forEach(pflanze => {
-            vorneGruppe.appendChild(pflanze.cloneNode(true));
+            const klon = pflanze.cloneNode(true);
+            const prefix = `v_${klonIdx++}_`;
+            // ID-Sammeln (incl. dem outer Element selbst)
+            const alleIds = new Set();
+            if (klon.id) alleIds.add(klon.id);
+            klon.querySelectorAll('[id]').forEach(el => alleIds.add(el.id));
+            // IDs prefixen
+            if (klon.id) klon.id = prefix + klon.id;
+            klon.querySelectorAll('[id]').forEach(el => { el.id = prefix + el.id; });
+            // url(#X)- und xlink:href="#X"-Refs umschreiben — alle Attribute aller Knoten
+            const walk = (el) => {
+                if (el.attributes) {
+                    for (const attr of el.attributes) {
+                        if (attr.value.includes('url(#')) {
+                            attr.value = attr.value.replace(/url\(#([^)]+)\)/g, (m, id) =>
+                                alleIds.has(id) ? `url(#${prefix}${id})` : m);
+                        }
+                        if ((attr.localName === 'href' || attr.name === 'xlink:href') && attr.value.startsWith('#')) {
+                            const id = attr.value.slice(1);
+                            if (alleIds.has(id)) attr.value = `#${prefix}${id}`;
+                        }
+                    }
+                }
+                for (const child of el.children || []) walk(child);
+            };
+            walk(klon);
+            vorneGruppe.appendChild(klon);
         });
     });
 }
