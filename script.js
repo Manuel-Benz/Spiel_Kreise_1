@@ -113,9 +113,9 @@ const RAEUME = {
     garten: {
         name: "Garten",
         farben: {
-            decke: "#7cb8d8", boden: "#4e8c3f",
-            hintereWand: "#7cb8d8",
-            linkeWand: "#7cb8d8",
+            decke: "#5c9cc2", boden: "#4e8c3f",
+            hintereWand: "#5c9cc2",
+            linkeWand: "#5c9cc2",
             rechteWand: "#a8a49c",
         },
         tueren: [
@@ -934,7 +934,7 @@ function zeichneZimmer() {
 // Sonne: gelber Kreis + 12 Strahlen. Oben rechts auf dem Himmel.
 function zeichneSonne() {
     const cx = 1200, cy = 200, r = 42;
-    const gelb = "#ffd84a";
+    const gelb = "#ffc028";
     ctx.strokeStyle = gelb;
     ctx.lineWidth = 7;
     ctx.lineCap = "round";
@@ -953,22 +953,145 @@ function zeichneSonne() {
     ctx.fill();
 }
 
-// Busch: überlappende Ellipsen-Cluster, Form leicht variiert.
+// Wolke: jede definiert ihre eigene Liste überlappender Ellipsen
+// (bumps: [dx, dy, rx, ry] absolut relativ zum Wolkenzentrum).
+// 3 Schichten geben Tiefe: blass-grauer Schatten unten, weiss als Hauptkörper,
+// helles Highlight oben links als Sonnenseite.
+function zeichneWolke(wolke) {
+    // 1) Schatten: deutlich sichtbares kühles Grau (kein Gelbstich), unten versetzt
+    ctx.fillStyle = `rgba(110, 122, 138, ${wolke.alpha * 0.7})`;
+    wolke.bumps.forEach(([dx, dy, rx, ry]) => {
+        ctx.beginPath();
+        ctx.ellipse(wolke.cx + dx, wolke.cy + dy + ry * 0.30, rx * 0.92, ry * 0.85, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+    // 2) Hauptkörper: leicht gebrochenes Weiss (nimmt etwas Schatten an den Rändern auf)
+    ctx.fillStyle = `rgba(245, 248, 252, ${wolke.alpha})`;
+    wolke.bumps.forEach(([dx, dy, rx, ry]) => {
+        ctx.beginPath();
+        ctx.ellipse(wolke.cx + dx, wolke.cy + dy, rx, ry, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+    // 3) Highlight: reinweiss, oben-links (Sonne von oben links)
+    ctx.fillStyle = `rgba(255, 255, 255, ${wolke.alpha})`;
+    wolke.bumps.forEach(([dx, dy, rx, ry]) => {
+        ctx.beginPath();
+        ctx.ellipse(wolke.cx + dx - rx * 0.18, wolke.cy + dy - ry * 0.30, rx * 0.45, ry * 0.40, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+}
+
+const WOLKEN = [
+    // 1: oben-links, klassisch fluffig (4 bumps)
+    { cx: 180, cy: 80, alpha: 1, bumps: [
+        [0,   0,    50, 20],
+        [-32, 5,    22, 14],
+        [28,  8,    25, 15],
+        [-8,  -10,  18, 12],
+    ]},
+    // 2: links-mitte, breit gezogen, leicht schief (5 bumps)
+    { cx: 470, cy: 140, alpha: 1, bumps: [
+        [0,    0,   72, 22],
+        [-58,  6,   22, 14],
+        [-28, -10,  28, 18],
+        [40,   3,   32, 18],
+        [22,  -16,  20, 13],
+    ]},
+    // 3: mitte-oben, gedrungen mit hohen Türmchen (4 bumps)
+    { cx: 850, cy: 70, alpha: 1, bumps: [
+        [0,   0,    55, 22],
+        [-18, -18,  30, 20],
+        [22,  -12,  22, 14],
+        [-38, 7,    24, 14],
+    ]},
+    // 4: nahe Horizont, dünn und langgezogen (3 bumps, etwas durchsichtiger)
+    { cx: 560, cy: 270, alpha: 1, bumps: [
+        [0,    0,   42, 13],
+        [-28,  3,   18, 10],
+        [20,  -4,   16, 11],
+    ]},
+];
+
+function zeichneWolken() {
+    WOLKEN.forEach(zeichneWolke);
+}
+
+// Hilfsfunktion: hex-Farbe um (dr, dg, db) verschieben (geclamped).
+function hexShift(hex, dr, dg, db) {
+    const r = Math.max(0, Math.min(255, parseInt(hex.slice(1, 3), 16) + dr));
+    const g = Math.max(0, Math.min(255, parseInt(hex.slice(3, 5), 16) + dg));
+    const b = Math.max(0, Math.min(255, parseInt(hex.slice(5, 7), 16) + db));
+    return "#" + [r, g, b].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+// Busch: pro Position deterministisch geseedet — jeder Busch unterschiedlich.
+// Schatten + Highlights werden via ctx.clip() auf die Hauptkörper-Silhouette begrenzt,
+// so dass keine Ellipse über den Rand des Busches hinausragt.
 function zeichneBusch(cx, cy, breite, farbe) {
     const h = breite * 0.78;
+    const dunkel = hexShift(farbe, -32, -32, -32);
+    const hell   = hexShift(farbe,  20,  20,  20);
+    const rand = mulberry32(Math.floor(cx * 17 + cy * 113 + breite));
+    const j = (s) => (rand() - 0.5) * 2 * s;
+    const ell = (cxe, cye, rxe, rye) => {
+        ctx.beginPath();
+        ctx.ellipse(cxe, cye, rxe, rye, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    };
+
+    // Hauptkörper-Geometrie (mit Jitter) — wird sowohl gefüllt als auch als Clip benutzt.
+    const haupt = [
+        [ 0.00,  0.00,  0.50 + j(0.04), 0.50 + j(0.04)],
+        [-0.32,  0.08,  0.26 + j(0.04), 0.32 + j(0.04)],
+        [ 0.30,  0.05,  0.28 + j(0.04), 0.34 + j(0.04)],
+        [-0.12, -0.38,  0.23 + j(0.04), 0.24 + j(0.04)],
+    ];
+    let buckel = null;
+    if (rand() > 0.45) {
+        const seite = rand() > 0.5 ? 1 : -1;
+        buckel = [seite * 0.22 + j(0.05), -0.20 + j(0.08),
+                  0.16 + j(0.04), 0.18 + j(0.04)];
+    }
+
+    // 1) Hauptkörper zeichnen
     ctx.fillStyle = farbe;
+    haupt.forEach(([dx, dy, rx, ry]) => {
+        ell(cx + breite * dx, cy + h * dy, breite * rx, h * ry);
+    });
+    if (buckel) {
+        const [dx, dy, rx, ry] = buckel;
+        ell(cx + breite * dx, cy + h * dy, breite * rx, h * ry);
+    }
+
+    // 2) Clip auf die Silhouette (Union aller Hauptellipsen) und dann Schatten + Highlights
+    ctx.save();
     ctx.beginPath();
-    ctx.ellipse(cx, cy, breite / 2, h / 2, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx - breite * 0.32, cy + h * 0.08, breite * 0.26, h * 0.32, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx + breite * 0.30, cy + h * 0.05, breite * 0.28, h * 0.34, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx - breite * 0.12, cy - h * 0.38, breite * 0.23, h * 0.24, 0, 0, 2 * Math.PI);
-    ctx.fill();
+    haupt.forEach(([dx, dy, rx, ry]) => {
+        ctx.ellipse(cx + breite * dx, cy + h * dy, breite * rx, h * ry, 0, 0, 2 * Math.PI);
+    });
+    if (buckel) {
+        const [dx, dy, rx, ry] = buckel;
+        ctx.ellipse(cx + breite * dx, cy + h * dy, breite * rx, h * ry, 0, 0, 2 * Math.PI);
+    }
+    ctx.clip();
+
+    // Schatten: 2 grosse Ellipsen unten (Buschunterseite im Schatten)
+    ctx.fillStyle = dunkel;
+    ell(cx + breite * (0.05 + j(0.05)),   cy + h * (0.22 + j(0.05)),
+        breite * 0.50,                     h * 0.40);
+    ell(cx + breite * (-0.20 + j(0.08)),  cy + h * (0.20 + j(0.05)),
+        breite * 0.30,                     h * 0.30);
+
+    // Highlights: 2 bis 4 grosse helle Flecken oben/links (Sonnenseite)
+    ctx.fillStyle = hell;
+    const hlN = 2 + Math.floor(rand() * 3);   // 2..4
+    for (let i = 0; i < hlN; i++) {
+        ell(cx + breite * (-0.10 + j(0.22)),   cy + h * (-0.20 + j(0.15)),
+            breite * (0.18 + Math.abs(j(0.05))),
+            h *      (0.20 + Math.abs(j(0.05))));
+    }
+
+    ctx.restore();
 }
 
 // Horizont-Büsche. `vor: true` = wird NACH dem Gras gezeichnet (vor der Wiese sichtbar).
@@ -995,10 +1118,12 @@ const GEBUESCH_NAH = [
 // Werden auf dem Zimmer-Canvas gezeichnet, damit der Zaun einige davon verdecken kann.
 // Jede Definition: { src, cx, baseY, breite, hoehe } — cx = horizontale Mitte, baseY = Fusslinie.
 const BUESCHE = {
+    flower4:       { src: "assets/flower_4.svg", cx: 55, baseY: 560, breite: 160, hoehe: 200 },
+    flower6:       { src: "assets/flower_6.svg", cx: 1000, baseY: 530, breite: 110, hoehe: 156 },
     linksWiese:    { src: "assets/bush_4.svg", cx: 185, baseY: 650, breite: 480, hoehe: 492 },
     hintenTief:    { src: "assets/bush_1.svg", cx: 1150, baseY: 550, breite: 360, hoehe: 150 }, // tief hinter Zaun
     hintenGanz:    { src: "assets/bush_2.svg", cx: 570, baseY: 410, breite: 80, hoehe: 80 }, // oberhalb des Zauns
-    hintenHalb:    { src: "assets/bush_3.svg", cx: 100, baseY: 378, breite: 150, hoehe: 160 }, // 
+    hintenHalb:    { src: "assets/bush_3.svg?v=5", cx: 100, baseY: 378, breite: 150, hoehe: 160 }, //
 };
 
 // Image-Cache mit automatischem Redraw nach Load (SVG-Rasterisierung durch Browser).
@@ -1031,6 +1156,9 @@ function zeichneGartenZaun() {
     // Sonne im oberen rechten Bereich des Himmels
     zeichneSonne();
 
+    // Wolken vor der Sonne (drüber gemalt → ziehen visuell vorbei)
+    zeichneWolken();
+
     // Horizont-Büsche ohne `vor`-Flag: als Silhouette hinter dem Gras.
     GEBUESCH_HORIZONT.filter(b => !b.vor).forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
 
@@ -1045,13 +1173,18 @@ function zeichneGartenZaun() {
     // Nah-Büsche auf linker Wiese (zwischen Wiese und Zaun)
     GEBUESCH_NAH.forEach(b => zeichneBusch(b.cx, b.cy, b.b, b.f));
 
-    // bush_4 auf der linken Wiese — vor den Ellipsen, noch vor dem linken Zaun.
-    zeichneBuschBild(BUESCHE.linksWiese);
+    // flower_4 auf der linken Wiese — wird gleich danach von bush_4 teilweise verdeckt.
+    zeichneBuschBild(BUESCHE.flower4);
 
     // Detaillierte Büsche hinter dem Hintenzaun — Zaun wird GLEICH danach gezeichnet
     // und verdeckt die Teile, die in den Zaunbereich (y ≥ 420) hineinragen.
+    zeichneBuschBild(BUESCHE.flower6);      // flower_6 — wird gleich danach von bush_1 teilweise verdeckt
     zeichneBuschBild(BUESCHE.hintenTief);   // bush_1 — tief hinter dem Zaun
     zeichneBuschBild(BUESCHE.hintenHalb);   // bush_3 — teilweise hinter dem Zaun
+
+    // bush_4 auf der linken Wiese — DOM-zuletzt unter den Wiesen-Sträuchern, damit
+    // er bush_3 in der Überlappung verdeckt. Zaun kommt gleich darüber.
+    zeichneBuschBild(BUESCHE.linksWiese);
 
     // Zaun an hinterer Wand — horizontale Verstrebungen und 9 Pfosten
     ctx.fillStyle = VERSTREBUNG;
