@@ -38,10 +38,12 @@ CLAUDE.md         ← diese Datei
 | `flower_1..6.svg` | 6 Blumen im Garten (innen + aussen) | Inline-SVG |
 | `muffin_1..4.svg` | 4 Muffins auf dem Boden im Hauptraum | Inline-SVG |
 | `desk_1.svg` | Holz-Schreibtisch (3D-Perspektive) im Hauptraum hinten-rechts | Inline-SVG (Gradients durch solid #A57956 ersetzt — siehe Stolpersteine) |
-| `desk_2.svg`, `desk_3.svg`, `desk_5.svg` | Möbel-Akzente im Hauptraum (Hocker, zwei Beistelltisch-Varianten) | Inline-SVG |
+| `desk_2.svg`, `desk_3.svg`, `desk_5.svg` | desk_3 + desk_5 als Beistelltische im Hauptraum; desk_2 DEAKTIVIERT (siehe Hauptraum) | Inline-SVG |
 | `desk_4.svg` | Anrichte mit Schubladen, im Badezimmer | Inline-SVG |
 | `cupboard_1..3.svg` | cupboard_2 im Badezimmer; cupboard_1 im Büro (gespiegelt); cupboard_3 im Hauptraum | `<image href>` mit Cache-Bust. cupboard_1: Asset geändert (Gradients entfernt). cupboard_2: Asset geändert (Holztöne 2× ~20% aufgehellt, dann manuelle User-Anpassungen, `?v=5`). cupboard_3: Asset geändert (Holztöne 2× aufgehellt + Richtung helleres Holz verschoben, dann viewBox auf 400×660 vergrößert mit Padding, `?v=4`). |
-| `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg` | nicht aktiv | — |
+| `lamp_1.svg` | Pixar-Stil Schreibtischlampe (Schwenkarm, goldene Birne, gelblicher Schein) im Büro | Inline-SVG (IDs mit `l1_` prefixed gegen Konflikte; 9 Gradients erhalten) |
+| `animal_1.svg`, `animal_2.svg` | Zwei Tiere/Kreaturen an der Wand im Keller (siehe Keller) | Inline-SVG (IDs mit `a1_`/`a2_` prefixed; animal_1 mit Gelb-Tint t=0.06; animal_2 hat 10 Gradients) |
+| `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
 **Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=134`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat.
 
@@ -106,11 +108,11 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 
 | ID | Name | Türen → Ziel | Wandfarben | Inhalt |
 |---|---|---|---|---|
-| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 6 Pflanzen + Tisch1 (Lavalampe, cake_1) + Muffins + Desk1/2/3 + cupboard_3 + desk_5 (mit cake_2 + plant_geranie obendrauf) |
-| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) |
+| `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 5 Pflanzen + painting_1 + Tisch1 (Lavalampe, cake_1) + 2 Muffins (auf Boden) + desk_3 (rotiert -2°, mit Pilzlampe + plant_setzling oben) + cupboard_3 + desk_5 (mit cake_2 + plant_geranie + muffin_1 obendrauf). desk_1 + desk_2 deaktiviert |
+| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
 | `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
-| `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts |
+| `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
 
 `aktuellerRaum` hält die aktive ID. `wechsleRaum(zielId)`:
 - merkt `vonRaum`, setzt `aktuellerRaum = zielId`
@@ -145,8 +147,8 @@ Globale Farben (Türen, Figur) in `FARBEN`. Raum-Wandfarben in `RAEUME[id].farbe
 **Sättigungs-Filter `#grell`** (`saturate=2`) sitzt auf JEDEM `<g data-raum="...">` → alle Möbel/Deko erben kräftigere Farben automatisch. Eigener `filter=` auf einem Kind komponiert sich multiplikativ mit dem Parent-Filter (zuerst Kind, dann Parent).
 
 **Override** für individuelle Saturierung: `effekt = 2 × kind_value`. Vordefinierte Filter:
-- `#grell-mild` (`values="0.75"`) → effektiv saturate **1.5**. Aktuell: chair_1, bookshelf_2 (Büro), cupboard_1 (Büro), cupboard_2 (Bad), cupboard_3 (Hauptraum), desk_4 (Bad), desk_5 (Hauptraum).
-- `#grell-soft` (`values="0.5"`) → effektiv saturate **1.0** (Originalfarben). Aktuell ungenutzt.
+- `#grell-mild` (`values="0.75"`) → effektiv saturate **1.5**. Aktuell: chair_1, bookshelf_2 (Büro), cupboard_1 (Büro), cupboard_2 (Bad), cupboard_3 (Hauptraum), desk_3 (Hauptraum), desk_4 (Bad), desk_5 (Hauptraum), lamp_1 (Büro), painting_1 (Hauptraum), painting_2 (Keller).
+- `#grell-soft` (`values="0.5"`) → effektiv saturate **1.0** (Originalfarben). Aktuell: animal_2 (Keller).
 - `#grell-2_5` (`values="1.25"`) → effektiv saturate **2.5**. Aktuell ungenutzt (war zuvor cupboard_3).
 
 Für andere Levels neuen Filter ergänzen: `values=ZIEL/2`. ID-Suffix beschreibt den Effekt-Wert, nicht den internen `values`-Wert. Ausnahme: `#invert` (Skelett) ist ein Schwarz/Weiß-Inverter — hat keinen Saturate-Anteil und wird vom Parent-`#grell` nicht beeinflusst (B/W ist saturierungsneutral).
@@ -156,7 +158,7 @@ Für andere Levels neuen Filter ergänzen: `values=ZIEL/2`. ID-Suffix beschreibt
 ### Hauptraum
 
 Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
-00. **Painting** (`painting_1.png`) als `<image href>` an der hinteren Wand: 130×130, quadratisch, bei (315, 150) — links neben Tür A. DOM-zuerst → wird von Möbeln überdeckt. *(painting_2 wurde in den Keller verschoben — siehe dort.)*
+00. **Painting** (`painting_1.png`) als `<image href>` an der hinteren Wand: 130×130, quadratisch, bei (315, 150) — links neben Tür A. `filter="url(#grell-mild)"`. DOM-zuerst → wird von Möbeln überdeckt. *(painting_2 wurde in den Keller verschoben — siehe dort.)*
 0. **Teppich** (JS-generiert via `baueHauptTeppich()` in script.js): runder Teppich in Boden-Mitte (cu=0.5, cv=0.55), 12 konzentrische Kreise (Polylinen mit 72 Stützpunkten in Boden-(fu,fv)-Koords, mit `bodenPunkt()` auf Screen abgebildet → automatische perspektivische Verzerrung zum Fluchtpunkt 800/225). Welt-Radius rMax=0.20 (gleich für fu+fv = physisch rund). Konfig in `HAUPT_TEPPICH`: dezente Sand-/Braun-/Graubraun-Töne (niedrig gesättigt, wegen Hauptraum-`#grell`-Filter). Größter Ring zuerst gerendert → kleinere überdecken in Mitte → konzentrische Bänder. DOM-zuerst (`gruppe.prepend()`) → liegt unter allen Möbeln. Marker `data-generated="teppich"`.
 1. **Bookshelf** an hinterer Wand: `<g id="bookshelf" transform="translate(650 310) scale(0.5)">`. 5 Regale, Pflanzen in Regal 1 + 5. (Saturierung kommt jetzt vom Parent `<g data-raum="haupt" filter="url(#grell)">` — siehe Farb-Palette.)
 2. **Möbel-Gruppe** `<g id="haupt-moebel">` — VOR den Pflanzen, damit Pflanzen mit kleinerem fv (näher zur Kamera) in Render-Order über dem Tisch landen:
@@ -164,19 +166,19 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
    - **Lavalampe** auf Tisch 1: vereinfachte flache-Farben-Variante aus `lamp_lava_1.svg`. Wrapper `translate(362 584) scale(0.30) translate(-375 -728)`. `data-y-fuss="639"`.
    - **cake_1** auf Tisch 1 (3-stöckige Torte): inline aus `assets/cake_1.svg` bei `x=275 y=512 75×68`, `data-y-fuss="639"` (synchron mit Tisch). IDs mit `c1_` prefixed. Schwarze Outlines (`stroke="#000000"` an Doppelpfaden) wurden beim Inlinen durch die Fill-Farbe des Geschwister-Pfads ersetzt.
    - **cake_2** liegt jetzt auf desk_5 (siehe unten), nicht mehr auf Tisch 1. Als `<image href="assets/cake_2.svg">` eingebunden (NICHT inline) — die Beeren-Torte hat ein `<defs>` mit ~30 Gradients, beim Klonen in die Front-Ebene gab es ID-Duplikate → Gradient-Bug. Mit `<image>` ist das Asset Black-Box, kein ID-Konflikt mehr.
-   - **Desk 1** (`assets/desk_1.svg`, hellholz Schreibtisch in 3D-Perspektive): inline `<svg id="desk_1" data-y-fuss="660" x="1051" y="532" width="147" height="128" viewBox="0 0 266.6 232.03">`. Anker front-rechtes Bein an Screen (1180, 660), σ=0.55. Footprint fu 0.74–0.84, fv 0.80–0.91. Hindernis-Ellipse `{ fu:0.79, fv:0.86, rx:0.06, ry:0.05 }`. **data-y-fuss=0.80 am Front-Bein-Fuss** (NICHT 0.86 Mitte) — sonst verschwinden seitlich vorbeilaufend die Tischbeine, weil der Tisch zwischen 0.80 und 0.86 noch in der Rück-Ebene bleibt. **Bein-Gradients durch solid #A57956 ersetzt** — Original hatte 4 lineare Gradienten, beim Klonen entstanden Duplikate die in manchen Browsern paint-server-Lookup-Probleme verursachten (siehe Stolpersteine). Stroke = jeweiliger Fill (keine schwarzen Outlines).
-   - **Desk 2 / Desk 3** (klein, Deko, kein Hindernis): zwei Möbel-Akzente in mid-Bereich des Raums.
-     - `desk_2`: Hocker mit stilisierter Figur oben drauf (`assets/desk_2.svg`), inline x=521 y=701, data-y-fuss="750". Doppelpfade (fill + stroke fast gleicher Farbe) zu fill+stroke=Fill kombiniert.
-     - `desk_3`: kleiner Beistelltisch (`assets/desk_3.svg`), inline x=964 y=698, data-y-fuss="735". Nur Fills im Original. **Horizontal gespiegelt** via `<g transform="translate(192.065 0) scale(-1 1)">`-Wrapper um alle Pfade.
+   - **Desk 1** ~~(`assets/desk_1.svg`, hellholz Schreibtisch in 3D-Perspektive)~~ **DEAKTIVIERT**: Code im DOM erhalten unter `<svg id="desk_1">` mit `style="overflow:visible;display:none"`. **`data-y-fuss` MUSS dabei entfernt sein** (sonst überschreibt `aktualisierePflanzenTiefe()` jeden Frame das `display:none` zurück auf `""` → Tisch wäre sichtbar — siehe Stolpersteine). Reaktivieren: `display:none` aus Style entfernen UND data-y-fuss="660" wieder einfügen. Originale Doku: Anker (1180, 660), σ=0.55, Footprint fu 0.74–0.84, fv 0.80–0.91, Hindernis-Ellipse `{ fu:0.79, fv:0.86, rx:0.06, ry:0.05 }`, Bein-Gradients durch solid #A57956 ersetzt.
+   - **Desk 2** ~~(`assets/desk_2.svg`, Hocker mit stilisierter Figur oben)~~ **DEAKTIVIERT**: Code erhalten, gleicher Mechanismus wie desk_1. Original-Position x=521 y=701. **Die "stilisierte Figur" oben drauf war eine Pilzlampe** (3 Pfade: grauer Sitz, pinker Hut-Knopf, pinker Hut-Körper) — wurde nach desk_3 kopiert (siehe unten).
+   - **Desk 3** (`assets/desk_3.svg`, kleiner Beistelltisch in 3D): inline `<svg data-y-fuss="735" x="700" y="580" width="200" height="100" viewBox="0 0 192.065 123.042" preserveAspectRatio="none" style="overflow:visible;transform:rotate(-2deg);transform-origin:50% 100%" filter="url(#grell-mild)">`. Nur Fills im Original. **Horizontal gespiegelt** via `<g transform="translate(192.065 0) scale(-1 1)">`-Wrapper. **CSS-Rotation -2°** (transform-origin Bottom-Center → kippt um den Tisch-Fuß). DOM-Reihenfolge: desk_3 → Pilzlampe → desk_2(deakt) → muffins. Kein Hindernis.
+   - **Pilzlampe auf desk_3** (3 Pfade aus desk_2 kopiert): eigener `<svg data-y-fuss="735" x="730" y="563" width="40" height="44" viewBox="30 -5 65 65" preserveAspectRatio="xMidYMid meet">`. Pfade: grauer Sitz `#53536C`, pinker Hut-Knopf `#C83771`, pinker Hut-Körper `#D35F8D`. data-y-fuss synchron mit desk_3 (Stolperstein gestapelte Möbel). **Rotiert NICHT mit desk_3 mit** (separater SVG-Block).
    - **Desk 5** (`assets/desk_5.svg`, Beistelltisch-Variante, ähnliches Asset wie desk_3 mit anderer Bein-Geometrie): inline x=1170 y=540, 280×175, `data-y-fuss="705"` (Foot bei screen-y ≈ 705 aus `540 + 116·175/123`). Selbe Holz-Hex-Codes wie desk_3 (`#D08520`/`#A66113`/`#E6A450`). IDs aus dem Asset weggelassen (Konflikt mit desk_3-Pfaden). Steht visuell vor cupboard_3 und überdeckt dessen Boden — DOM nach cupboard_3 platziert, NICHT im `<g id="haupt-moebel">`.
-   - **Muffins** auf dem Boden vor dem Tisch: `muffin_1..4` inline aus `assets/muffin_1..4.svg`, in einer Reihe bei x=485/695/925/1135 y≈800, je ~32×40. Alle `data-y-fuss="840"` (vorne, Tiefensortierung). Original-SVGs haben keine IDs → kein Prefixing nötig.
+   - **Muffins** auf dem Boden vor dem Tisch: nur noch `muffin_2` + `muffin_3` (Reihe von 2). Inline aus `assets/muffin_*.svg`, je ~32×40, `data-y-fuss="840"`. Original-SVGs haben keine IDs → kein Prefixing nötig. *(`muffin_1` sitzt jetzt auf desk_5 — siehe DOM-Reihenfolge unten. `muffin_4` wurde in den Keller verschoben — siehe dort.)*
 3. **Pflanzen** (`<g id="plants">`, 6 Stück) — Transform-Muster: `translate(bx, by) scale(σ) translate(-256, -512)` verankert Topfboden (256, 512) im viewBox an Bodenpunkt. Formel: `σ = s · basisBreite / 512`. Jede Pflanze hat `data-y-fuss` für Tiefensortierung:
 
 | Pflanze | fu | fv | bw | r (Hindernis) |
 |---|---|---|---|---|
 | tulpe | 0.15 | 0.12 | 175 | 0.05 |
 | blume | 0.87 | 0.15 | 175 | 0.05 |
-| setzling | 0.12 | 0.50 | 118 | 0.035 |
+| setzling *(steht jetzt auf desk_3, Transform-Anker direkt: `translate(860 605) scale(0.07) translate(-256 -512)`, `data-y-fuss=735` synchron mit desk_3)* | — | — | 118 | — |
 | geranie *(steht jetzt auf desk_5, Transform-Anker direkt: `translate(1325 563) scale(0.1269)`, `data-y-fuss=705` synchron mit desk_5)* | — | — | 100 | — |
 | yucca | 0.034 | 0.79 | 104 | 0.03 |
 *(`kraeuter` wurde in den Keller verschoben — siehe dort)*
@@ -185,7 +187,7 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
 
 4. **cupboard_3** (`assets/cupboard_3.svg?v=2`, aus Badezimmer hierher verschoben): grosser Schrank rechts an der Wand. `<image>` x=1140 y=260 width=160 height=363, `data-y-fuss="623"`, `preserveAspectRatio="none"`. Kein Hindernis. DOM-direkt vor desk_5 (beide ausserhalb `<g id="haupt-moebel">`). **Asset modifiziert** — 14 dunkle Holz-Hex-Codes durch hellere ersetzt (Mapping siehe Git-History).
 
-5. **DOM-Reihenfolge am Ende der haupt-Gruppe** (alle ausserhalb haupt-moebel): `<g id="plants">` → `cupboard_3` → `desk_5` → `plant_geranie` → `cake_2`. Wichtig wegen Tiefensortierung: cake_2 + plant_geranie sitzen visuell auf desk_5 und tragen `data-y-fuss="705"` synchron mit desk_5 — wechseln die Ebene zusammen mit ihm und stehen dank DOM-Reihenfolge in beiden Ebenen davor.
+5. **DOM-Reihenfolge am Ende der haupt-Gruppe** (alle ausserhalb haupt-moebel): `<g id="plants">` → `cupboard_3` → `desk_5` → `plant_geranie` → `cake_2` → `muffin_1`. Wichtig wegen Tiefensortierung: cake_2 + plant_geranie + muffin_1 sitzen visuell auf desk_5 und tragen `data-y-fuss="705"` synchron mit desk_5 — wechseln die Ebene zusammen mit ihm und stehen dank DOM-Reihenfolge in beiden Ebenen davor. **Analog auf desk_3** (innerhalb haupt-moebel): desk_3 → Pilzlampe → muffins(deakt) — alle mit `data-y-fuss="735"`. plant_setzling sitzt zwar visuell auch auf desk_3, lebt aber im `<g id="plants">`-Wrapper (DOM-nach haupt-moebel), trägt ebenfalls `data-y-fuss="735"`.
 
 ### Büro
 
@@ -196,6 +198,10 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
 - **Schreibtischstuhl** `#chair_1` (Inline-SVG): vor Tisch 2 (im DOM nach Tisch = visuell davor), `x=200, y=440, 180×290`, an y-Mittelachse gespiegelt via `transform="matrix(-1 0 0 1 580 0)"`. Eigene Saturierung: `filter="url(#grell-mild)"`. Manuelle Säuberung der SVG: `path1545` (Detail) entfernt; alle übrigen Pfade haben `stroke = ihr Fill` mit `stroke-width:1` (puffen sich minimal auf, keine schwarze Outline). Kein eigenes Hindernis (im Footprint des Tisches).
 - **Wandbild** (linke Wand, JS-generiert via `baueBueroBild()` in script.js): Rahmen + Leinwand + 6 farbige Kreise. Alle Punkte (Polygon-Ecken UND 12 cubic-Bezier-Stützpunkte pro Kreis) werden in Wand-(u,v)-Koords definiert und mit `linkeWandPunkt()` auf die schräge Wand abgebildet → Perspektive (Fluchtpunkt 800/225) ergibt sich automatisch. Kreise geclippt auf das Leinwand-Polygon (`<clipPath id="bueroBildClip">`). Konfiguration in der Konstante `BUERO_BILD` (Rahmen-/Leinwand-uv-Bereich, Farbe pro Kreis). DOM-zuerst (`gruppe.prepend()`) → wird von allen Möbeln überdeckt. Marker `data-generated="bueroBild"` für idempotenten Re-Build.
 - **cupboard_1** (`assets/cupboard_1.svg?v=8`): aus Badezimmer hierher verschoben, rechts (gross). `<image>` mit `x=980 y=106 width=400 height=600`, kein transform. Sichtbar bei (980,106)..(1380,706). **KEIN data-y-fuss** — Schrank bleibt immer in der Rück-Ebene, Figur überdeckt seine Pixel. Das Hindernis verhindert ohnehin, dass die Figur logisch hinter den Schrank-Boden gerät, also passt es visuell. **Hindernis** in `HINDERNISSE.buero[3]`: Viereck am tatsächlichen Boden-Footprint (interaktiv mit dem Drag-and-Drop-Editor von Manuel eingestellt — kompakter als der Pixel-Bounding-Box, deckt nur den Bereich ab, in dem die Figur physisch im Schrank wäre). **Asset modifiziert** — ursprünglich `<defs>` mit 22 Linear-Gradients und Gradient-Overlay-Pfade entfernt; zusätzlich manuelle Bearbeitungen durch Manuel inkl. Spiegelung im Asset selbst.
+- **lamp_1** (`assets/lamp_1.svg`, Pixar-Stil Schreibtischlampe mit Schwenkarm + goldener Birne + warmem Schein): inline `<svg data-y-fuss="740" x="30" y="595" width="120" height="145" filter="url(#grell-mild)">`. Vorne-links auf dem Boden. **Alle IDs mit `l1_` prefixed** (9 Gradients + Camada_1 + paths) gegen Konflikte. Original-Farben modifiziert:
+  - `l1_Gradient_2` (Lampenhals/Birne): von Grün (`#BFEF00`→`#445500`) zu **Gold** (`#FFD24A`→`#604010`).
+  - `l1_Gradient_3` (Schein/Halo, opacity 0.716): von Zitronen-Gelb (`#EBF960`→`#E0EE7C` transparent) zu warmem **Amber-Gold** (`#FFCC44`→`#F0A040` transparent).
+  - Weitere Gradients (Schwenkarm-Silber, roter Sockel) unverändert.
 
 ### Badezimmer
 
@@ -245,7 +251,7 @@ Hinweis Render-Ebene: SVG-`<g data-raum="garten">` liegt VOR dem Zaun (Canvas) i
 
 Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90). **Skelett** aus `skeleton_3.svg` via `<image href>`, perspektivisch hinten-rechts (Füsse bei (1236, 645), 177×250). Farb-Invertierung via SVG-Filter `#invert` (schwarz → weiss). Schaukel-Animation: `<animateTransform type="rotate">` um die Füsse, ±6°, 2.5 s.
 
-**Painting** (`painting_2.png`) als `<image href>` an der hinteren Wand, mittig über dem Kamin: 130×194 (hochformat) bei (635, 110). DOM-zuerst (vor Kamin/Skelett/etc.).
+**Painting** (`painting_2.png`) als `<image href>` an der hinteren Wand, mittig über dem Kamin: 130×194 (hochformat) bei (635, 110). `filter="url(#grell-mild)"`. DOM-zuerst (vor Kamin/Skelett/etc.).
 
 **Kamin** (`assets/fireplace_1.svg`, inline) hinten-links: `<svg id="fireplace_1" x="440" y="400" width="380" height="250" viewBox="0 0 403.48514 265.84756">`. Bottom an Bodenniveau hintere Wand (y=600). User hat das Asset stark vereinfacht (jetzt ~110 KB, 252 Zeilen). **Alle Asset-IDs werden beim Reimport mit `fp_` prefixed** (`fp_Layer_1`, `fp_g4609`, `fp_Gradient_1` etc.) gegen Konflikte mit anderen Inline-SVGs. Drei Flammen-Gruppen `fp_g4609`/`fp_g4755`/`fp_g4353` haben CSS-Animation (`transform-box:view-box`, `transform-origin` am Flammenfuß): Höhen-Pulsieren + Opacity-Flackern + Hue-Shift Richtung **Rot** (negative Werte −30°…−2°, kaum positive → wenig Gelbgrün). Drei verschiedene Phasen/Frequenzen (1.90s/2.40s/1.50s, mit Delays) → ruhiges Züngeln. Hindernis: Ellipse `{ fu:0.33, fv:0.95, rx:0.18, ry:0.04 }`.
 
@@ -259,7 +265,13 @@ Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90). **Skelett** aus `skelet
 
 **Schatztruhe** (`chest_1.svg`, inline) vorne-rechts: `<svg id="chest_1" x="908" y="716" width="210" height="94">`. `data-y-fuss="810"` (Tiefensortierung — Figur kann davor und dahinter laufen). Hindernis: `{ fu:0.65, fv:0.30, rx:0.10, ry:0.04 }` (breit + flach).
 
-Alle Inline-Imports im Keller (Kamin, Ketten, Truhe) haben prefixierte IDs (`fireplace_…`/`ch1_…`/`ch2_…`/`ch_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett (Deko, Figur kann durchlaufen).
+**muffin_4** (aus dem Hauptraum hierher verschoben): `<svg id="muffin_4" data-y-fuss="840" x="1135" y="800" width="32" height="43">`. **Wachspapier-Farben modifiziert**: ursprünglich Gelb-Grün (`#abc837`→`#89a02c`), jetzt warmes Gelb-Orange (`#f0bf20`→`#bf931a`).
+
+**animal_1** (`assets/animal_1.svg`, große Tier-/Kreatur-Figur an der hinteren Wand): inline mit IDs `a1_` prefixed (143 Path-IDs). Position vom User justiert auf `x="474" y="215" width="140" height="175" preserveAspectRatio="none"`. **Sanfter Gelb-Tint t=0.06** auf alle 95 Hex-Farbwerte angewendet (verschoben Richtung Honig/Warm-Beige, ohne dass es offensichtlich gelb wirkt — siehe Stolperstein "Animal-Tint"). **KEIN data-y-fuss** — wandmontiert, soll IMMER hinter Figur sein → bleibt nur in Rück-Ebene.
+
+**animal_2** (`assets/animal_2.svg`, kleinere Tier-Figur an der Wand): inline mit IDs `a2_` prefixed (10 Gradients erhalten). Position `x="645" y="220" width="130" height="154"`. `filter="url(#grell-soft)"` (effektiv saturate 1.0 = Originalfarben, da Parent `#grell` doppelt saturiert). **KEIN data-y-fuss** — gleicher Mechanismus wie animal_1, immer in Rück-Ebene.
+
+Alle Inline-Imports im Keller (Kamin, Ketten, Truhe, animals) haben prefixierte IDs (`fireplace_…`/`ch1_…`/`ch2_…`/`ch_…`/`a1_…`/`a2_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett/animals (Deko, Figur kann durchlaufen).
 
 ## Hindernis-System (Kollision)
 
@@ -451,10 +463,16 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` ein `data-y-fuss` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. Paint-server-Lookup nimmt den ersten DOM-Treffer — wenn dessen Parent `display:none` ist, rendern Pfade unsichtbar (so verschwanden früher die desk_1-Beine). **Aktueller Workaround:** `klonePflanzenVorne()` prefixed seit script.js v134 alle IDs im Klon mit `v_<idx>_` und schreibt alle internen `url(#…)`-/`xlink:href="#…"`-Refs entsprechend um → beide Layer haben eigene Gradient-Defs, kein Konflikt mehr. Das löste z.B. das "verschwindende Kerzen-Flammen"-Problem (candle_2 hat 2 Gradients pro Kerze). Alternativ: solid colors statt Gradient — oder Asset als `<image href>` einbinden (Black-Box, eigener ID-Scope). cake_2 nutzt diese Alternativ-Lösung historisch.
 - **Gestapelte Möbel — `data-y-fuss` synchronisieren:** Ein Element, das visuell auf einem anderen Möbel steht (z.B. cake_2 + plant_geranie auf desk_5), MUSS denselben `data-y-fuss`-Wert wie das Trägermöbel haben. Sonst wechseln sie zu unterschiedlichen Zeitpunkten zwischen Rück- und Front-Ebene → das Trägermöbel überdeckt in der Front-Ebene das aufliegende Element, das in der Rück-Ebene bleibt. DOM-Reihenfolge zwischen Träger und Aufliegendem: Aufliegendes nach Träger, damit es in beiden Ebenen darüber gerendert wird.
 - **`klonePflanzenVorne()` muss `filter` mitkopieren** — sonst sehen Möbel in der Front-Ebene blasser aus (kein `#grell`-Saturate). Funktion liest `filter` vom Original-`<g data-raum>` und setzt ihn auf den Klon.
+- **`display:none` an `[data-y-fuss]`-Element wird vom Frame-Toggle überschrieben:** `aktualisierePflanzenTiefe()` läuft jeden Frame und setzt `el.style.display = "none"` oder `""` basierend auf figur.fv vs element.fv. Inline `display:none` wird dabei JEDEN FRAME mit `""` überschrieben → Element bleibt sichtbar. **Lösung beim Deaktivieren via `display:none`: `data-y-fuss` mit entfernen.** Beispiel desk_1/desk_2 (auskommentiert): nur dann bleibt das `display:none` stabil, weil der Toggle das Element nicht mehr anfasst. Reaktivieren: `data-y-fuss` wieder einfügen UND `display:none` aus dem Style entfernen.
+- **Wandmontierte Objekte (immer-hinten):** Elemente, die an einer Wand "kleben" (paintings, animals im Keller etc.), sollten **gar kein `data-y-fuss`** tragen. Dann werden sie weder geklont noch vom Toggle angefasst und bleiben permanent in der Rück-Ebene → Figur ist immer davor (Bookshelf/Skelett-Pattern). Wenn der visuelle Foot des Objekts UNTER y=600 liegt (also auf dem Boden, nicht an der Wand), data-y-fuss = visual_foot_y verwenden, sonst kann die Figur unsinnigerweise hinter das Objekt laufen.
+- **Animal-Tint (animal_1):** Original-Farben sind dunkelbraun/erdig, was bei dunklem Keller-Setting visuell verschwindet. Lösung: alle Hex-Werte um Faktor t Richtung Gelb verschoben: `r += (255-r)·t; g += (255-g)·t; b -= b·t`. Bei t=0.12 wirkt es schon zu gelb; t=0.06 ist subtil-honigfarben (akzeptiert). Re-Tinten: Original-Asset jedes Mal frisch laden (Aufhellung/Tint sind nicht idempotent — wiederholtes Anwenden auf bereits getintete Farben verschiebt sie immer weiter).
+- **CSS `transform` an `<svg>`-Elementen für Möbel-Rotation:** Funktioniert (z.B. desk_3 mit `style="transform:rotate(-2deg);transform-origin:50% 100%"`), pivotiert um Bottom-Center des SVG-Box. Aber: alles, was visuell AUF dem Möbel sitzt (Lampe, Pflanze) ist ein separater SVG-Block und rotiert NICHT mit. Wenn Mit-Rotation gewünscht, müssen Aufliegende dieselbe `transform`-Eigenschaft mit dem **gleichen Drehpunkt im Screen-Space** bekommen.
 
 ## Roadmap
 
 **Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen + konvexe Vierecke), Tiefensortierung via `data-y-fuss` (Pixel-Y des Möbel-Fußes), Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor — alles drin. Möbel in Hauptraum, Büro, Badezimmer, Garten, Keller weitgehend platziert. Demo-Aufgabe `bookshelf_umfang` mit Cross-Room-Lookup funktioniert.
+
+**Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert).
 
 **Offen:**
 - 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius), linear I → IV mit Cross-Room-Lookups.
