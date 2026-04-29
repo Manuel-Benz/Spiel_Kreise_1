@@ -46,7 +46,7 @@ CLAUDE.md         ← diese Datei
 | `desk_1.svg` | Holz-Schreibtisch (3D-Perspektive) im Hauptraum hinten-rechts | Inline-SVG (Gradients durch solid #A57956 ersetzt — siehe Stolpersteine) |
 | `desk_2.svg`, `desk_3.svg`, `desk_5.svg` | desk_3 + desk_5 als Beistelltische im Hauptraum; desk_2 DEAKTIVIERT (siehe Hauptraum) | Inline-SVG |
 | `desk_4.svg` | Anrichte mit Schubladen, im Badezimmer | Inline-SVG |
-| `cupboard_1..3.svg` | cupboard_2 im Badezimmer; cupboard_1 im Büro (gespiegelt); cupboard_3 im Hauptraum | `<image href>` mit Cache-Bust. cupboard_1: Asset geändert (Gradients entfernt). cupboard_2: Asset geändert (Holztöne 2× ~20% aufgehellt, dann manuelle User-Anpassungen, `?v=5`). cupboard_3: Asset geändert (Holztöne 2× aufgehellt + Richtung helleres Holz verschoben, dann viewBox auf 400×660 vergrößert mit Padding, `?v=4`). |
+| `cupboard_1_1.svg`, `cupboard_1_2.svg`, `cupboard_2.svg`, `cupboard_3.svg` | cupboard_1 (Büro, gespiegelt) als Switch-Paar `_1`/`_2` (geschlossen/offen) nach Sanitär-Konvention, beide als `<image>`; cupboard_2 im Badezimmer; cupboard_3 im Hauptraum | `<image href>` mit Cache-Bust. cupboard_1_1: Asset geändert (Gradients entfernt). cupboard_1_2: vom User selbst gezeichneter Offen-Zustand. cupboard_2: Asset geändert (Holztöne 2× ~20% aufgehellt, dann manuelle User-Anpassungen, `?v=5`). cupboard_3: Asset geändert (Holztöne 2× aufgehellt + Richtung helleres Holz verschoben, dann viewBox auf 400×660 vergrößert mit Padding, `?v=4`). |
 | `lamp_1.svg` | Pixar-Stil Schreibtischlampe (Schwenkarm, goldene Birne, gelblicher Schein) im Büro | Inline-SVG (IDs mit `l1_` prefixed gegen Konflikte; 9 Gradients erhalten) |
 | `animal_1.svg`, `animal_2.svg` | Zwei Tiere/Kreaturen an der Wand im Keller (siehe Keller) | Inline-SVG (IDs mit `a1_`/`a2_` prefixed; animal_1 mit Gelb-Tint t=0.06; animal_2 hat 10 Gradients) |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
@@ -200,7 +200,7 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 - **Bücherregal** `#bookshelf_2` (Inline-SVG, ursprünglich aus `assets/bookshelf_2.svg`): hinten-rechts an Wand, `x=700, y=270, 600×600`. Eigene Saturierung: `filter="url(#grell-mild)"`. **Hindernis** (Pixel-genau, deckt den ganzen visuellen Bookshelf-Footprint auf dem Boden ab): Trapez-Viereck `[[0.4351,0.10],[0.8247,0.10],[0.9912,0.97],[0.4017,0.97]]`. Vorderkante = Bookshelf-Bottom-Pixel y=870 → fv=0.10. Linksrand x=700 wandert perspektivisch (fv=0.10→fu=0.4351; fv=0.97→fu=0.4017), Rechtsrand x=1300 analog. Tür F-laufziel (0.88, 0.45) liegt knapp im Trapez → `setzeFigurZiel` schiebt es an die rechte Kante (≈0.896, 0.447); Tür bleibt aufrufbar. Tür "zurueck" (0.5, 0.05) klar vor dem Trapez. Lücke fu=0.35..0.43 zwischen Tisch 2 und Bookshelf bleibt durchquerbar.
 - **Schreibtischstuhl** `#chair_1` (Inline-SVG): vor Tisch 2 (im DOM nach Tisch = visuell davor), `x=200, y=440, 180×290`, an y-Mittelachse gespiegelt via `transform="matrix(-1 0 0 1 580 0)"`. Eigene Saturierung: `filter="url(#grell-mild)"`. Manuelle Säuberung der SVG: `path1545` (Detail) entfernt; alle übrigen Pfade haben `stroke = ihr Fill` mit `stroke-width:1` (puffen sich minimal auf, keine schwarze Outline). Kein eigenes Hindernis (im Footprint des Tisches).
 - **Wandbild** (linke Wand, JS-generiert via `baueBueroBild()` in script.js): Rahmen + Leinwand + 6 farbige Kreise. Alle Punkte (Polygon-Ecken UND 12 cubic-Bezier-Stützpunkte pro Kreis) werden in Wand-(u,v)-Koords definiert und mit `linkeWandPunkt()` auf die schräge Wand abgebildet → Perspektive (Fluchtpunkt 800/225) ergibt sich automatisch. Kreise geclippt auf das Leinwand-Polygon (`<clipPath id="bueroBildClip">`). Konfiguration in der Konstante `BUERO_BILD` (Rahmen-/Leinwand-uv-Bereich, Farbe pro Kreis). DOM-zuerst (`gruppe.prepend()`) → wird von allen Möbeln überdeckt. Marker `data-generated="bueroBild"` für idempotenten Re-Build.
-- **cupboard_1** (`assets/cupboard_1.svg?v=8`): aus Badezimmer hierher verschoben, rechts (gross). `<image>` mit `x=980 y=106 width=400 height=600`, kein transform. Sichtbar bei (980,106)..(1380,706). **KEIN data-y-fuss** — Schrank bleibt immer in der Rück-Ebene, Figur überdeckt seine Pixel. Das Hindernis verhindert ohnehin, dass die Figur logisch hinter den Schrank-Boden gerät, also passt es visuell. **Hindernis** in `HINDERNISSE.buero[3]`: Viereck am tatsächlichen Boden-Footprint (interaktiv mit dem Drag-and-Drop-Editor von Manuel eingestellt — kompakter als der Pixel-Bounding-Box, deckt nur den Bereich ab, in dem die Figur physisch im Schrank wäre). **Asset modifiziert** — ursprünglich `<defs>` mit 22 Linear-Gradients und Gradient-Overlay-Pfade entfernt; zusätzlich manuelle Bearbeitungen durch Manuel inkl. Spiegelung im Asset selbst.
+- **cupboard_1** (Switch-Paar): zwei `<image>`s deckungsgleich bei `x=980 y=106 width=400 height=600`, sichtbar bei (980,106)..(1380,706). `cupboard_1_1` (geschlossen, Initialzustand, `assets/cupboard_1_1.svg?v=1`) und `cupboard_1_2` (offen nach Schlüssel-Drop, `assets/cupboard_1_2.svg?v=1`) togglen via CSS-Klasse `sanitar-aus` (siehe `aktualisiereCupboard1()` in script.js). Der Zettel auf dem Schrankboden ist ein separates Inline-Element `cupboard_1_zettel_visual` ÜBER cupboard_1_2 (beide cupboard_1_2.svg-Assets enthalten KEINEN Zettel — der wird einzeln getogglet, damit er beim Aufnehmen verschwinden kann). **KEIN data-y-fuss** — Schrank bleibt immer in der Rück-Ebene, Figur überdeckt seine Pixel. Das Hindernis verhindert ohnehin, dass die Figur logisch hinter den Schrank-Boden gerät, also passt es visuell. **Hindernis** in `HINDERNISSE.buero[3]`: Viereck am tatsächlichen Boden-Footprint (interaktiv mit dem Drag-and-Drop-Editor von Manuel eingestellt — kompakter als der Pixel-Bounding-Box, deckt nur den Bereich ab, in dem die Figur physisch im Schrank wäre). **cupboard_1_1 modifiziert** — ursprünglich `<defs>` mit 22 Linear-Gradients und Gradient-Overlay-Pfade entfernt; zusätzlich manuelle Bearbeitungen durch Manuel inkl. Spiegelung im Asset selbst. **cupboard_1_2** vom User direkt gezeichnet (Schrank mit offener linker Tür + Tablar-Andeutung).
 - **lamp_1** (`assets/lamp_1.svg`, Pixar-Stil Schreibtischlampe mit Schwenkarm + goldener Birne + warmem Schein): inline `<svg data-y-fuss="868" x="60" y="700" width="140" height="168" preserveAspectRatio="none" filter="url(#grell-mild)">`. Vorne-links auf dem Boden. (User vergrösserte vom ursprünglichen 120×145 auf 140×168 — data-y-fuss entsprechend nachgezogen auf bbox-bottom 868.) **Alle IDs mit `l1_` prefixed** (9 Gradients + Camada_1 + paths) gegen Konflikte. Original-Farben modifiziert:
   - `l1_Gradient_2` (Lampenhals/Birne): von Grün (`#BFEF00`→`#445500`) zu **Gold** (`#FFD24A`→`#604010`).
   - `l1_Gradient_3` (Schein/Halo, opacity 0.716): von Zitronen-Gelb (`#EBF960`→`#E0EE7C` transparent) zu warmem **Amber-Gold** (`#FFCC44`→`#F0A040` transparent).
@@ -377,6 +377,38 @@ hindernisDebug(true|false)              // Hindernisse als farbige Overlays + Ec
 dumpHindernisse() / dumpHindernisse("haupt")  // Aktuelles HINDERNISSE.<raum>-Array als Code-Snippet
 ```
 
+## Aufgaben-Konventionen
+
+**π = 3.14** im ganzen Spiel. Konstante `PI_KONSTANTE = 3.14` in script.js. Aufgaben-Lösungen werden mit dieser Konstante berechnet (Sonderfall: π-Annäherungs-Aufgabe in Chain 1, dort ist der Vergleich zu echtem π das Thema).
+
+Aufgaben mit π im Text setzen `pi_hinweis: true` → blendet automatisch eine Hinweiszeile **„Rechne mit π = 3.14."** im Overlay ein. Optional `tipp: "<text>"` für sonstige Hinweise (z.B. „Du darfst deinen Taschenrechner verwenden.").
+
+**Multiple-Choice** wird über `typ: "multiple_choice"` aktiviert mit `optionen: [{ katex|label, korrekt? }, …]`. Genau eine Option hat `korrekt: true`. Falsche Antworten färben den Button rot + sperren ihn, korrekte Antwort sperrt alle + triggert Belohnung. Falsche Versuche bleiben offen → User kann nochmal probieren.
+
+`bei_richtig` unterstützt: `schluessel` (Schloss-ID), `inventar` (Object → spielstand.inventar gemerged), `gegenstand` (ID aus GEGENSTAENDE → ins Inventar), `belohnung_text` (string), `callback: (s) => ...` (für freie Logik wie Chain-State-Updates oder Verbrauch).
+
+## Chains (Handlungsstränge)
+
+Mehrere lineare Chains laufen parallel; gelöste Aufgaben dürfen voneinander abhängen (Cross-Chain via `spielstand.inventar`). Konvention: pro Chain ein Step-Counter `spielstand.zustaende.chain_<N>_step` (0 = nichts, dann hochzählen). OBJEKT-Einträge prüfen via `aktiv: (s) => s.zustaende.chain_<N>_step >= …` ob sie aktuell sichtbar/klickbar sind. `OBJEKTE`-Einträge mit definiertem `aktiv` werden im `objektIstAktiv()`-Test ausgeblendet, wenn die Funktion `false` liefert (Klick fällt durch).
+
+### Chain 1 — cake_1 → Schlüssel → cupboard_1 → Zettel → Lampe → Code
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 0→1 | Klick `cake_1` (Hauptraum) → MC-Aufgabe `chain_1_kuchen` (U + A bei d=20 cm, π=3.14 → U=62,8, A=314) | `gegenstaende += "schluessel_buero"` |
+| 1→2 | Schlüssel auf cupboard_1 (linke Hälfte, x=980..1180) gezogen | Schrank-Switch öffnet (`cupboard_1_offen=true`), Schlüssel verbraucht |
+| 2→3 | Klick auf Zettel im offenen Schrank → Overlay mit Button „Mitnehmen" | `gegenstaende += "zettel"`, Zettel verschwindet visuell aus dem Schrank |
+| 3→4 | Zettel auf Lichtkegel der **handgemalten Tischlampe auf table_2** (x=330..445, y=430..515) gezogen | Öffnet MC-Aufgabe `chain_1_pi` |
+| 4→5 | π-Aufgabe gelöst (richtig: 355/113) | `inventar.keller_code = 355113`, `gegenstaende += "code_geheimtuer"` (Tag-Icon mit "355113"), Zettel verbraucht |
+
+**Vorbedingungen:** cake_1 ist KOMPLETT inaktiv, solange `formelbuch_gefunden=false` — `aktiv: (s) => s.zustaende.formelbuch_gefunden`. Klick fällt einfach durch zur Boden-Logik, ohne Hinweis-Overlay. Die Tischlampe in der Drop-Mechanik ist die handgemalte Schreibtischlampe AUF table_2 (Lichtkegel-Pfad in [index.html](index.html) bei `<g class="tischlampe">`), nicht die Pixar-Stehlampe `lamp_1` vorne-links.
+
+**Auto-Close:** Erfolgs-Overlays (`gewaehrenBelohnung` nach gelöster Aufgabe, "Schlüssel passt", Zettel-Aufnahme) schliessen sich automatisch nach 3 s via `automatischSchliessen(3000)`. Manuell früher schliessbar mit ×, Esc oder Klick auf den dunklen Hintergrund — der Timer wird in `schliesseOverlay()` und bei jedem neuen `zeige…`-Aufruf zurückgesetzt, damit ein alter Timer nie ein frisches Overlay mitschliesst.
+
+Der `keller_code` (Zahl) wird später für die Geheimtür-Code-Prüfung gebraucht; das `code_geheimtuer`-Item dient als sichtbarer Inventar-Eintrag (Tag mit „355113"). Aktuell ist die Geheimtür sichtbar/begehbar — Code-Prüfung kommt mit der Aktivierungs-Chain.
+
+cupboard_1-Switch in [index.html](index.html): `cupboard_1_1` (geschlossen, `<image>` href `cupboard_1_1.svg`) und `cupboard_1_2` (offen, `<image>` href `cupboard_1_2.svg`) togglen via `aktualisiereCupboard1()` und CSS-Klasse `sanitar-aus` (analog zum Sanitärobjekt-Switch). Der Zettel ist ein separates Inline-SVG-Element `cupboard_1_zettel_visual` über cupboard_1_2 — wird unabhängig getogglet, sobald er im Inventar liegt.
+
 ## Aufgaben + Overlay
 
 ```js
@@ -420,9 +452,10 @@ Objekte in `OBJEKTE[raumId]` bekommen optional:
 Türen können auch `akzeptiert` haben (z.B. Schlüssel auf Schloss).
 
 **Drag & Drop** ist Pointer-basiert (kein HTML5-DnD), damit Touch und Canvas-Drop funktionieren:
-- `pointerdown` auf Inventar-Slot → `starteDrag()` mit `setPointerCapture`
+- `pointerdown` auf Inventar-Slot → `starteDrag()` versucht `setPointerCapture`, hängt aber pointermove/pointerup/pointercancel **am `document`** (nicht am Slot — siehe Stolperstein "Drag-Stuck-Bug")
 - `#drag-preview` (position: fixed) folgt der Maus
 - `pointerup` → `versucheDrop(clientX, clientY, id)` prüft, ob ein Objekt oder eine Tür unter der Maus `akzeptiert[id]` hat → Figur läuft hin → Callback
+- **Recovery:** `dragAbbrechen()` (auch in der Konsole) räumt einen hängenden Drag-Zustand auf — wird aufgerufen via Esc-Taste, beim Raumwechsel (`wechsleRaum`) und beim Start eines neuen Drags. Idempotent.
 
 ## Laufen + Raumwechsel-Fade
 
@@ -475,6 +508,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 ## Stolpersteine
 
 - **Cache-Busting:** bei Änderungen an `script.js`, `style.css` oder einem `<image href>`-Asset das `?v=N` hochzählen, sonst hängt der Browser im alten Cache.
+- **Drag-Stuck-Bug (Inventar):** Wenn pointermove/up/cancel am Slot-Element hängen, kann der Drag-Zustand „einfrieren" — das Drag-Preview-Icon klebt am Cursor und bleibt sogar über Raumwechsel hinweg sichtbar. Ursache: `setPointerCapture` verliert die Bindung, wenn der Slot-DOM während des Drags neu gerendert wird (`aktualisiereInventar()`) oder der Pointer den Viewport verlässt — pointerup wird dann nirgends mehr empfangen. **Lösung:** Listener am `document` statt am Slot anhängen + zentrale `dragAbbrechen()`-Funktion, die in `wechsleRaum`, beim Esc-Drücken und beim Start eines neuen Drags aufgerufen wird. `dragAbbrechen()` ist auch in der Konsole als Notfall-Reset verfügbar.
 - **`baueGartenDeko()` darf NICHT `innerHTML = ""` machen** — sonst werden statische Garten-Deko-Elemente (Blumen) bei jedem Aufruf gelöscht. Die Funktion entfernt nur `[data-generated="strauch"]`-Elemente.
 - **Möbel-Position ändern:** `HINDERNISSE` (Kollision) UND `data-y-fuss` (Tiefensortierung) UND Transform/x/y (Rendering) müssen synchron bleiben. Hindernisse am besten interaktiv mit Drag-Editor justieren.
 - **DOM-Reihenfolge zwischen Möbeln:** Tiefensortierung via `data-y-fuss` regelt nur **vor/hinter Figur**, NICHT zwischen Möbeln in derselben Ebene. Innerhalb einer Ebene gilt DOM-Reihenfolge — späteres Element überdeckt früheres. Beispiel: desk_4 DOM-zuletzt im Badezimmer, überdeckt damit Octopus + Toiletten. Ähnlich: Tisch1 + Lavalampe DOM-vor `<g id="plants">`.
@@ -496,7 +530,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss` (Pixel-Y des Möbel-Fußes), Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor (rx/ry/rot-Handles für Ellipsen) — alles drin. Möbel in Hauptraum, Büro, Badezimmer, Garten, Keller platziert; Hindernisse für alle fünf Räume durchgängig per Drag-Editor gesetzt. Aufgaben + Inhalte stehen noch aus (`AUFGABEN` und `GEGENSTAENDE` sind aktuell leer).
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Chain 1** komplett spielbar (Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item ins Inventar). Auto-Close für Erfolgs-Overlays + robuster Drag-Cancel (Esc / Raumwechsel / `dragAbbrechen()`).
 
 **Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert (desk_3, Pilzlampe, plant_setzling, muffin_2/3, lamp_1, desk_4, chest_1, muffin_4, alle Garten-flowers).
 

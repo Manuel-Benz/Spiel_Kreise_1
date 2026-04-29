@@ -308,6 +308,81 @@ h1 {
     cursor: default;
 }
 
+#overlay-inhalt .aufgabe-pi-hinweis {
+    margin: 0.5rem 0 0 0;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.95rem;
+    color: #555;
+    background: #f0f4fa;
+    border-left: 3px solid #6b8aaf;
+    border-radius: 0.2rem;
+}
+
+#overlay-inhalt .aufgabe-tipp {
+    margin: 0.5rem 0 0 0;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.95rem;
+    color: #555;
+    font-style: italic;
+}
+
+#overlay-inhalt .aufgabe-mc-liste {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+#overlay-inhalt .aufgabe-mc-option {
+    padding: 0.7rem 1rem;
+    font-size: 1.05rem;
+    color: #111;
+    background: #f5f7fa;
+    border: 2px solid #c5cad3;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    text-align: center;
+}
+
+#overlay-inhalt .aufgabe-mc-option:hover:not(:disabled) {
+    background: #e8eef5;
+    border-color: #6b8aaf;
+}
+
+#overlay-inhalt .aufgabe-mc-option.richtig {
+    background: #d7f5df;
+    border-color: #5fa776;
+    color: #185c2a;
+}
+
+#overlay-inhalt .aufgabe-mc-option.falsch {
+    background: #fde1e1;
+    border-color: #c47878;
+    color: #7a1e1e;
+}
+
+#overlay-inhalt .aufgabe-mc-option:disabled {
+    cursor: default;
+    opacity: 0.85;
+}
+
+#overlay-inhalt .overlay-button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.4rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #fff;
+    background: #2563eb;
+    border: none;
+    border-radius: 0.3rem;
+    cursor: pointer;
+}
+
+#overlay-inhalt .overlay-button:hover {
+    background: #1d4ed8;
+}
+
 #overlay-inhalt .feedback {
     margin: 0.9rem 0 0 0;
     padding: 0.55rem 0.8rem;
@@ -350,6 +425,69 @@ h1 {
 #overlay-close:hover {
     background: #eee;
     color: #000;
+}
+
+/* Formelbuch (im Overlay): HTML-Tabelle mit KaTeX-Formeln pro Zelle. KaTeX kann die LaTeX-
+   tabular-Syntax mit m{4cm} nicht rendern, deshalb übernimmt HTML das Layout und KaTeX nur
+   die Formeln/Inline-Math in den Zellen. */
+#overlay-inhalt .formelbuch-titel {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    color: #1a3a5c;
+    text-align: center;
+}
+
+#overlay-inhalt table.formelbuch {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1rem;
+}
+
+#overlay-inhalt table.formelbuch th,
+#overlay-inhalt table.formelbuch td {
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+#overlay-inhalt table.formelbuch th {
+    font-weight: 600;
+    color: #555;
+    border-bottom: 2px solid #bbb;
+    background: #fafafa;
+}
+
+#overlay-inhalt table.formelbuch tbody tr:last-child td {
+    border-bottom: none;
+}
+
+#overlay-inhalt .formelbuch-name {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#overlay-inhalt .formelbuch-de {
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: #777;
+}
+
+#overlay-inhalt .formelbuch-formel {
+    text-align: center;
+    min-width: 12rem;
+}
+
+#overlay-inhalt .formelbuch-kommentar {
+    color: #444;
+    max-width: 18rem;
+    line-height: 1.4;
+}
+
+/* Overlay-Box etwas weiter, damit die Formelbuch-Tabelle bequem reinpasst. */
+#overlay-inhalt:has(.formelbuch) {
+    min-width: 32rem;
 }
 
 /* Octopus im Badezimmer (Inline-SVG aus assets/octopus_1.svg).

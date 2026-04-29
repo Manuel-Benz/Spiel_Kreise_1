@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=23">
+    <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -690,7 +690,7 @@
                          • Nur Fills, keine Strokes im Original — keine Outline-Korrektur nötig.
                          • IDs entfernt (path108089 ×2, path108087 ×2 — Duplikate).
                          • data-y-fuss="735". -->
-                    <svg data-y-fuss="690" x="700" y="590" width="200" height="100" viewBox="0 0 192.065 123.042" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;transform:rotate(-2deg);transform-origin:50% 100%" filter="url(#grell-mild)">
+                    <svg data-y-fuss="690" x="680" y="590" width="200" height="100" viewBox="0 0 192.065 123.042" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;transform:rotate(-2deg);transform-origin:50% 100%" filter="url(#grell-mild)">
                         <g transform="translate(192.065 0) scale(-1 1)">
                             <path d="M186.969,11.638 L185.458,87.71 L177.335,90.567 L175.246,88.292 L171.858,13.781" fill="#D08520"/>
                             <path d="M162.682,11.638 L169.029,87.71 L177.334,90.567 L173.833,14.138" fill="#A66113"/>
@@ -709,7 +709,7 @@
                     <!-- Pilzlampe (3 Pfade aus desk_2 kopiert: grauer Sitz, pinker Hut-Knopf, pinker Hut-Körper).
                          Sitzt auf desk_3 (x=700 y=580). data-y-fuss="735" synchron mit desk_3 — Stolperstein
                          "gestapelte Möbel". Eigene viewBox "30 -5 65 65" zeigt nur den Lampen-Ausschnitt. -->
-                    <svg data-y-fuss="690" x="730" y="553" width="45" height="60" viewBox="30 -5 65 65" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+                    <svg data-y-fuss="690" x="710" y="553" width="45" height="60" viewBox="30 -5 65 65" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
                         <path d="M80.785,46.883 C80.785,55.819 72.646,63.063 62.608,63.063 C52.569,63.063 44.43,55.819 44.43,46.883 C44.43,37.947 52.569,30.703 62.608,30.703 C72.646,30.703 80.785,37.947 80.785,46.883 z" fill="#53536C"/>
                         <path d="M79.532,3.471 C79.532,5.648 75.564,7.413 70.668,7.413 C65.773,7.413 61.805,5.648 61.805,3.471 C61.805,1.294 65.773,0.5 70.668,0.5 C75.564,0.5 79.532,1.294 79.532,3.471 z" fill="#C83771"/>
                         <path d="M34,27.086 C51.87,36.446 77.098,35.292 91.579,26.763 L70.876,-2.326 C67.921,-1.215 59.718,-0.138 53.085,-2.649 z" fill="#D35F8D"/>
@@ -815,7 +815,7 @@
                     <!-- plant_setzling — auf desk_3 (Topfbasis bei screen 800,605 = Top-Mitte des Tisches).
                          data-y-fuss=735 synchron mit desk_3 (Stolperstein "gestapelte Möbel").
                          σ=0.07 — kleiner Topf passend zur Tischgröße (200px breit). -->
-                    <g data-y-fuss="690" transform="translate(815 615) scale(0.07) translate(-256 -512)">
+                    <g data-y-fuss="690" transform="translate(795 615) scale(0.07) translate(-256 -512)">
                         <path style="fill:#FF9478;" d="M78.316,242.244l53.365,251.394C134.403,506.459,147.22,512,159.942,512h191.978c13.211,0,25.539-5.542,28.261-18.363l53.365-251.394H78.316z"/>
                         <path style="fill:#FF6243;" d="M340.177,484.098h-82.985c-4.332,0-7.845-3.512-7.845-7.845s3.512-7.845,7.845-7.845h82.985c4.333,0,7.845,3.512,7.845,7.845S344.51,484.098,340.177,484.098z"/>
                         <path style="fill:#6DC82A;" d="M203.79,26.267c-43.096-23.224-85.232-26.12-87.003-26.233c-5.113-0.32-10.106,1.641-13.63,5.362c-3.523,3.72-5.213,8.812-4.613,13.901c4.463,37.839,15.721,70.701,33.461,97.674c14.684,22.327,33.77,40.627,56.726,54.392c44.228,26.519,87.157,26.825,88.964,26.825c2.58,0,8.625,0,13.773-5.152c3.375-3.377,5.203-8.001,5.046-12.773C293.661,92.742,244.516,48.211,203.79,26.267z"/>
@@ -2567,16 +2567,26 @@
            rdf:resource="http://creativecommons.org/ns#DerivativeWorks" /></cc:License></rdf:RDF></metadata>
 </svg>
 
-                    <!-- cupboard_1: grosser Schrank (400×600 px), aus dem Badezimmer hierher verschoben.
-                         Rechts, sichtbar bei (980, 106)..(1380, 706). Spiegelung ist jetzt im SVG-Asset
-                         selbst — kein transform mehr nötig.
-                         ?v=7 = Asset-Variante mit entfernten Gradients + manuelle User-Änderungen
-                         (inkl. Spiegelung).
-                         KEIN data-fv: Schrank bleibt immer in der Rück-Ebene → Figur überdeckt
-                         Schrank-Pixel. Das Viereck-Hindernis im script.js verhindert ohnehin, dass
-                         die Figur logisch hinter den Schrank-Boden gerät, also passt es visuell. -->
-                    <image x="980" y="106" width="400" height="600"
-                           href="assets/cupboard_1.svg?v=8" preserveAspectRatio="xMidYMid meet" filter="url(#grell-mild)"/>
+                    <!-- cupboard_1 — Switch-Paar nach Sanitär-Konvention (#X_1 = Initialzustand,
+                         #X_2 = nach Handlung). Beide <image>s liegen exakt deckungsgleich; togglt via
+                         CSS-Klasse `sanitar-aus` (siehe aktualisiereCupboard1() in script.js).
+                         KEIN data-y-fuss: Schrank bleibt immer in der Rück-Ebene; Hindernis im script.js
+                         verhindert, dass die Figur hinter den Schrank-Boden gerät. -->
+                    <image id="cupboard_1_1" x="980" y="106" width="400" height="600"
+                           href="assets/cupboard_1_1.svg?v=1" preserveAspectRatio="xMidYMid meet" filter="url(#grell-mild)"/>
+                    <image id="cupboard_1_2" class="sanitar-aus" x="980" y="106" width="400" height="600"
+                           href="assets/cupboard_1_2.svg?v=1" preserveAspectRatio="xMidYMid meet" filter="url(#grell-mild)"/>
+                    <!-- Zettel als separates Inline-SVG-Element ÜBER dem cupboard_1_2-Image, damit er
+                         beim Aufnehmen ins Inventar einzeln verschwinden kann (cupboard_1_2.svg enthält
+                         keinen Zettel). Initial via `sanitar-aus` versteckt; aktualisiereCupboard1()
+                         zeigt nur, wenn (cupboard_1_offen && !gegenstaende.has("zettel")). Position
+                         visuell ggf. nachjustieren, sobald die neue cupboard_1_2.svg gerendert ist. -->
+                    <g id="cupboard_1_zettel_visual" class="sanitar-aus">
+                        <polygon points="1080,600 1148,600 1142,582 1086,582" fill="#f7ecc8" stroke="#7d6a3a" stroke-width="0.6"/>
+                        <line x1="1092" y1="588" x2="1136" y2="588" stroke="#998257" stroke-width="0.6"/>
+                        <line x1="1090" y1="592" x2="1138" y2="592" stroke="#998257" stroke-width="0.6"/>
+                        <line x1="1088" y1="596" x2="1140" y2="596" stroke="#998257" stroke-width="0.6"/>
+                    </g>
                                     <!-- lamp_1 (assets/lamp_1.svg, klassische Pixar-Stil-Lampe) — vorne-links, IDs mit l1_ prefixed gegen Konflikte, alle Gradienten erhalten -->
                     <svg data-y-fuss="868" x="60" y="700" width="140" height="168" viewBox="0, 0, 349.3, 422.74" preserveAspectRatio="none" filter="url(#grell-mild)" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
@@ -3067,6 +3077,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=165"></script>
+    <script src="script.js?v=178"></script>
 </body>
 </html>

@@ -184,6 +184,10 @@ const spielstand = {
         toilette_1: 1,  // toilet_1_1 (Ring unten, x=1090) / toilet_1_2 (Ring oben)
         toilette_2: 1,  // toilet_2_1 (Ring unten, x=600) / toilet_2_2 (Ring oben)
         octopus_da: true,  // Tintenfisch sitzt auf toilet_1 — solange true, blockiert er die Spülung dort.
+        formelbuch_gefunden: false,  // wird true, sobald die 5 Bücher in regal-4 (2. von unten) im Hauptraum angeklickt wurden.
+        // Chain 1 — Hauptraum-Torte → Schlüssel → cupboard_1 → Zettel → Lampe → Code (siehe AUFGABEN.chain_1_*).
+        chain_1_step: 0,           // 0 = nichts, 1 = Kuchen gelöst, 2 = Schrank offen, 3 = Zettel im Inventar, 4 = unter Lampe, 5 = π-Aufgabe gelöst
+        cupboard_1_offen: false,   // toggelt Sichtbarkeit zwischen #cupboard_1_1 (geschlossen) und #cupboard_1_2 (offen) — beide als <image>, Konvention wie Sanitärobjekte.
     },
 };
 
@@ -253,6 +257,31 @@ window.setzeToilette2 = setzeToilette2;
 window.wechsleBadewanne = wechsleBadewanne;
 window.wechsleToilette1 = wechsleToilette1;
 window.wechsleToilette2 = wechsleToilette2;
+
+// ---------- cupboard_1-Switch (Büro): geschlossen → offen ----------
+// Switch-Paar nach Sanitär-Konvention: cupboard_1_1 (geschlossen, Initialzustand) und
+// cupboard_1_2 (offen). Zettel ist ein separates Inline-Element ÜBER cupboard_1_2.
+// Selektor matcht Original UND Front-Layer-Klone (siehe Stolperstein "Sanitär-Klone-IDs").
+function aktualisiereCupboard1() {
+    const offen = !!spielstand.zustaende.cupboard_1_offen;
+    const setSichtbar = (id, sichtbar) => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
+    };
+    setSichtbar("cupboard_1_1", !offen);
+    setSichtbar("cupboard_1_2", offen);
+    // Zettel im Schrank verschwinden lassen, sobald er im Inventar liegt.
+    setSichtbar("cupboard_1_zettel_visual", offen && !spielstand.gegenstaende.has("zettel"));
+}
+
+function oeffneCupboard1() {
+    spielstand.zustaende.cupboard_1_offen = true;
+    spielstand.zustaende.chain_1_step = Math.max(spielstand.zustaende.chain_1_step, 2);
+    aktualisiereCupboard1();
+    draw();
+}
+window.oeffneCupboard1 = oeffneCupboard1;
 
 // ---------- Sound (Schrittsounds via Web Audio) ----------
 
@@ -364,13 +393,66 @@ window.soundTest = async () => {
 };
 
 // ---------- Aufgaben (Phase 3) ----------
-// Jede Aufgabe: { frage, formel, fragetext, loesung, toleranz, bei_richtig? }
+// Jede Aufgabe: { typ?, frage, formel?, fragetext?, pi_hinweis?, loesung|optionen, toleranz?, bei_richtig? }
+// - typ: "zahl" (default) oder "multiple_choice"
 // - frage/fragetext dürfen Strings oder Funktionen (spielstand) => string sein,
 //   damit Cross-Room-Lookups möglich sind (z.B. "Setze r aus dem Büro ein.")
 // - formel ist eine KaTeX-Formel (String, ohne $-Wrapper)
-// - loesung ist eine Zahl; toleranz = maximaler erlaubter Fehler
-// - bei_richtig: { schluessel?, inventar?, belohnung_text? }
-const AUFGABEN = {};
+// - pi_hinweis: true → blendet "Rechne mit π = 3.14." als Hinweiszeile ein
+// - typ "zahl":            loesung ist eine Zahl; toleranz = maximaler erlaubter Fehler
+// - typ "multiple_choice": optionen = [ { katex|label, korrekt? }, ... ] → Buttons als Auswahl
+// - bei_richtig: { schluessel?, inventar?, gegenstand?, belohnung_text? }
+// Konvention im ganzen Spiel: π = PI_KONSTANTE (3.14). Aufgaben mit pi_hinweis:true
+// blenden "Rechne mit π = 3.14." als Hinweis ein.
+const PI_KONSTANTE = 3.14;
+const AUFGABEN = {
+    // Chain 1, Aufgabe 1: cake_1 anklicken → Multiple-Choice mit gepaarten U+A-Werten.
+    // π = 3.14, d = 20 → r = 10 → U = 2·3.14·10 = 62.8 cm, A = 3.14·100 = 314 cm².
+    // Distraktoren entsprechen typischen Schülerfehlern: 2-Vergessen, d²-Statt-r², d-statt-r.
+    chain_1_kuchen: {
+        typ: "multiple_choice",
+        frage: "Wie gross sind der Umfang und die Fläche dieses Kuchens, wenn sein Durchmesser 20 cm beträgt?",
+        pi_hinweis: true,
+        optionen: [
+            { katex: "U = 31{,}4\\text{ cm}, \\quad A = 314\\text{ cm}^2" },
+            { katex: "U = 62{,}8\\text{ cm}, \\quad A = 314\\text{ cm}^2", korrekt: true },
+            { katex: "U = 62{,}8\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
+            { katex: "U = 125{,}6\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
+        ],
+        bei_richtig: {
+            gegenstand: "schluessel_buero",
+            belohnung_text: "Richtig! Du hast einen Schlüssel gefunden — er liegt jetzt in deinem Inventar.",
+            callback: (s) => { s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 1); },
+        },
+    },
+    // Chain 1, Aufgabe 2: Zettel auf den Lampenschein gezogen → π-Approximationen.
+    // Werte: 22/7 ≈ 3,142857; √10 ≈ 3,162278; 355/113 ≈ 3,141593; √2+√3 ≈ 3,146264.
+    // π ≈ 3,14159265 — also ist 355/113 die beste Annäherung.
+    chain_1_pi: {
+        typ: "multiple_choice",
+        frage: "Welche der folgenden Zahlen kommt der Zahl π am nächsten?",
+        fragetext: "π ≈ 3,14159265…",
+        tipp: "Du darfst deinen Taschenrechner verwenden.",
+        optionen: [
+            { katex: "\\dfrac{22}{7}" },
+            { katex: "\\sqrt{10}" },
+            { katex: "\\dfrac{355}{113}", korrekt: true },
+            { katex: "\\sqrt{2} + \\sqrt{3}" },
+        ],
+        bei_richtig: {
+            // inventar.keller_code (Zahl) bleibt für die spätere Tür-Code-Prüfung;
+            // gegenstand "code_geheimtuer" ist das sichtbare Tag-Icon im Inventar.
+            inventar: { keller_code: 355113 },
+            gegenstand: "code_geheimtuer",
+            belohnung_text: "Richtig! Im Lampenschein wird die Schrift lesbar — auf dem Zettel steht der Code für eine Geheimtür: 355113.",
+            callback: (s) => {
+                s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 5);
+                s.gegenstaende.delete("zettel");
+                aktualisiereInventar();
+            },
+        },
+    },
+};
 
 // Klickbare Objekte pro Raum. Polygon in Stage-Koordinaten (1600×900).
 // Mögliche Felder:
@@ -384,8 +466,85 @@ const AUFGABEN = {};
 //                wenn es nicht schon durch SVG-Deko oder Möbel repräsentiert ist).
 //   `aufgenommen` boolean (intern) — wird true gesetzt, nachdem `aufnehmen` ausgelöst hat.
 const OBJEKTE = {
-    haupt: [],
-    buero: [],
+    haupt: [
+        // 5 Bücher rechts in regal-4 (= 2. Tablar von unten) im Hauptregal — Klick öffnet das
+        // Formelbuch-Overlay. Position berechnet aus bookshelf-Transform translate(650 310) scale(0.5)
+        // + regal-4 transform translate(0 330): die 5 stehenden Bücher liegen lokal x=448..580,
+        // y=8..96 → screen x=874..940, y=479..523.
+        // laufziel knapp vor der hinteren Wand (analog zu Tür A/B), zentriert unter den Büchern.
+        {
+            id: "regal_buecher",
+            polygon: [[874, 479], [940, 479], [940, 523], [874, 523]],
+            laufziel: { fu: 0.60, fv: 0.92 },
+            aktion: () => zeigeFormelbuch(),
+        },
+        // Chain 1, Schritt 1: cake_1 (3-stöckige Torte auf Tisch 1, vorne-links).
+        // Polygon deckt den sichtbaren Torten-Footprint ab (SVG x=286..361, y=540..580).
+        // Laufziel: vor Tisch 1 auf dem Boden — fv=0.667 (vor dem Tisch-Footprint fv=0.90+).
+        // Komplett INAKTIV, solange das Formelbuch nicht gefunden wurde — Klick fällt durch zur Boden-
+        // Logik, KEIN Hinweis-Overlay (laut Spec).
+        {
+            id: "cake_1_klick",
+            polygon: [[286, 540], [361, 540], [361, 580], [286, 580]],
+            laufziel: { fu: 0.10, fv: 0.667 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden,
+            aufgabe: "chain_1_kuchen",
+        },
+    ],
+    buero: [
+        // Chain 1, Schritt 2: cupboard_1 ist Drop-Target für den schluessel_buero.
+        // Linke Tür-Hälfte des Schranks (cupboard_1: <image> x=980..1380, y=106..706).
+        // Polygon = LINKE Hälfte (x=980..1180), wo die Aufgabe-Tür entriegelt wird.
+        // Nimmt den Schlüssel nur an, solange der Schrank noch zu ist.
+        {
+            id: "cupboard_1_drop",
+            polygon: [[980, 106], [1180, 106], [1180, 706], [980, 706]],
+            laufziel: { fu: 0.72, fv: 0.55 },
+            aktiv: (s) => !s.zustaende.cupboard_1_offen,
+            akzeptiert: {
+                schluessel_buero: (s) => {
+                    verbrauche("schluessel_buero");
+                    oeffneCupboard1();
+                    zeigeOverlayText("Klick — der Schlüssel passt. Die linke Schranktür öffnet sich quietschend.");
+                    automatischSchliessen(3000);
+                },
+            },
+        },
+        // Chain 1, Schritt 3: Zettel auf dem Cavity-Boden des offenen Schranks.
+        // Polygon deckt den Bereich ab, wo der Zettel im offenen Schrank gerendert wird.
+        // Nur aktiv, wenn der Schrank offen ist UND der Zettel noch nicht im Inventar liegt.
+        {
+            id: "cupboard_1_zettel",
+            polygon: [[1070, 573], [1155, 573], [1155, 613], [1070, 613]],
+            laufziel: { fu: 0.72, fv: 0.55 },
+            aktiv: (s) => s.zustaende.cupboard_1_offen && !s.gegenstaende.has("zettel"),
+            aktion: () => {
+                spielstand.gegenstaende.add("zettel");
+                spielstand.zustaende.chain_1_step = Math.max(spielstand.zustaende.chain_1_step, 3);
+                aktualisiereInventar();
+                aktualisiereCupboard1();
+                draw();
+                zeigeOverlayText("Du nimmst einen zerknitterten Zettel in die Hand, er ist fast nicht lesbar.");
+                automatischSchliessen(3000);
+            },
+        },
+        // Chain 1, Schritt 4: Lichtkegel der handgemalten Tischlampe auf Tisch 2 — Drop-Target
+        // für den Zettel. Der Lichtkegel-Pfad ist "M 334 431 Q 363 433 383 413 L 439 505 L 339 505 Z"
+        // mit dem hellen Lichtfleck-Oval bei (389, 505). Polygon deckt das beleuchtete Areal ab.
+        // (Nicht zu verwechseln mit der Pixar-Stehlampe lamp_1 vorne-links.)
+        {
+            id: "tischlampe_lichtkegel",
+            polygon: [[330, 430], [445, 430], [445, 515], [330, 515]],
+            laufziel: { fu: 0.30, fv: 0.55 },
+            aktiv: (s) => s.zustaende.chain_1_step < 5,
+            akzeptiert: {
+                zettel: () => {
+                    spielstand.zustaende.chain_1_step = Math.max(spielstand.zustaende.chain_1_step, 4);
+                    zeigeAufgabe("chain_1_pi");
+                },
+            },
+        },
+    ],
     badezimmer: [
         // Toilette 1 (rechts, x=1040..1240): Klick toggelt Spülung sofort (kein laufziel —
         // Spülung ist eine Knopf-Aktion, Figur muss nicht erst hinlaufen). ABER solange der
@@ -416,7 +575,9 @@ const OBJEKTE = {
 
 function objektIstAktiv(obj) {
     if (obj.aufgenommen) return false;
-    // Aktiv, wenn eines der Interaktions-Felder gesetzt ist.
+    // Optionales State-Predicate: Objekt nur aktiv, wenn aktiv(spielstand) true ist.
+    if (typeof obj.aktiv === "function" && !obj.aktiv(spielstand)) return false;
+    // Sonst aktiv, wenn eines der Interaktions-Felder gesetzt ist.
     return !!(AUFGABEN[obj.aufgabe] || obj.aufnehmen || obj.akzeptiert || obj.aktion);
 }
 
@@ -425,6 +586,7 @@ function zeigeAufgabe(id) {
     if (!a) return;
     const geloest = spielstand.geloesteAufgaben.has(id);
 
+    clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
 
     const frageText = typeof a.frage === "function" ? a.frage(spielstand) : a.frage;
@@ -452,43 +614,111 @@ function zeigeAufgabe(id) {
         overlayInhaltEl.appendChild(detailEl);
     }
 
+    if (a.pi_hinweis) {
+        const pi = document.createElement("p");
+        pi.className = "aufgabe-pi-hinweis";
+        pi.textContent = "Rechne mit π = 3.14.";
+        overlayInhaltEl.appendChild(pi);
+    }
+
+    if (a.tipp) {
+        const tipp = document.createElement("p");
+        tipp.className = "aufgabe-tipp";
+        tipp.textContent = `Tipp: ${a.tipp}`;
+        overlayInhaltEl.appendChild(tipp);
+    }
+
     if (geloest) {
         const info = document.createElement("p");
         info.className = "feedback richtig";
         info.textContent = "Diese Aufgabe hast du schon gelöst.";
         overlayInhaltEl.appendChild(info);
+        overlayEl.hidden = false;
+        return;
+    }
+
+    if (a.typ === "multiple_choice") {
+        baueMultipleChoice(id, a);
     } else {
-        const form = document.createElement("form");
-        form.className = "aufgabe-form";
-        form.autocomplete = "off";
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "aufgabe-input";
-        input.inputMode = "decimal";
-        input.placeholder = "Deine Antwort";
-        input.required = true;
-
-        const btn = document.createElement("button");
-        btn.type = "submit";
-        btn.className = "aufgabe-pruefen";
-        btn.textContent = "Prüfen";
-
-        const feedback = document.createElement("p");
-        feedback.className = "feedback";
-
-        form.append(input, btn);
-        overlayInhaltEl.append(form, feedback);
-
-        form.addEventListener("submit", (e) => {
-            e.preventDefault();
-            pruefeAntwort(id, input.value, feedback, input);
-        });
-
-        setTimeout(() => input.focus(), 0);
+        baueZahlenAufgabe(id);
     }
 
     overlayEl.hidden = false;
+}
+
+function baueZahlenAufgabe(id) {
+    const form = document.createElement("form");
+    form.className = "aufgabe-form";
+    form.autocomplete = "off";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "aufgabe-input";
+    input.inputMode = "decimal";
+    input.placeholder = "Deine Antwort";
+    input.required = true;
+
+    const btn = document.createElement("button");
+    btn.type = "submit";
+    btn.className = "aufgabe-pruefen";
+    btn.textContent = "Prüfen";
+
+    const feedback = document.createElement("p");
+    feedback.className = "feedback";
+
+    form.append(input, btn);
+    overlayInhaltEl.append(form, feedback);
+
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        pruefeAntwort(id, input.value, feedback, input);
+    });
+
+    setTimeout(() => input.focus(), 0);
+}
+
+function baueMultipleChoice(id, a) {
+    const liste = document.createElement("div");
+    liste.className = "aufgabe-mc-liste";
+
+    const feedback = document.createElement("p");
+    feedback.className = "feedback";
+
+    a.optionen.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "aufgabe-mc-option";
+        btn.dataset.index = String(idx);
+
+        if (opt.katex && typeof katex !== "undefined") {
+            const span = document.createElement("span");
+            katex.render(opt.katex, span, { throwOnError: false, displayMode: false });
+            btn.appendChild(span);
+        } else {
+            btn.textContent = opt.label || opt.katex || "";
+        }
+
+        btn.addEventListener("click", () => pruefeMultipleChoice(id, idx, btn, liste, feedback));
+        liste.appendChild(btn);
+    });
+
+    overlayInhaltEl.append(liste, feedback);
+}
+
+function pruefeMultipleChoice(id, idx, btnGedrueckt, liste, feedbackEl) {
+    const a = AUFGABEN[id];
+    const opt = a.optionen[idx];
+    if (!opt.korrekt) {
+        btnGedrueckt.classList.add("falsch");
+        btnGedrueckt.disabled = true;
+        feedbackEl.textContent = "Das ist leider nicht richtig. Versuch's nochmal.";
+        feedbackEl.className = "feedback falsch";
+        return;
+    }
+    btnGedrueckt.classList.add("richtig");
+    // Alle Buttons sperren
+    liste.querySelectorAll("button").forEach(b => b.disabled = true);
+    gewaehrenBelohnung(id, feedbackEl);
 }
 
 function pruefeAntwort(id, eingabeStr, feedbackEl, inputEl) {
@@ -507,20 +737,31 @@ function pruefeAntwort(id, eingabeStr, feedbackEl, inputEl) {
         return;
     }
 
-    spielstand.geloesteAufgaben.add(id);
-    const b = a.bei_richtig || {};
-    if (b.schluessel) spielstand.freigeschalteteTueren.add(b.schluessel);
-    if (b.inventar) Object.assign(spielstand.inventar, b.inventar);
-
-    feedbackEl.textContent = b.belohnung_text || "Richtig!";
-    feedbackEl.className = "feedback richtig";
-
-    // Input + Prüfen-Button nach Erfolg deaktivieren
     inputEl.disabled = true;
     const btn = inputEl.parentElement.querySelector("button");
     if (btn) btn.disabled = true;
 
-    draw();  // Türen neu zeichnen (falls Schloss geöffnet wurde)
+    gewaehrenBelohnung(id, feedbackEl);
+}
+
+// Gemeinsame Belohnungs-Logik für beide Aufgaben-Typen.
+function gewaehrenBelohnung(id, feedbackEl) {
+    const a = AUFGABEN[id];
+    spielstand.geloesteAufgaben.add(id);
+    const b = a.bei_richtig || {};
+    if (b.schluessel) spielstand.freigeschalteteTueren.add(b.schluessel);
+    if (b.inventar) Object.assign(spielstand.inventar, b.inventar);
+    if (b.gegenstand) {
+        spielstand.gegenstaende.add(b.gegenstand);
+        aktualisiereInventar();
+    }
+    if (typeof b.callback === "function") b.callback(spielstand);
+
+    feedbackEl.textContent = b.belohnung_text || "Richtig!";
+    feedbackEl.className = "feedback richtig";
+
+    draw();
+    automatischSchliessen(3000);
 }
 
 // Richtung, in die die Figur beim Eintritt schaut — "in den Raum hinein",
@@ -535,6 +776,9 @@ function eintrittsRichtung(fu, fv) {
 
 function wechsleRaum(zielId) {
     if (!RAEUME[zielId]) return;
+    // Sicherheitshalber jeden noch hängenden Drag abbrechen — sonst klebt das Drag-Preview
+    // über dem neuen Raum, weil der Pointer-Up vielleicht nie sauber durchgereicht wurde.
+    if (typeof dragAbbrechen === "function") dragAbbrechen();
     const vonRaum = aktuellerRaum;
     aktuellerRaum = zielId;
     // Nur Deko des aktuellen Raums anzeigen — in beiden SVG-Ebenen (hinten + vorne).
@@ -573,7 +817,7 @@ const HINDERNISSE = {
         // (geranie auf desk_5, setzling auf desk_3 — keine Boden-Hindernisse mehr)
         // Möbel-Vierecke (interaktiv eingestellt, Manuel):
         { punkte: [[0.0001, 0.9056], [0.1627, 0.8996], [0.1648, 0.9979], [0.001, 0.9988]] },     // [3] Tisch 1
-        { punkte: [[0.3894, 0.789], [0.5122, 0.681], [0.5915, 0.7561], [0.4795, 0.8494]] },      // [4] desk_3
+        { punkte: [[0.3717, 0.789], [0.4954, 0.681], [0.574, 0.7561], [0.4612, 0.8494]] },       // [4] desk_3
         { punkte: [[0.8869, 0.6244], [1, 0.6575], [0.9994, 0.8034], [0.8634, 0.7758]] },         // [5] desk_5
         { punkte: [[0.8223, 0.9241], [0.9999, 0.9274], [0.9979, 0.9982], [0.8381, 0.9993]] },    // [6] cupboard_3
     ],
@@ -2140,6 +2384,7 @@ startButton.addEventListener("click", () => {
 requestAnimationFrame(() => {
     baueRaumDeko();
     aktualisiereSanitaer();
+    aktualisiereCupboard1();
     resizeCanvas();
     if (!loopGestartet) {
         loopGestartet = true;
@@ -2487,13 +2732,51 @@ const overlayEl = document.getElementById("overlay");
 const overlayInhaltEl = document.getElementById("overlay-inhalt");
 const overlayCloseEl = document.getElementById("overlay-close");
 
+// Auto-Close-Timer für Overlays. Bei jedem neuen Overlay-Öffnen sowie bei jedem manuellen
+// Schliessen wird der Timer gelöscht, damit ein "altes" automatisches Schliessen nicht ein
+// neues Overlay mitschliesst.
+let schliessenTimeoutId = null;
+function clearSchliessenTimer() {
+    if (schliessenTimeoutId !== null) {
+        clearTimeout(schliessenTimeoutId);
+        schliessenTimeoutId = null;
+    }
+}
+function automatischSchliessen(ms = 3000) {
+    clearSchliessenTimer();
+    schliessenTimeoutId = setTimeout(() => {
+        schliessenTimeoutId = null;
+        schliesseOverlay();
+    }, ms);
+}
+
 // Einfacher Info-Text (z.B. "Tür verschlossen.")
 function zeigeOverlayText(text) {
+    clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
     const p = document.createElement("p");
     p.className = "overlay-text";
     p.textContent = text;
     overlayInhaltEl.appendChild(p);
+    overlayEl.hidden = false;
+}
+
+// Info-Text mit zusätzlichem Action-Button. Aktuell nicht aktiv genutzt — bleibt als Utility.
+function zeigeOverlayMitButton(text, buttonLabel, callback) {
+    clearSchliessenTimer();
+    overlayInhaltEl.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "overlay-text";
+    p.textContent = text;
+    overlayInhaltEl.appendChild(p);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "overlay-button";
+    btn.textContent = buttonLabel;
+    btn.addEventListener("click", () => callback());
+    overlayInhaltEl.appendChild(btn);
+
     overlayEl.hidden = false;
 }
 
@@ -2503,6 +2786,7 @@ function zeigeOverlay(text) {
 }
 
 function schliesseOverlay() {
+    clearSchliessenTimer();
     overlayEl.hidden = true;
     overlayInhaltEl.innerHTML = "";
 }
@@ -2512,8 +2796,114 @@ overlayEl.addEventListener("click", (e) => {
     if (e.target === overlayEl) schliesseOverlay();
 });
 document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !overlayEl.hidden) schliesseOverlay();
+    if (e.key === "Escape") {
+        if (dragZustand) dragAbbrechen();
+        else if (!overlayEl.hidden) schliesseOverlay();
+    }
 });
+
+// ---------- Formelbuch ----------
+// Wird aus dem Hauptregal heraus geöffnet (Klick auf die 5 Bücher rechts in regal-4 → siehe
+// OBJEKTE.haupt.regal_buecher). Gating: spielstand.zustaende.formelbuch_gefunden wird true,
+// und Aufgaben können via pruefeFormelbuch() vorher prüfen, ob das Buch schon entdeckt ist.
+const FORMELBUCH = [
+    { name: "Circumference", de: "Umfang", formel: "U = 2\\pi r",
+      kommentar: "Circumference of the entire circle." },
+    { name: "Arc length", de: "Bogenlänge",
+      formel: "b = \\dfrac{\\alpha}{360^\\circ} \\cdot 2\\pi r = \\dfrac{\\pi\\alpha r}{180^\\circ}",
+      kommentar: "Length of the arc subtended by central angle $\\alpha$." },
+    { name: "Circle area", de: "Kreisfläche", formel: "A_{\\text{circle}} = \\pi r^2",
+      kommentar: "Area of the entire disc." },
+    { name: "Sector area", de: "Kreissektorfläche",
+      formel: "A_{\\text{sector}} = \\dfrac{\\alpha}{360^\\circ} \\cdot \\pi r^2 = \\dfrac{\\pi\\alpha r^2}{360^\\circ} = \\dfrac{br}{2}",
+      kommentar: "Area of the circular sector with central angle $\\alpha$." },
+    { name: "Chord length", de: "Sehnenlänge", formel: "s = 2\\sqrt{2rh - h^2}",
+      kommentar: "$h$ is the sagitta (distance from the chord midpoint to the arc)." },
+    { name: "Segment area", de: "Kreissegmentfläche",
+      formel: "A_{\\text{segment}} = \\dfrac{br}{2} - \\dfrac{s(r-h)}{2}",
+      kommentar: "Area of the circular segment (sector minus triangle)." },
+];
+
+// Inline-KaTeX-Renderer: zerlegt einen Text an $...$-Markierungen und rendert die Formeln.
+function rendereInlineMath(text, ziel) {
+    ziel.innerHTML = "";
+    const teile = text.split(/(\$[^$]+\$)/g);
+    for (const teil of teile) {
+        if (teil.length > 2 && teil.startsWith("$") && teil.endsWith("$")) {
+            const span = document.createElement("span");
+            if (typeof katex !== "undefined") {
+                katex.render(teil.slice(1, -1), span, { throwOnError: false, displayMode: false });
+            } else {
+                span.textContent = teil;
+            }
+            ziel.appendChild(span);
+        } else if (teil) {
+            ziel.appendChild(document.createTextNode(teil));
+        }
+    }
+}
+
+function zeigeFormelbuch() {
+    spielstand.zustaende.formelbuch_gefunden = true;
+    clearSchliessenTimer();
+    overlayInhaltEl.innerHTML = "";
+
+    const titel = document.createElement("h2");
+    titel.className = "formelbuch-titel";
+    titel.textContent = "Formelbuch — Kreise";
+    overlayInhaltEl.appendChild(titel);
+
+    const tabelle = document.createElement("table");
+    tabelle.className = "formelbuch";
+
+    const thead = document.createElement("thead");
+    thead.innerHTML = `<tr><th></th><th>Degree measure</th><th>Comments</th></tr>`;
+    tabelle.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const eintrag of FORMELBUCH) {
+        const tr = document.createElement("tr");
+
+        const nameTd = document.createElement("td");
+        nameTd.className = "formelbuch-name";
+        nameTd.innerHTML = eintrag.de
+            ? `${eintrag.name}<br><span class="formelbuch-de">(DE: ${eintrag.de})</span>`
+            : eintrag.name;
+        tr.appendChild(nameTd);
+
+        const formelTd = document.createElement("td");
+        formelTd.className = "formelbuch-formel";
+        if (typeof katex !== "undefined") {
+            katex.render(eintrag.formel, formelTd, { throwOnError: false, displayMode: true });
+        } else {
+            formelTd.textContent = eintrag.formel;
+        }
+        tr.appendChild(formelTd);
+
+        const kommentarTd = document.createElement("td");
+        kommentarTd.className = "formelbuch-kommentar";
+        rendereInlineMath(eintrag.kommentar, kommentarTd);
+        tr.appendChild(kommentarTd);
+
+        tbody.appendChild(tr);
+    }
+    tabelle.appendChild(tbody);
+    overlayInhaltEl.appendChild(tabelle);
+
+    overlayEl.hidden = false;
+}
+
+// Helper für später definierte Aufgaben: prüft, ob das Formelbuch schon entdeckt wurde.
+// Gibt true zurück, sonst false UND zeigt einen Hinweis-Overlay. Aufgaben rufen die
+// Funktion am Anfang ihres aktion/aufgabe-Callbacks auf.
+function pruefeFormelbuch() {
+    if (spielstand.zustaende.formelbuch_gefunden) return true;
+    zeigeOverlayText("Du brauchst zuerst die passenden Formeln.\nSuche das Formelbuch im Hauptraum.");
+    return false;
+}
+
+window.zeigeFormelbuch = zeigeFormelbuch;
+window.pruefeFormelbuch = pruefeFormelbuch;
 
 // ---------- Inventar (Phase 6) ----------
 // Gegenstände können im Raum aufgenommen werden (Klick auf Objekt mit `aufnehmen`),
@@ -2521,7 +2911,48 @@ document.addEventListener("keydown", (e) => {
 // andere Objekte oder Türen gezogen werden (Drop-Target hat `akzeptiert[id]`).
 
 // Registry aller möglichen Gegenstände. Icon ist Inline-SVG (viewBox 0..48).
-const GEGENSTAENDE = {};
+const GEGENSTAENDE = {
+    // Chain 1: Schlüssel für cupboard_1 (Büro). Klassischer Schlüssel mit rundem Bart links,
+    // Schaft nach rechts, zwei Zähne am Ende.
+    schluessel_buero: {
+        name: "Schlüssel",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g fill="#e8b840" stroke="#7c5f1e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                   <circle cx="13" cy="24" r="9"/>
+                   <rect x="22" y="22" width="22" height="4"/>
+                   <rect x="34" y="26" width="3" height="6"/>
+                   <rect x="40" y="26" width="3" height="6"/>
+                 </g>
+                 <circle cx="13" cy="24" r="3.5" fill="#fff8e1" stroke="#7c5f1e" stroke-width="0.8"/>
+               </svg>`,
+    },
+    // Chain 1: Zerknitterter Zettel mit Schrift drauf. Eckige Form mit Falt-Ecke + Linien.
+    zettel: {
+        name: "Zerknitterter Zettel",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <path d="M10 8 L34 8 L40 14 L40 42 L10 42 Z" fill="#f7ecc8" stroke="#7d6a3a" stroke-width="1.6" stroke-linejoin="round"/>
+                 <path d="M34 8 L34 14 L40 14 Z" fill="#dfc888" stroke="#7d6a3a" stroke-width="1.6" stroke-linejoin="round"/>
+                 <g stroke="#7d6a3a" stroke-width="1.3" stroke-linecap="round">
+                   <line x1="14" y1="20" x2="36" y2="20"/>
+                   <line x1="14" y1="26" x2="36" y2="26"/>
+                   <line x1="14" y1="32" x2="32" y2="32"/>
+                   <line x1="14" y1="37" x2="34" y2="37"/>
+                 </g>
+               </svg>`,
+    },
+    // Chain 1: Code für die Geheimtür (entstanden aus dem Zettel im Lampenschein).
+    // Tag-Optik mit Loch oben + monospace-Code "355113" — Ziffern müssen klein lesbar sein.
+    code_geheimtuer: {
+        name: "Code für die Geheimtür: 355113",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <rect x="4" y="10" width="40" height="28" rx="3" fill="#fff8e1" stroke="#7d6a3a" stroke-width="1.6"/>
+                 <circle cx="9" cy="16" r="1.4" fill="#7d6a3a"/>
+                 <text x="24" y="30" text-anchor="middle"
+                       font-family="ui-monospace, Menlo, Consolas, monospace"
+                       font-size="11" font-weight="700" fill="#1a1a1a" letter-spacing="0.5">355113</text>
+               </svg>`,
+    },
+};
 
 const inventarEl = document.getElementById("inventar");
 const dragPreviewEl = document.getElementById("drag-preview");
@@ -2574,14 +3005,39 @@ window.GEGENSTAENDE = GEGENSTAENDE;
 
 // ---------- Drag & Drop ----------
 // Pointer-basiert (nicht HTML5 DnD), damit Touch und Canvas-Drops problemlos funktionieren.
+// Listener bewusst auf `document` statt Slot — Slot-Element kann während des Drags durch
+// aktualisiereInventar() neu gerendert werden, dabei verliert setPointerCapture die Bindung
+// und das Drag-Preview hängt fest. Document-Listener sind immer erreichbar.
 
-let dragZustand = null;  // { id, slot, pointerId } während aktivem Drag
+let dragZustand = null;  // { id, slot, pointerId, listeners } während aktivem Drag
+
+// Räumt einen aktiven Drag-Zustand sauber auf — kann jederzeit aufgerufen werden
+// (Esc, Raumwechsel, neues starteDrag, Konsole). Idempotent.
+function dragAbbrechen() {
+    if (dragZustand) {
+        const { slot, pointerId, listeners } = dragZustand;
+        if (slot && slot.classList) slot.classList.remove("dragging");
+        if (slot && typeof slot.releasePointerCapture === "function") {
+            try { slot.releasePointerCapture(pointerId); } catch (_) {}
+        }
+        if (listeners) {
+            document.removeEventListener("pointermove", listeners.onMove);
+            document.removeEventListener("pointerup", listeners.onUp);
+            document.removeEventListener("pointercancel", listeners.onCancel);
+        }
+        dragZustand = null;
+    }
+    dragPreviewEl.hidden = true;
+    dragPreviewEl.innerHTML = "";
+}
+window.dragAbbrechen = dragAbbrechen;
 
 function starteDrag(e, id, slot) {
     if (wechselInGang) return;
-    if (dragZustand) return;                         // Schon einer unterwegs
+    if (dragZustand) dragAbbrechen();  // Sicherheits-Reset, falls vom letzten Drag was hängenblieb
     e.preventDefault();
-    slot.setPointerCapture(e.pointerId);
+
+    try { slot.setPointerCapture(e.pointerId); } catch (_) {}
     slot.classList.add("dragging");
 
     const g = GEGENSTAENDE[id];
@@ -2590,31 +3046,28 @@ function starteDrag(e, id, slot) {
     dragPreviewEl.style.left = e.clientX + "px";
     dragPreviewEl.style.top  = e.clientY + "px";
 
-    dragZustand = { id, slot, pointerId: e.pointerId };
-
     const onMove = (ev) => {
         if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
         dragPreviewEl.style.left = ev.clientX + "px";
         dragPreviewEl.style.top  = ev.clientY + "px";
     };
-    const beende = (ev, treffer) => {
+    const onUp = (ev) => {
         if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
-        slot.classList.remove("dragging");
-        dragPreviewEl.hidden = true;
-        dragPreviewEl.innerHTML = "";
-        const zustand = dragZustand;
-        dragZustand = null;
-        slot.removeEventListener("pointermove", onMove);
-        slot.removeEventListener("pointerup", onUp);
-        slot.removeEventListener("pointercancel", onCancel);
-        if (treffer) versucheDrop(ev.clientX, ev.clientY, zustand.id);
+        const itemId = dragZustand.id;
+        const cx = ev.clientX, cy = ev.clientY;
+        dragAbbrechen();
+        versucheDrop(cx, cy, itemId);
     };
-    const onUp     = (ev) => beende(ev, true);
-    const onCancel = (ev) => beende(ev, false);
+    const onCancel = (ev) => {
+        if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
+        dragAbbrechen();
+    };
 
-    slot.addEventListener("pointermove", onMove);
-    slot.addEventListener("pointerup", onUp);
-    slot.addEventListener("pointercancel", onCancel);
+    dragZustand = { id, slot, pointerId: e.pointerId, listeners: { onMove, onUp, onCancel } };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
 }
 
 function versucheDrop(clientX, clientY, gegenstandId) {
