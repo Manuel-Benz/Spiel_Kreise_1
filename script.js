@@ -67,7 +67,9 @@ const FARBEN = {
     // Türen (global, unabhängig vom Raum)
     tuer:        GRAU.b50,
     tuerLabel:   GRAU.b100,
-    tuerGeheim:  GRAU.b70,
+    tuerGeheim:  GRAU.b70,            // Hauptraum-Wandfarbe → unsichtbare Geheimtür
+    tuerGeheimOffen: GRAU.b80,        // Nach Code-Eingabe: dunkler als Wand → permanenter Akzent
+    tuerGeheimOutline: "#5fff8a",     // Phosphor-Grün unter Nachtsicht (binoculars im Inventar)
     pfeil:       GRAU.b0,
     // Figur (komplett schwarz, ausser Augen und Mund)
     kopf:        GRAU.b100,
@@ -107,7 +109,24 @@ const RAEUME = {
               ziel: "garten", laufziel: { fu: 0.12, fv: 0.45 } },
             { id: "geheim", secret: true,
               polygon: [rechteWandPunkt(0.325, 0), rechteWandPunkt(0.575, 0), rechteWandPunkt(0.575, 0.4), rechteWandPunkt(0.325, 0.4)],
-              ziel: "keller", laufziel: { fu: 0.88, fv: 0.45 } },
+              ziel: "keller", laufziel: { fu: 0.88, fv: 0.45 },
+              // Drop-Target für code_geheimtuer: setzt keller_freigeschaltet=true,
+              // verbraucht binoculars + code, deaktiviert Nachtsicht.
+              // Klick ohne Drop → siehe pointerdown-Branch (Hinweistext).
+              akzeptiert: {
+                  code_geheimtuer: (s) => {
+                      verbrauche("binoculars_1");
+                      verbrauche("code_geheimtuer");
+                      delete s.inventar.keller_code;
+                      s.zustaende.keller_freigeschaltet = true;
+                      deaktiviereNachtsicht();
+                      aktualisiereInventar();
+                      zeigeOverlayText("The keypad clicks open. The hatch to the cellar swings free.");
+                      automatischSchliessen(3000);
+                      draw();
+                  },
+              },
+            },
         ],
     },
     garten: {
@@ -197,6 +216,20 @@ const spielstand = {
         // Chain 2 — animal_3_1 (Glas mit Fisch) → toilet_2 dumpen → animal_3_2 (leeres Glas)
         // → in Wanne füllen → animal_3_3 (Glas mit Wasser) → Octopus zwei Mal füttern.
         chain_2_step: 0,           // 0 = nichts, 1 = animal_3_1 aufgenommen, 2 = im WC entleert, 3 = aufgefüllt, 4 = Octopus 1× gefüttert, 5 = Octopus 2× → exit.
+        octopus_exit_gestartet: false, // Sicherheits-Flag: Exit-Animation maximal 1× pro Run starten (siehe schliesseOverlay-Hook).
+        // Chain 3 — zwei parallele Pfade: (a) zentrale Wolke anklicken → Vogel sichtbar.
+        // (b) Schlauch-Aufgabe lösen → gartenschlauch ins Inventar → auf flower_1 droppen
+        // → seed_1. Dann seed_1 auf Vogel → goldene_muenzen. Goldene Münzen auf Octopus
+        // öffnen chain_3_pizza-Aufgabe; bei richtig: octopus_zustand +1 (münzen-spez. Text).
+        // Bridge: Octopus weg → toilet_1 togglen → binoculars_1 erscheinen → aufheben →
+        // Nachtsicht-Filter aktiv → Geheimtür im Hauptraum sichtbar → Code 355113 eingeben
+        // → binoculars + code verbraucht, Filter aus, keller_freigeschaltet=true.
+        vogel_da: false,           // bird_1 sichtbar, sobald die zentrale Wolke geklickt wurde
+        wolke_zentral_weg: false,  // WOLKEN[1] wird ausgeblendet, sobald geklickt
+        schlauch_genommen: false,  // gradenhose_1-<image> aus dem Garten ausblenden, sobald in Inventar
+        flower_1_gegossen: false,  // flower_1 visuell auf 2× skaliert (CSS-Klasse)
+        binoculars_genommen: false, // binoculars_1 aus toilet_1-Schüssel ausblenden, sobald aufgehoben
+        keller_freigeschaltet: false, // Code richtig eingegeben → Geheimtür permanent sichtbar (b80) + Keller offen
     },
 };
 
@@ -254,6 +287,9 @@ function aktualisiereSanitaer() {
                                 spielstand.gegenstaende.has("animal_3_3") ||
                                 (spielstand.zustaende.chain_2_step ?? 0) >= 1;
     setSichtbar("animal_3_1", !animal3InSpielstand);
+    // Chain 3: Sichtbarkeit von binoculars_1 hängt u.a. an octopus_da und toilette_1.
+    // aktualisiereChain3() ist später definiert (function-hoisting macht das sicher).
+    if (typeof aktualisiereChain3 === "function") aktualisiereChain3();
 }
 
 function setzeBadewanne(zustand) {
@@ -371,6 +407,51 @@ function oeffneCupboard1() {
     draw();
 }
 window.oeffneCupboard1 = oeffneCupboard1;
+
+// ---------- Chain 3 — Sichtbarkeit / Skalierung der DOM-Elemente ----------
+// Spiegelt spielstand.zustaende auf das DOM:
+//   • bird_1 (Garten)             — sichtbar wenn vogel_da
+//   • gradenhose_1 (Garten)       — versteckt sobald schlauch_genommen
+//   • flower_1 (Garten)           — Klasse "flower-1-gross" → CSS scale(2)
+//   • binoculars_1 in toilet_1    — sichtbar wenn !octopus_da && toilette_1===2 && !genommen
+// Selektor matcht Original UND Front-Layer-Klone (`v_<idx>_…`-Prefix von klonePflanzenVorne).
+function aktualisiereChain3() {
+    const z = spielstand.zustaende;
+    const setSichtbar = (id, sichtbar) => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
+    };
+    setSichtbar("bird_1", !!z.vogel_da);
+    setSichtbar("gradenhose_1", !z.schlauch_genommen);
+    setSichtbar("binoculars_1_visual", !z.octopus_da && z.toilette_1 === 2 && !z.binoculars_genommen);
+
+    // flower_1 skalieren — class auf dem Wrapper-<g class="flower-1">. Original UND Klone
+    // haben dieselbe Klasse (klonePflanzenVorne kopiert sie mit), also alle gleichzeitig erfassen.
+    document.querySelectorAll(".flower-1").forEach(el => {
+        el.classList.toggle("flower-1-gross", !!z.flower_1_gegossen);
+    });
+}
+window.aktualisiereChain3 = aktualisiereChain3;
+
+// ---------- Chain 3 / Bridge: Nachtsicht ----------
+// Aktiviert/deaktiviert die Body-Klasse `nachtsicht`. Per CSS sitzt darüber ein
+// brightness/sepia/hue-rotate-Filter auf #stage (siehe style.css). Inventar/Overlay
+// liegen ausserhalb #stage und bleiben normal lesbar.
+function aktiviereNachtsicht() {
+    document.body.classList.add("nachtsicht");
+    draw();  // Geheimtür-Phosphor-Outline neu zeichnen
+}
+function deaktiviereNachtsicht() {
+    document.body.classList.remove("nachtsicht");
+    draw();
+}
+window.aktiviereNachtsicht = aktiviereNachtsicht;
+window.deaktiviereNachtsicht = deaktiviereNachtsicht;
+
+// (Code-Eingabe-Overlay wurde durch Drop-from-Inventory ersetzt — siehe
+// RAEUME.haupt.tueren.geheim.akzeptiert.code_geheimtuer und den pointerdown-Branch
+// für secret-Türen.)
 
 // ---------- Sound (Schrittsounds via Web Audio) ----------
 
@@ -559,18 +640,85 @@ const AUFGABEN = {
     // siehe OBJEKTE.badezimmer.octopus.akzeptiert.animal_3_3.
     chain_2_octopus: {
         frage: "If the circumference is C = 2π · 100 cm, how large is the area A?",
-        formel: "C = 2\\pi r, \\quad A = \\pi r^2",
         fragetext: "Enter A as a number in cm².",
         loesung: 31400,
         toleranz: 1,
         pi_hinweis: true,
         bei_richtig: {
-            belohnung_text: "Correct! The octopus' mood has improved, but it is not quite happy yet.",
+            // Mood-Advance: octopus_zustand +1 (max 3), Exit-Animation bei state 3.
+            // Symmetrisch zu chain_3_pizza — Reihenfolge der beiden Chains egal.
+            // belohnung_text als Funktion → POST-callback ausgewertet.
+            belohnung_text: (s) => {
+                if (s.zustaende.octopus_zustand === 3) {
+                    return "Correct! The octopus, fully content now, slides off with a happy gurgle.";
+                }
+                return "Correct! The octopus' mood has improved, but it is not quite happy yet.";
+            },
             callback: (s) => {
                 verbrauche("animal_3_3");
                 aktualisiereInventar();
-                setzeOctopusZustand(2);
+                const aktuell = s.zustaende.octopus_zustand ?? 1;
+                const neu = Math.min(aktuell + 1, 3);
+                setzeOctopusZustand(neu);
                 s.zustaende.chain_2_step = Math.max(s.zustaende.chain_2_step ?? 0, 4);
+                // Exit-Animation startet erst NACH dem Schliessen des Aufgaben-Overlays
+                // (siehe schliesseOverlay) — User soll die Mood-Antwort lesen können.
+            },
+        },
+    },
+    // Chain 3, Aufgabe 1: Klick auf Gartenschlauch → Multiple-Choice.
+    // 5 kreisförmige Windungen mit Durchmesser d = 5/π m. Korrekt: 5 · π · d = 5 · π · 5/π = 25 m.
+    // Distraktoren entsprechen typischen Schülerfehlern:
+    //   • 5 m  — nur 1 Windung gerechnet (vergessen, mit 5 zu multiplizieren).
+    //   • 50 m — d als Radius in U = 2πr eingesetzt: 5 · 2π · 5/π = 50.
+    //   • 25/π m ≈ 7,96 m — π beim Umfang vergessen (5 · d statt 5 · π · d).
+    chain_3_schlauch: {
+        typ: "multiple_choice",
+        frage: "The garden hose lies in 5 circular coils, each with a diameter of d = 5/π m. How long is the hose in total?",
+        pi_hinweis: true,
+        optionen: [
+            { katex: "25\\text{ m}", korrekt: true },
+            { katex: "5\\text{ m}" },
+            { katex: "50\\text{ m}" },
+            { katex: "\\dfrac{25}{\\pi}\\text{ m} \\approx 7.96\\text{ m}" },
+        ],
+        bei_richtig: {
+            gegenstand: "gartenschlauch",
+            belohnung_text: "Correct! You take the garden hose with you.",
+            callback: (s) => {
+                s.zustaende.schlauch_genommen = true;
+                aktualisiereChain3();
+            },
+        },
+    },
+    // Chain 3, Aufgabe 2: Goldene Münzen auf Octopus → Pizzastück-Aufgabe.
+    // α = 60°, r = √(6/π) m → A = (60/360) · π · (6/π) = 1/6 · 6 = 1 m².
+    // Bewusst so gewählt, dass π im Kürzungsschritt komplett verschwindet (didaktisches Aha).
+    // Toleranz ±0,05 m².
+    // Mood-Advance per Callback: octopus_zustand +1 (max 3). Bei state 3 → Exit-Animation.
+    // belohnung_text als Funktion → Text differenziert sich nach POST-callback-state
+    // (gewaehrenBelohnung ruft callback VOR text-render auf).
+    chain_3_pizza: {
+        frage: "The octopus offers you a pizza slice. What is its area in m²?",
+        fragetext: "Opening angle α = 60°, radius r = √(6/π) m.",
+        loesung: 1,
+        toleranz: 0.05,
+        pi_hinweis: true,
+        bei_richtig: {
+            belohnung_text: (s) => {
+                if (s.zustaende.octopus_zustand === 3) {
+                    return "Correct! The octopus pockets the coins, gives a satisfied gurgle, and slides away.";
+                }
+                return "Correct! The octopus pockets the coins and looks a touch more cheerful, but isn't quite satisfied yet.";
+            },
+            callback: (s) => {
+                verbrauche("goldene_muenzen");
+                aktualisiereInventar();
+                const aktuell = s.zustaende.octopus_zustand ?? 1;
+                const neu = Math.min(aktuell + 1, 3);
+                setzeOctopusZustand(neu);
+                // Exit-Animation startet erst NACH dem Schliessen des Aufgaben-Overlays
+                // (siehe schliesseOverlay) — User soll die Mood-Antwort lesen können.
             },
         },
     },
@@ -705,6 +853,20 @@ const OBJEKTE = {
             aufnehmen: "animal_3_1",
             aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
         },
+        // Chain 3 / Bridge: binoculars_1 in der toilet_1-Schüssel — sichtbar, sobald der
+        // Octopus weg und der Sitz oben ist (toilette_1===2). Klick → Aufnehm-Aktion → Inventar.
+        // aktiviereNachtsicht() wird im nimmAufGegenstand-Hook getriggert (Spezial-ID-Branch).
+        // Polygon = bbox des binoculars_1_visual <svg> in index.html (toilet_1 Schüssel).
+        // WICHTIG: VOR toilet_1 platziert, weil das toilet_1-Polygon (1100..1240, 420..670)
+        // den Binoculars-Bereich überlappt → findeObjektBei nimmt das erste Match.
+        // laufziel etwas vor toilet_1 (analog zu animal_3_1 in Chain 2).
+        {
+            id: "binoculars_1",
+            polygon: [[1085, 480], [1195, 480], [1195, 576], [1085, 576]],
+            laufziel: { fu: 0.74, fv: 0.20 },
+            aufnehmen: "binoculars_1",
+            aktiv: (s) => !s.zustaende.octopus_da && s.zustaende.toilette_1 === 2 && !s.zustaende.binoculars_genommen,
+        },
         // Toilette 1 (rechts, x=1040..1240): Sitz-Toggle (toilette_1 1↔2) ODER Spülung (voll → leer).
         // ABER solange der Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert
         // er beides. Voll-Mechanik ist Chain-Reserve (z.B. duck_1 → toilet_1 in späterer Chain),
@@ -782,29 +944,89 @@ const OBJEKTE = {
             polygon: [[930, 380], [1300, 380], [1300, 710], [930, 710]],
             laufziel: { fu: 0.78, fv: 0.32 },
             akzeptiert: {
-                animal_3_3: (s) => {
-                    const aktuell = s.zustaende.octopus_zustand ?? 1;
-                    if (aktuell === 1) {
-                        // Erste Fütterung: Aufgabe gates den Übergang. Glas wird in
-                        // chain_2_octopus.bei_richtig.callback verbraucht, octopus_zustand
-                        // dort auf 2 gesetzt + chain_2_step=4. Bei falsch: nichts ändert sich,
-                        // User kann erneut versuchen oder Aufgabe schliessen + nochmals droppen.
-                        zeigeAufgabe("chain_2_octopus");
-                    } else if (aktuell === 2) {
-                        // Zweite Fütterung: kein Aufgaben-Gate, direkt advance + Exit-Animation.
-                        verbrauche("animal_3_3");
-                        aktualisiereInventar();
-                        setzeOctopusZustand(3);
-                        s.zustaende.chain_2_step = Math.max(s.zustaende.chain_2_step ?? 0, 5);
-                        // 2 s Pause auf octopus_1_3, dann Exit-Animation.
-                        setTimeout(() => animiereOctopusRaus(), 2000);
-                    }
-                },
+                // Beide Drops symmetrisch — jeder öffnet seine Aufgabe; im Aufgaben-Callback
+                // wird das Item verbraucht und der octopus_zustand um +1 advanciert (max 3).
+                // Bei state 3 startet automatisch die Exit-Animation. Reihenfolge der Chains
+                // (animal_3_3 zuerst oder Münzen zuerst) ist damit egal.
+                animal_3_3: () => zeigeAufgabe("chain_2_octopus"),
+                goldene_muenzen: () => zeigeAufgabe("chain_3_pizza"),
             },
             aktiv: (s) => s.zustaende.octopus_da !== false,
         },
     ],
-    garten: [],
+    garten: [
+        // Chain 3a: zentrale Wolke (WOLKEN[1] cx=470, cy=140) anklicken → Vogel erscheint.
+        // Polygon deckt grob die Wolkenhülle ab und zugleich die spätere Vogel-Bbox
+        // (bird_1 SVG x=380 y=95 w=180 h=90 → 380..560, 95..185).
+        // laufziel mitten im Garten — Figur läuft hin, dann Klick-Effekt.
+        {
+            id: "wolke_zentral",
+            polygon: [[380, 95], [560, 95], [560, 185], [380, 185]],
+            laufziel: { fu: 0.30, fv: 0.50 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.vogel_da && !s.zustaende.wolke_zentral_weg,
+            aktion: () => {
+                spielstand.zustaende.wolke_zentral_weg = true;
+                spielstand.zustaende.vogel_da = true;
+                aktualisiereChain3();
+                draw();
+                zeigeOverlayText("As the cloud drifts apart, a bird becomes visible behind it.");
+                automatischSchliessen(3000);
+            },
+        },
+        // Chain 3c: Vogel als Drop-Target für seed_1 → goldene_muenzen.
+        // Selbes Polygon wie die Wolke (Vogel sitzt an deren ehemaliger Position).
+        // Nur aktiv, wenn der Vogel sichtbar ist UND keine Münzen schon verteilt wurden.
+        {
+            id: "bird_1",
+            polygon: [[380, 95], [560, 95], [560, 185], [380, 185]],
+            laufziel: { fu: 0.30, fv: 0.50 },
+            aktiv: (s) => s.zustaende.vogel_da,
+            akzeptiert: {
+                seed_1: (s) => {
+                    if (s.gegenstaende.has("goldene_muenzen") || !s.gegenstaende.has("seed_1")) return;
+                    verbrauche("seed_1");
+                    spielstand.gegenstaende.add("goldene_muenzen");
+                    // Vogel fliegt davon — Bird-OBJEKT damit inaktiv und Inline-SVG ausgeblendet.
+                    s.zustaende.vogel_da = false;
+                    aktualisiereInventar();
+                    aktualisiereChain3();
+                    zeigeOverlayText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
+                    automatischSchliessen(3000);
+                },
+            },
+        },
+        // Chain 3b: Gartenschlauch an der rechten Hauswand. Polygon grob um die per Affin-Matrix
+        // projizierte Schlauch-Bbox (≈ x:1320..1370, y:460..595) — etwas breiter für komfortable Klicks.
+        // Nur aktiv, solange der Schlauch noch nicht im Inventar liegt UND Formelbuch gefunden.
+        {
+            id: "gartenschlauch",
+            polygon: [[1310, 455], [1380, 455], [1380, 605], [1310, 605]],
+            laufziel: { fu: 0.85, fv: 0.45 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.schlauch_genommen,
+            aufgabe: "chain_3_schlauch",
+        },
+        // Chain 3b: flower_1 (vorne-links im Garten) ist Drop-Target für gartenschlauch.
+        // Polygon = bbox des flower_1-SVG (x=320 y=510 w=80 h=103). laufziel knapp davor.
+        // Bei Drop: Blume skaliert auf 2× via CSS-Klasse, seed_1 ins Inventar.
+        {
+            id: "flower_1_drop",
+            polygon: [[320, 510], [400, 510], [400, 613], [320, 613]],
+            laufziel: { fu: 0.18, fv: 0.85 },
+            aktiv: (s) => !s.zustaende.flower_1_gegossen,
+            akzeptiert: {
+                gartenschlauch: (s) => {
+                    if (s.zustaende.flower_1_gegossen) return;
+                    verbrauche("gartenschlauch");
+                    spielstand.zustaende.flower_1_gegossen = true;
+                    spielstand.gegenstaende.add("seed_1");
+                    aktualisiereInventar();
+                    aktualisiereChain3();
+                    zeigeOverlayText("You water the flower. It grows in a flash and offers you a seed.");
+                    automatischSchliessen(3000);
+                },
+            },
+        },
+    ],
     keller: [],
 };
 
@@ -992,7 +1214,11 @@ function gewaehrenBelohnung(id, feedbackEl) {
     }
     if (typeof b.callback === "function") b.callback(spielstand);
 
-    feedbackEl.textContent = b.belohnung_text || "Correct!";
+    // belohnung_text darf auch eine Funktion sein — wird NACH callback ausgewertet,
+    // damit der Text auf den frisch aktualisierten Spielstand zugreifen kann
+    // (z.B. chain_3_pizza differenziert je nach octopus_zustand 2 vs. 3).
+    const text = typeof b.belohnung_text === "function" ? b.belohnung_text(spielstand) : b.belohnung_text;
+    feedbackEl.textContent = text || "Correct!";
     feedbackEl.className = "feedback richtig";
 
     draw();
@@ -1052,7 +1278,7 @@ const HINDERNISSE = {
         // (geranie auf desk_5, setzling auf desk_3 — keine Boden-Hindernisse mehr)
         // Möbel-Vierecke (interaktiv eingestellt, Manuel):
         { punkte: [[0.0001, 0.9056], [0.1627, 0.8996], [0.1648, 0.9979], [0.001, 0.9988]] },     // [3] Tisch 1
-        { punkte: [[0.3717, 0.789], [0.4954, 0.681], [0.574, 0.7561], [0.4612, 0.8494]] },       // [4] desk_3
+        { punkte: [[0.3717, 0.789], [0.4954, 0.681], [0.574, 0.7561], [0.483, 0.8227]] },        // [4] desk_3 — User-justiert: Vorderkante nach innen gezogen, damit Bad→Garten-Pfad durchkommt
         { punkte: [[0.8869, 0.6244], [1, 0.6575], [0.9994, 0.8034], [0.8634, 0.7758]] },         // [5] desk_5
         { punkte: [[0.8223, 0.9241], [0.9999, 0.9274], [0.9979, 0.9982], [0.8381, 0.9993]] },    // [6] cupboard_3
     ],
@@ -1076,7 +1302,11 @@ const HINDERNISSE = {
         { fu: 0.7552, fv: 0.8073, rx: 0.1, ry: 0.1922 },                                          // [1]
         { fu: 0.4047, fv: 0.9243, rx: 0.0548, ry: 0.1104 },                                       // [2]
         { punkte: [[0.4898, 0.8668], [0.7479, 0.8667], [0.7638, 0.9995], [0.5, 0.9993]] },        // [3]
-        { punkte: [[0.7954, 0.5619], [0.9932, 0.7535], [0.9985, 0.9943], [0.7566, 0.9999]] },     // [4]
+        // [4] desk_4 hinterer Teil — Front-Kante runtergezogen auf fv 0.30, damit die Lücke
+        // zur Front-Hindernis [5] (fv 0.03..0.45) zugeht und die Figur sich nicht mehr in
+        // dem schmalen Streifen fv 0.45..0.56 zwischen [4] und [5] einklemmen kann.
+        // (Original-Werte vor Fix: [[0.7954, 0.5619], [0.9932, 0.7535], [0.9985, 0.9943], [0.7566, 0.9999]])
+        { punkte: [[0.7954, 0.30], [0.9985, 0.30], [0.9985, 0.9943], [0.7566, 0.9999]] },         // [4]
         { punkte: [[0.7712, 0.1016], [0.9165, 0.0331], [0.9999, 0.2984], [0.8558, 0.448]] },      // [5]
     ],
     garten: [
@@ -1223,17 +1453,17 @@ function istImHindernis(fu, fv) {
 // Rückgabe: { fu, fv } mit neuer Position, oder null wenn kein Ausweichen möglich.
 function slideUmHindernis(ux, uy, schritt) {
     const hs = HINDERNISSE[aktuellerRaum] || [];
-    // Finde das in Laufrichtung am nächsten liegende blockierende Hindernis (per Center).
-    let blocker = null, bestAlong = Infinity;
+    // Blocker = das Hindernis, in das der direkte Schritt reinläuft. aktualisiereFigur hat
+    // dies bereits per istImHindernis geprüft, bevor slide gerufen wurde — wir wissen also,
+    // dass mindestens eines existiert, und können es direkt finden.
+    // (Frühere Center+Along-Heuristik versagte, wenn das Polygon-Center hinter der Figur lag,
+    //  aber eine Polygon-Spitze noch in den Pfad ragte → sie wäre fälschlich als „behind"
+    //  klassifiziert worden, slide hätte null zurückgegeben, Figur bleibt stecken.)
+    const neueFu = figur.fu + ux * schritt;
+    const neueFv = figur.fv + uy * schritt;
+    let blocker = null;
     for (const h of hs) {
-        const c = hindernisCenter(h);
-        const dfu = c.fu - figur.fu, dfv = c.fv - figur.fv;
-        const along = dfu * ux + dfv * uy;
-        if (along <= 0) continue;                    // Hindernis liegt hinter uns
-        const perp = dfu * uy - dfv * ux;
-        const r = hindernisMaxRadius(h);
-        if (Math.abs(perp) > r + 0.02) continue;     // nicht im Pfad
-        if (along < bestAlong) { bestAlong = along; blocker = h; }
+        if (istInForm(h, neueFu, neueFv)) { blocker = h; break; }
     }
     if (!blocker) return null;
 
@@ -1246,9 +1476,15 @@ function slideUmHindernis(ux, uy, schritt) {
         { tx: dot >= 0 ?  perpX : -perpX, ty: dot >= 0 ?  perpY : -perpY },
         { tx: dot >= 0 ? -perpX :  perpX, ty: dot >= 0 ? -perpY :  perpY },
     ];
+    // Kleiner Aussen-Puffer: ohne diesen landet der reine Tangenten-Schritt bei langen
+    // Slides exakt auf der Polygon-Kante. pktInKonvexPolygon zählt Boundary-Punkte als "drin"
+    // (alle Cross-Produkte gleich-Vorzeichen, eines ≈0) → der Schritt wird abgelehnt, die
+    // Gegenrichtung verstößt gegen den Oszillations-Schutz, die Figur bleibt stecken.
+    // 0.002 reicht, um sicher außerhalb zu landen, drift aber pro Slide-Schritt kaum messbar.
+    const AUSSEN_EPS = 0.002;
     for (const { tx, ty } of sides) {
-        const slidFu = figur.fu + tx * schritt;
-        const slidFv = figur.fv + ty * schritt;
+        const slidFu = figur.fu + tx * schritt + rand.nx * AUSSEN_EPS;
+        const slidFv = figur.fv + ty * schritt + rand.ny * AUSSEN_EPS;
         if (slidFu < FIGUR_FU_MIN || slidFu > FIGUR_FU_MAX) continue;
         if (slidFv < FIGUR_FV_MIN || slidFv > FIGUR_FV_MAX) continue;
         if (istImHindernis(slidFu, slidFv)) continue;
@@ -1436,7 +1672,12 @@ const WOLKEN = [
 ];
 
 function zeichneWolken() {
-    WOLKEN.forEach(zeichneWolke);
+    WOLKEN.forEach((w, idx) => {
+        // Chain 3a: zentrale Wolke (Index 1, cx=470, cy=140) verschwindet, sobald sie
+        // angeklickt wurde — Vogel wird an gleicher Position sichtbar (siehe aktualisiereChain3).
+        if (idx === 1 && spielstand.zustaende.wolke_zentral_weg) return;
+        zeichneWolke(w);
+    });
 }
 
 // Hilfsfunktion: hex-Farbe um (dr, dg, db) verschieben (geclamped).
@@ -1691,8 +1932,30 @@ function zeichneTueren() {
             return;
         }
         const frei = istFrei(t);
+        // Geheimtür-Sonderbehandlung:
+        //   • keller_freigeschaltet → permanent sichtbarer b80-Akzent (dunkler als b70-Wand)
+        //   • binoculars im Inventar → wandfarben + Phosphor-Outline (Nachtsicht zeigt Tür)
+        //   • sonst → wandfarben (unsichtbar) + nicht klickbar (siehe findeTuerBei)
         if (t.secret) {
-            fuellePolygon(t.polygon, FARBEN.tuerGeheim);
+            const freigeschaltet = spielstand.zustaende.keller_freigeschaltet;
+            const mitBinoculars = spielstand.gegenstaende.has("binoculars_1");
+            const farbe = freigeschaltet ? FARBEN.tuerGeheimOffen : FARBEN.tuerGeheim;
+            fuellePolygon(t.polygon, farbe);
+            if (!freigeschaltet && mitBinoculars) {
+                ctx.save();
+                ctx.strokeStyle = FARBEN.tuerGeheimOutline;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = FARBEN.tuerGeheimOutline;
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                t.polygon.forEach((p, i) => {
+                    if (i === 0) ctx.moveTo(p[0], p[1]);
+                    else ctx.lineTo(p[0], p[1]);
+                });
+                ctx.closePath();
+                ctx.stroke();
+                ctx.restore();
+            }
         } else {
             fuellePolygon(t.polygon, FARBEN.tuer);
         }
@@ -2033,6 +2296,13 @@ function aktualisiereFigur() {
             neueFv = slid.fv;
         } else {
             // Keine Gleite möglich (z.B. zwischen zwei Hindernissen) → doch stoppen.
+            console.warn(
+                `Slide stuck in ${aktuellerRaum}: ` +
+                `pos=(${figur.fu.toFixed(4)}, ${figur.fv.toFixed(4)}) ` +
+                `ziel=(${figur.zielFu.toFixed(4)}, ${figur.zielFv.toFixed(4)}) ` +
+                `letztePos=(${figur.letztePosFu?.toFixed(4)}, ${figur.letztePosFv?.toFixed(4)}) ` +
+                `richtung=(${ux.toFixed(4)}, ${uy.toFixed(4)})`
+            );
             figur.zielFu = figur.fu;
             figur.zielFv = figur.fv;
             figur.ankunft = null;
@@ -2722,6 +2992,13 @@ function findeObjektBei(x, y) {
 }
 function findeTuerBei(x, y) {
     for (const t of RAEUME[aktuellerRaum].tueren) {
+        // Geheimtür im Hauptraum nur klickbar, wenn entweder schon freigeschaltet
+        // (permanent sichtbar) oder Spieler trägt binoculars_1 (Nachtsicht zeigt Outline).
+        // Sonst fällt der Klick zur Boden-Logik durch — Tür wirkt wie ganz normale Wand.
+        if (t.secret && !spielstand.zustaende.keller_freigeschaltet &&
+            !spielstand.gegenstaende.has("binoculars_1")) {
+            continue;
+        }
         if (istInPolygon(x, y, t.polygon)) return t;
     }
     return null;
@@ -2902,6 +3179,18 @@ canvas.addEventListener("pointerdown", (e) => {
                 zeigeOverlayText("This door is locked.\nYou need to find a key first.");
                 return;
             }
+            // Geheimtür mit Binoculars (aber noch nicht freigeschaltet) → Hinweis,
+            // dass man den Code aus dem Inventar auf die Tür ziehen muss. Ohne Binoculars
+            // filtert findeTuerBei die Tür schon aus.
+            if (tuer.secret && !spielstand.zustaende.keller_freigeschaltet) {
+                if (spielstand.gegenstaende.has("code_geheimtuer")) {
+                    zeigeOverlayText("A keypad sits next to the door.\nDrag the code from your inventory onto the door.");
+                } else {
+                    zeigeOverlayText("A keypad sits next to the door.\nYou need to find a code first.");
+                }
+                automatischSchliessen(3500);
+                return;
+            }
             starteRaumwechsel(tuer.ziel);
         };
         return;
@@ -3024,6 +3313,15 @@ function schliesseOverlay() {
     clearSchliessenTimer();
     overlayEl.hidden = true;
     overlayInhaltEl.innerHTML = "";
+    // Octopus-Exit erst NACH Schliessen der Aufgabe starten — die 2-s-Pause auf
+    // octopus_1_3 zählt damit ab dem Moment, in dem der User wieder das Spiel sieht.
+    // Flag verhindert Doppel-Trigger, falls schliesseOverlay mehrmals nach state 3 läuft.
+    if (spielstand.zustaende.octopus_zustand === 3 &&
+        spielstand.zustaende.octopus_da &&
+        !spielstand.zustaende.octopus_exit_gestartet) {
+        spielstand.zustaende.octopus_exit_gestartet = true;
+        setTimeout(() => animiereOctopusRaus(), 2000);
+    }
 }
 
 overlayCloseEl.addEventListener("click", schliesseOverlay);
@@ -3208,6 +3506,56 @@ const GEGENSTAENDE = {
                  <image href="assets/animal_3_3.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
                </svg>`,
     },
+    // Chain 3: Gartenschlauch — coiled-hose-Symbol als Spirale, grüner Schlauch + dunkle
+    // Konturlinie. Wird bei Lösung der Schlauch-Aufgabe ins Inventar gelegt.
+    gartenschlauch: {
+        name: "Garden hose",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g fill="none" stroke="#3a8c3a" stroke-width="3.5" stroke-linecap="round">
+                   <circle cx="24" cy="24" r="14"/>
+                   <circle cx="24" cy="24" r="10"/>
+                   <circle cx="24" cy="24" r="6"/>
+                 </g>
+                 <circle cx="24" cy="24" r="14" fill="none" stroke="#1f5f1f" stroke-width="0.8"/>
+                 <circle cx="24" cy="24" r="10" fill="none" stroke="#1f5f1f" stroke-width="0.8"/>
+                 <circle cx="24" cy="24" r="6"  fill="none" stroke="#1f5f1f" stroke-width="0.8"/>
+                 <rect x="36" y="22" width="9" height="4" rx="1.2" fill="#9d9d9d" stroke="#5a5a5a" stroke-width="0.8"/>
+               </svg>`,
+    },
+    // Chain 3: Samenkorn — Asset als <image>. Die gestreuten Samen passen perspektivisch
+    // in 44×44; preserveAspectRatio="xMidYMid meet" zentriert.
+    seed_1: {
+        name: "Seed",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <image href="assets/seed_1.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
+               </svg>`,
+    },
+    // Chain 3: Drei gestapelte Goldmünzen (leicht versetzt, ohne Symbol).
+    // Eigene <linearGradient>-IDs (`gm_*`) prefixed gegen Konflikte mit anderen Inventar-Icons.
+    goldene_muenzen: {
+        name: "Golden coins",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <defs>
+                   <linearGradient id="gm_grad" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="0"   stop-color="#ffe27a"/>
+                     <stop offset="0.55" stop-color="#f0b939"/>
+                     <stop offset="1"   stop-color="#a87420"/>
+                   </linearGradient>
+                 </defs>
+                 <ellipse cx="24" cy="38" rx="17" ry="5" fill="#5a3a10" opacity="0.45"/>
+                 <ellipse cx="24" cy="34" rx="16" ry="5.5" fill="url(#gm_grad)" stroke="#7c5f1e" stroke-width="1"/>
+                 <ellipse cx="26" cy="26" rx="16" ry="5.5" fill="url(#gm_grad)" stroke="#7c5f1e" stroke-width="1"/>
+                 <ellipse cx="22" cy="18" rx="16" ry="5.5" fill="url(#gm_grad)" stroke="#7c5f1e" stroke-width="1"/>
+               </svg>`,
+    },
+    // Chain 3 / Bridge: Nachtsicht-Fernglas — Asset als <image>. preserveAspectRatio
+    // belässt die Proportionen (Asset ist 485×425 ≈ 1.14:1).
+    binoculars_1: {
+        name: "Night vision device",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <image href="assets/binoculars_1.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
+               </svg>`,
+    },
 };
 
 const inventarEl = document.getElementById("inventar");
@@ -3239,9 +3587,15 @@ function nimmAufGegenstand(obj) {
     obj.aufgenommen = true;
     spielstand.gegenstaende.add(obj.aufnehmen);
     aktualisiereInventar();
+    // Spezial-Hooks für bestimmte Items.
+    if (obj.aufnehmen === "binoculars_1") {
+        // Nachtsicht-Filter aktivieren + binoculars_1_visual aus toilet_1 ausblenden.
+        spielstand.zustaende.binoculars_genommen = true;
+        aktiviereNachtsicht();
+    }
     // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.
     // animal_3_1-Image auf desk_4 verschwinden lassen, sobald es im Inventar liegt).
-    aktualisiereSanitaer();
+    aktualisiereSanitaer();   // ruft auch aktualisiereChain3() auf
     draw();
 }
 

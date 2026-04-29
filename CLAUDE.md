@@ -39,6 +39,9 @@ CLAUDE.md         ← diese Datei
 | `flower_2.svg` | Vorne-rechts im Garten | Inline-SVG (mit `f2_`-Prefix) |
 | `flower_4.svg`, `flower_6.svg` | Wiesen-Detailblumen im Garten (Canvas) — flower_4 vorne-links, flower_6 hinter dem Zaun | `drawImage` via `BUESCHE.flower4`/`flower6`, gerastert. Beide enthalten den ehemals inline-SVG-Inhalt mit `f4_`/`f6_`-Prefix-IDs. flower_6.svg hat zusätzlich einen `<g transform="matrix(-1 0 0 1 744.09 0)">`-Wrapper (an y-Achse gespiegelt). |
 | `flower_5.svg` | Original-Asset, nicht mehr verwendet (User-Wunsch) | — |
+| `bird_1.svg` | Vogel-Silhouette (Chain 3a) — taucht im Garten an Wolken-Position auf, sobald die zentrale Wolke geklickt wurde | Inline-SVG (Single-Path-Silhouette `#484a54`, viewBox 600×300, IDs mit `b1_`-Prefix). Initial `class="sanitar-aus"`; aktualisiereChain3() togglet anhand `vogel_da` |
+| `seed_1.svg` | Samenkorn (Chain 3b) — kein eigenes Bühnen-Element, nur Inventar-Icon nach gegossener flower_1 | `<image>` 44×44 im Inventar-Icon mit `?v=1`. Even-odd-Path-Silhouette, viewBox 144 144 512 512 |
+| `binoculars_1.svg` | „Night vision device" (Chain 3 / Bridge) — luggt aus toilet_1 heraus, sobald Octopus weg + Sitz oben | Sowohl `<image>` in `#binoculars_1_visual` (toilet_1-Schüssel, data-y-fuss=670) als auch Inventar-Icon. ?v=1. Mit clipPaths — Inline würde IDs benötigen, aber `<image>` ist Black-Box |
 | `flower_2a.svg` *(virtuell)* / `flower_2b.svg` *(virtuell)* | Variationen von flower_2: 3 Blüten rot-orange + 5 Blüten blau gespiegelt; Inline-SVG-Klone von flower_2 mit `f2a_`/`f2b_`-Prefix, wenigeren Blüten, Hex-Recolor (siehe Garten-Sektion) | Inline-SVG |
 | `gradenhose_1.svg` | Gartenschlauch frontal-Aufsicht (Original-User-Asset), hängt an rechter Hauswand im Garten | `<image>` mit Affin-Matrix (siehe Garten-Sektion) |
 | `gradenhose_2.svg` | Stilisierte Seitenansicht des Schlauchs (Wandhaken + 8 Coil-Ovale + Düse), aktuell **unbenutzt** als Alternative | — |
@@ -54,7 +57,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=147`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=26`, `script.js?v=190`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -322,12 +325,14 @@ Hauptfunktionen:
 - `istImHindernis(fu, fv)`: iteriert via `istInForm`.
 - `setzeFigurZiel(fu, fv)`: liegt das Ziel im Hindernis, schiebt es zum nächsten Randpunkt (entlang Außen-Normale, +0.005 Puffer). Safety Net für Tür-Laufziele.
 - `slideUmHindernis(ux, uy, schritt)`:
-  1. Sucht das blockierende Hindernis per Center-Distanz (in Laufrichtung, senkrechter Versatz ≤ MaxRadius + 0.02).
+  1. **Blocker = das Hindernis, in das der direkte Schritt reinläuft.** `aktualisiereFigur` ruft slide nur, wenn `istImHindernis(neueFu, neueFv) === true`, also weiß slide, dass mindestens eines existiert — nimmt das erste, in dessen Form die direkte Schritt-Position liegt. (Frühere Center+Along-Heuristik versagte, wenn das Polygon-Center hinter der Figur lag, aber eine Polygon-Spitze noch in den Pfad ragte → fälschlich als „behind" klassifiziert, slide gab null, Figur blieb stecken — siehe Stolpersteine.)
   2. Tangente = senkrecht zur **Außen-Normale am nächsten Randpunkt** (für Ellipsen → Gradient, für Vierecke → Kanten-Senkrechte).
   3. Bevorzugt die Seite mit positivem Dot zur Laufrichtung.
-  4. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren.
-  5. **Oszillations-Schutz:** Slide-Schritt, der innerhalb `schritt*0.5` der letzten Position liegt (`figur.letztePosFu/Fv`), wird abgelehnt → andere Seite. Wenn beide Seiten geblockt oder zur letztePos zurückführen, return null → Figur stoppt. Verhindert Hin-und-Her-Pendeln, wenn die Figur frontal auf eine Hindernis-Kante drückt und das Ziel hinter dem Hindernis nicht erreichbar ist (z.B. Klick hinter cupboard_1).
+  4. **Außen-Puffer:** jeder Slide-Schritt bekommt zusätzlich `+0.002 * Außen-Normale` aufaddiert, damit er nicht exakt auf der Polygon-Kante landet (`pktInKonvexPolygon` zählt Boundary-Punkte als „drin"; ohne den Puffer würde der reine Tangenten-Schritt bei langen Slides genau auf die Kante driften → abgelehnt → andere Seite osc-blockiert → null → Figur stoppt).
+  5. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren.
+  6. **Oszillations-Schutz:** Slide-Schritt, der innerhalb `schritt*0.5` der letzten Position liegt (`figur.letztePosFu/Fv`), wird abgelehnt → andere Seite. Wenn beide Seiten geblockt oder zur letztePos zurückführen, return null → Figur stoppt. Verhindert Hin-und-Her-Pendeln, wenn die Figur frontal auf eine Hindernis-Kante drückt und das Ziel hinter dem Hindernis nicht erreichbar ist (z.B. Klick hinter cupboard_1).
 - **Safety-Net** in `aktualisiereFigur`: vor jedem Schritt: in einem Hindernis? Falls ja → zum nächsten Randpunkt + clamp.
+- **Diagnostik:** wenn slide returns null, loggt `aktualisiereFigur` eine `Slide stuck`-Warnung mit pos/ziel/letztePos/richtung in die Konsole — hilft, übersehene Edge-Cases zu finden.
 
 Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern. Vierecke umgekehrt: präziser visueller Footprint mit kleinem Puffer (z.B. cupboard_1 mit 3% Puffer um den sichtbaren Schrank-Linksrand).
 
@@ -369,6 +374,14 @@ const spielstand = {
         toilette_1_voll: false, toilette_2_voll: false, // orthogonal zum Sitz: leer/voll (siehe unten)
         octopus_da: true,                               // Tintenfisch noch im Bad? false nach Exit-Animation
         octopus_zustand: 1,                             // 1 = mürrisch / 2 = aufgehellt / 3 = zufrieden (animiert sich weg)
+        octopus_exit_gestartet: false,                  // Bridge: Exit-Timer max 1× pro Run (siehe schliesseOverlay-Hook)
+        // Chain 3 + Bridge:
+        vogel_da: false,                                // bird_1 sichtbar (true zwischen Wolken-Klick und Coin-Drop)
+        wolke_zentral_weg: false,                       // WOLKEN[1] permanent versteckt nach Klick
+        schlauch_genommen: false,                       // gradenhose_1 von der Wand entfernt (im Inventar)
+        flower_1_gegossen: false,                       // flower_1 visuell auf 2× skaliert (CSS-Klasse `flower-1-gross`)
+        binoculars_genommen: false,                     // binoculars_1 aus toilet_1 verschwunden (im Inventar)
+        keller_freigeschaltet: false,                   // Code geknackt → Geheimtür permanent sichtbar (b80) + Keller offen
     },
 };
 ```
@@ -380,13 +393,27 @@ const spielstand = {
 - Octopus `#octopus_1_1/_2/_3` — sichtbar nach `octopus_da && octopus_zustand === N`.
 - `#animal_3_1`-Image auf desk_4 — versteckt, sobald irgendeine animal_3_*-ID im Inventar liegt oder `chain_2_step >= 1`.
 
+Am Ende ruft `aktualisiereSanitaer()` auch `aktualisiereChain3()` auf (function-hoisting macht das sicher), damit Chain-3-abhängige Sichtbarkeiten (binoculars in WC) bei jedem Sanitär-Toggle automatisch nachziehen.
+
+**Chain-3-Switch:** `aktualisiereChain3()` togglet `sanitar-aus` auf folgenden Elementen:
+- `#bird_1` (Garten) — sichtbar wenn `vogel_da` (true zwischen Wolken-Klick und Coin-Drop).
+- `#gradenhose_1` (Garten) — versteckt wenn `schlauch_genommen` (im Inventar).
+- `#binoculars_1_visual` (Badezimmer, in toilet_1-Schüssel) — sichtbar wenn `!octopus_da && toilette_1 === 2 && !binoculars_genommen`.
+- `.flower-1`-Wrapper (alle, Original + Klone) bekommt zusätzlich Klasse `flower-1-gross` (CSS scale(2)) wenn `flower_1_gegossen`.
+
+**Nachtsicht** (Chain 3 / Bridge): Body-Klasse `nachtsicht` wird über `aktiviereNachtsicht()` (in `nimmAufGegenstand`-Hook bei `obj.aufnehmen === "binoculars_1"`) gesetzt. CSS-Filter `brightness(0.5) sepia(1) hue-rotate(50deg) saturate(3.5)` wird pro Render-Layer (`#game-canvas`, `#object-layer`, `#figure-canvas`, `#object-layer-vorne`) angewendet — nicht auf `#game-stage`, weil Inventar (Kind von #game-stage) sonst auch eingefärbt würde. `deaktiviereNachtsicht()` entfernt die Klasse (nach erfolgreichem Code-Drop auf Geheimtür).
+
 **Toiletten-Klick** (OBJEKTE.badezimmer.toilet_1/2, beide ohne `laufziel` → sofortige Aktion):
 - toilet_X mit `voll=true` → Klick spielt **Spülsound** (`spieleSpuelung()`) + setzt voll=false. Optional, blockiert Chain 2 nicht.
 - toilet_X mit `voll=false` → Klick togglet Sitz (1↔2).
 - **toilet_1 ist gesperrt**, solange `octopus_da===true` — Hinweistext, kein Toggle/Spülen. Sobald Octopus weg, normale Logik.
 - toilet_2 hat zusätzlich `akzeptiert.animal_3_1`: Drop nur, wenn `toilette_2===2 && !toilette_2_voll`. Effekt: animal_3_1 verbraucht, animal_3_2 ins Inventar, `toilette_2_voll=true`, `chain_2_step→2`.
 
-Polygone bewusst enger als die volle SVG-Bbox (`toilet_1` 1100..1240, `toilet_2` 590..750), damit ein Klick auf cupboard_2 (x=750..1100) keine Toilette togglet. Bathtub-Polygon `[130..730, 440..640]` mit Drop-Target `akzeptiert.animal_3_2` (egal ob `badewanne===1` oder 2 — Wanne ist immer mit Wasser gefüllt) → animal_3_3 ins Inventar, `chain_2_step→3`. Octopus-Polygon `[930..1300, 380..710]` mit Drop-Target `akzeptiert.animal_3_3` → erste Fütterung öffnet `chain_2_octopus`-Aufgabe (Zahleneingabe; bei richtig: `octopus_zustand=2` + Mood-Hinweis), zweite Fütterung läuft direkt durch zu `octopus_zustand=3` mit 2 s Verzögerung + Exit-Animation. Bathtub und Octopus haben **kein** `aktion` — Klick ohne Drag fällt durch zur Boden-Logik. Konsole-Helfer: `setzeBadewanne(N)`, `setzeToilette1/2(N)`, `setzeToilette1/2Voll(bool)`, `setzeOctopusZustand(N)`, `animiereOctopusRaus()`, `spieleSpuelung()`.
+Polygone bewusst enger als die volle SVG-Bbox (`toilet_1` 1100..1240, `toilet_2` 590..750), damit ein Klick auf cupboard_2 (x=750..1100) keine Toilette togglet. Bathtub-Polygon `[130..730, 440..640]` mit Drop-Target `akzeptiert.animal_3_2` (egal ob `badewanne===1` oder 2 — Wanne ist immer mit Wasser gefüllt) → animal_3_3 ins Inventar, `chain_2_step→3`. Octopus-Polygon `[930..1300, 380..710]` mit zwei symmetrischen Drop-Targets:
+- `akzeptiert.animal_3_3` → öffnet `chain_2_octopus`-Aufgabe (C=2π·100 cm → A=31400 cm²).
+- `akzeptiert.goldene_muenzen` → öffnet `chain_3_pizza`-Aufgabe (Pizzastück 60°, r=√(6/π) → A=1 m²).
+
+Beide Aufgaben-Callbacks **advancen `octopus_zustand` symmetrisch um +1** (capped bei 3) und verbrauchen das Item. Reihenfolge zwischen Chain 2 und Chain 3 ist also egal: bei state 1→2 zeigt sich der Mood-Hinweis (Aufgaben-spezifischer Text via `belohnung_text`-Funktion), bei 2→3 startet die Exit-Animation NACH Schliessen des Overlays (siehe `schliesseOverlay`-Hook). Bathtub und Octopus haben **kein** `aktion` — Klick ohne Drag fällt durch zur Boden-Logik. Konsole-Helfer: `setzeBadewanne(N)`, `setzeToilette1/2(N)`, `setzeToilette1/2Voll(bool)`, `setzeOctopusZustand(N)`, `animiereOctopusRaus()`, `spieleSpuelung()`, `aktiviereNachtsicht()`, `deaktiviereNachtsicht()`.
 
 **Dev-Helfer in der Browserkonsole:**
 ```js
@@ -415,7 +442,7 @@ Aufgaben mit π im Text setzen `pi_hinweis: true` → blendet automatisch eine H
 
 **Multiple-Choice** wird über `typ: "multiple_choice"` aktiviert mit `optionen: [{ katex|label, korrekt? }, …]`. Genau eine Option hat `korrekt: true`. Falsche Antworten färben den Button rot + sperren ihn, korrekte Antwort sperrt alle + triggert Belohnung. Falsche Versuche bleiben offen → User kann nochmal probieren.
 
-`bei_richtig` unterstützt: `schluessel` (Schloss-ID), `inventar` (Object → spielstand.inventar gemerged), `gegenstand` (ID aus GEGENSTAENDE → ins Inventar), `belohnung_text` (string), `callback: (s) => ...` (für freie Logik wie Chain-State-Updates oder Verbrauch).
+`bei_richtig` unterstützt: `schluessel` (Schloss-ID), `inventar` (Object → spielstand.inventar gemerged), `gegenstand` (ID aus GEGENSTAENDE → ins Inventar), `belohnung_text` (string ODER `(spielstand) => string` — Funktion wird **nach** dem callback ausgewertet, sodass der Text auf den frisch aktualisierten State zugreifen kann; siehe `chain_2_octopus`/`chain_3_pizza` für state-abhängige Mood-Texte), `callback: (s) => ...` (für freie Logik wie Chain-State-Updates oder Verbrauch).
 
 ## Chains (Handlungsstränge)
 
@@ -450,12 +477,45 @@ cupboard_1-Switch in [index.html](index.html): `cupboard_1_1` (geschlossen, `<im
 | 0→1 | Klick `animal_3_1` auf desk_4 (Badezimmer) — nur nach Formelbuch-Fund | `gegenstaende += "animal_3_1"`, Image auf desk_4 verschwindet via `aktualisiereSanitaer()` (jetzt aufgerufen aus `nimmAufGegenstand`). |
 | 1→2 | animal_3_1 auf toilet_2 gezogen — nur wenn `toilette_2===2` (Sitz oben) UND `!toilette_2_voll`. Sonst Hinweistext. | `verbrauche("animal_3_1")`, `gegenstaende += "animal_3_2"`, `toilette_2_voll=true` (gelbe Voll-Ellipse erscheint). |
 | 2→3 | animal_3_2 auf Wanne gezogen (egal ob blaues oder klares Wasser — die Wanne ist immer voll) | `verbrauche("animal_3_2")`, `gegenstaende += "animal_3_3"`. |
-| 3→4 | animal_3_3 auf Octopus gezogen (Polygon `[930..1300, 380..710]`) — **Aufgabe `chain_2_octopus` öffnet sich** | Bei richtig: `verbrauche("animal_3_3")`, `octopus_zustand=2` (octopus_1_2 sichtbar), Mood-Hinweis: "Correct! The octopus' mood has improved, but it is not quite happy yet." Bei falsch: nichts ändert sich, User kann erneut versuchen oder schliessen + nochmals droppen. |
-| 4→5 | nochmals animal_3_3 auf Octopus (User muss erneut Wanne-Tour machen) | `octopus_zustand=3` (octopus_1_3 sichtbar) → `setTimeout(animiereOctopusRaus, 2000)`. Animation: CSS-`transition: transform 1.6s` schiebt octopus_1_3 nach unten + zur Seite (Richtung weg von der Figur), `transitionend` → `octopus_da=false` → toilet_1 ist klickbar. |
+| 3→4 | animal_3_3 auf Octopus gezogen (Polygon `[930..1300, 380..710]`) — **Aufgabe `chain_2_octopus` öffnet sich** | Bei richtig: `verbrauche("animal_3_3")`, `octopus_zustand` += 1 (capped 3). Mood-Hinweis-Text via `belohnung_text`-Funktion (siehe Aufgaben + Overlay) — bei state→2 „mood improved", bei state→3 „fully content". Bei falsch: nichts ändert sich, User kann erneut versuchen oder schliessen + nochmals droppen. |
+
+In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ersten Drop verbraucht ist und kein Wiederbeschaffungs-Mechanismus existiert (animal_3_1/2 sind nach Toiletten/Wanne-Tour ebenfalls verbraucht). Der zweite Mood-Advance auf state 3 läuft daher zwingend über Chain 3 (siehe unten). Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — es ist egal, wer zuerst kommt.
 
 **Optional/parallel:** Klick auf voll gewordene Toilette → `spieleSpuelung()` (Web Audio Platzhalter: 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep 1200 Hz → 250 Hz, Hüllkurve attack/sustain/decay) + setzt `voll=false`. Nicht nötig für Chain-Fortschritt. Generischer Mechanismus: `toilette_1_voll` ist genauso definiert (für duck_1 → toilet_1 in einer späteren Chain), aktuell wird kein Drop-Target ihn setzen.
 
+**Octopus-Exit-Timing:** `setTimeout(() => animiereOctopusRaus(), 2000)` wird **nicht** im Aufgaben-Callback gestartet, sondern in `schliesseOverlay()` über einen Hook: wenn nach Schliessen `octopus_zustand===3 && octopus_da && !octopus_exit_gestartet`, dann startet der 2-Sekunden-Timer. Damit zählt die Pause ab dem Moment, in dem User wieder das Spiel sieht (statt schon während des Mood-Hinweis-Overlays). `octopus_exit_gestartet`-Flag verhindert Doppel-Trigger.
+
 **Octopus-Exit-Richtung:** `animiereOctopusRaus()` liest `figur.fu` und kippt das Ziel zur jeweils anderen Seite (figur.fu < 0.5 → Octopus nach rechts/+380 px, sonst nach links/-560 px), y immer +520 px (nach unten-vorne raus Richtung "zurueck"-Pfeil). 2 s Safety-Timeout, falls `transitionend` nicht feuert (z.B. weil `display:none` schon vorher zugeschlagen hat).
+
+### Chain 3 — Wolke → Vogel + Schlauch → Blume → Samen + Vogel → Münzen → Octopus
+
+**Vorbedingung:** Schlauch-Klick + Vogel-Klick brauchen `formelbuch_gefunden=true` (analog cake_1, animal_3_1).
+
+**Zwei parallele Sub-Pfade, die zusammenlaufen:**
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 3a | Klick auf zentrale Wolke (`WOLKEN[1]` cx=470 cy=140, Klick-Polygon (380,95)..(560,185) im Garten) | `wolke_zentral_weg=true`, `vogel_da=true`. Wolke verschwindet (zeichneWolken skippt sie), bird_1-SVG wird sichtbar. |
+| 3b-1 | Klick auf Gartenschlauch (`#gradenhose_1`, Klick-Polygon (1310,455)..(1380,605) auf rechter Hauswand) → MC-Aufgabe `chain_3_schlauch` (5 Windungen, d=5/π m → L=25 m. Distraktoren: 5 m, 50 m, 25/π m) | `gegenstaende += "gartenschlauch"`, `schlauch_genommen=true`, gradenhose-Image verschwindet von der Wand. |
+| 3b-2 | Drag `gartenschlauch` auf flower_1 (Klick-Polygon (320,510)..(400,613)) | flower_1 skaliert auf 2× via CSS-Klasse `flower-1-gross`, `verbrauche("gartenschlauch")`, `gegenstaende += "seed_1"`, `flower_1_gegossen=true`. |
+| 3c | Drag `seed_1` auf Vogel (gleiches Polygon wie Wolke, nur aktiv wenn `vogel_da===true`) | `verbrauche("seed_1")`, `gegenstaende += "goldene_muenzen"`, `vogel_da=false` (Vogel fliegt davon). |
+| 3d | Drag `goldene_muenzen` auf Octopus → **Aufgabe `chain_3_pizza`** (Pizzastück 60°, r=√(6/π) m → A=1 m², Toleranz ±0.05) | Bei richtig: `verbrauche("goldene_muenzen")`, `octopus_zustand` += 1 (analog Chain 2), bei state→3 Exit-Animation nach Overlay-Schliessen. |
+
+`bird_1`-OBJEKT in `OBJEKTE.garten` hat zwei Varianten mit `aktiv`-Predicates: `wolke_zentral` (aktiv wenn `!vogel_da && !wolke_zentral_weg`) und `bird_1` (aktiv wenn `vogel_da`). Selbes Polygon — Klick fällt auf den jeweils aktiven Eintrag.
+
+### Bridge — Octopus weg → toilet_1 → Binoculars → Nachtsicht → Geheimtür → Keller
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 1 | Octopus weg (Chain 2 + 3 abgeschlossen, `octopus_da===false`) → Klick auf toilet_1_1 | toilet_1 togglet auf 2 (Sitz oben). |
+| 2 | `aktualisiereChain3()` zeigt `binoculars_1_visual` (`!octopus_da && toilette_1===2 && !binoculars_genommen`) | Binoculars-SVG wird sichtbar in der toilet_1-Schüssel (DOM-VOR toilet_1-OBJEKT, sonst würde dessen Polygon die Klicks abfangen). |
+| 3 | Klick auf Binoculars → `nimmAufGegenstand("binoculars_1")` | `gegenstaende += "binoculars_1"`, `binoculars_genommen=true`, **`aktiviereNachtsicht()`** (Body-Klasse `nachtsicht` → CSS-Filter brightness/sepia/hue-rotate auf alle 4 Render-Layer). |
+| 4 | Wechsel in Hauptraum, Klick auf Geheimtür-Bereich an rechter Wand | findeTuerBei filtert die Geheimtür raus, wenn `!keller_freigeschaltet && !binoculars_1`. Mit Binoculars: Tür wird zurückgegeben, Phosphor-Outline (`#5fff8a` Stroke + Glow) im zeichneTueren-Sonderfall. Klick → Hinweis "Drag the code from your inventory onto the door." |
+| 5 | Drag `code_geheimtuer` auf Geheimtür-Polygon → `tueren.geheim.akzeptiert.code_geheimtuer` | `verbrauche("binoculars_1")`, `verbrauche("code_geheimtuer")`, `delete inventar.keller_code`, `keller_freigeschaltet=true`, **`deaktiviereNachtsicht()`**. Geheimtür wird ab jetzt in `FARBEN.tuerGeheimOffen` (b80, dunkler als Wand b70) gerendert — permanenter visueller Akzent. Klick → starteRaumwechsel("keller"). |
+
+**Klick auf Geheimtür ohne Code, mit Binoculars:** Hinweis „You need to find a code first." Spieler muss Chain 1 abschliessen, um den Code-Tag zu bekommen.
+
+**Geheimtür ohne Binoculars + nicht freigeschaltet:** `findeTuerBei` filtert komplett raus → Klick fällt zur Boden-Logik durch (wie ganz normale Wand, kein Hinweis-Overlay).
 
 ## Aufgaben + Overlay
 
@@ -480,7 +540,7 @@ const AUFGABEN = {
 
 `zeigeOverlayText(text)` für einfachen Info-Text (z.B. „Tür verschlossen."). Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
 
-Aktuell sind keine Aufgaben definiert — `AUFGABEN` ist `{}`.
+Aktuell definiert: `chain_1_kuchen` (MC, U+A bei d=20 cm), `chain_1_pi` (MC, π-Annäherung), `chain_2_octopus` (Zahleneingabe, A=31400 cm²), `chain_3_schlauch` (MC, 5 Windungen → 25 m), `chain_3_pizza` (Zahleneingabe, A=1 m²).
 
 ## Inventar + Drag & Drop
 
@@ -582,18 +642,31 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **Inventar-Item-Transition** (Glas-Varianten): animal_3_1 → animal_3_2 → animal_3_3 sind drei unterschiedliche IDs, die nacheinander durchs Inventar wandern. `aktualisiereSanitaer()` blendet das `<image id="animal_3_1">` auf desk_4 aus, sobald irgendeine der drei IDs im Inventar liegt ODER `chain_2_step >= 1` — sonst würde das Glas auf desk_4 wieder erscheinen, sobald _1 verbraucht und _2 erzeugt wird. Die `aktiv`-Funktion am OBJEKT verhindert weitere Aufnehm-Klicks parallel. Wichtig: `nimmAufGegenstand()` ruft `aktualisiereSanitaer()` direkt nach `gegenstaende.add()` auf, sonst verschwindet das Image erst beim nächsten Sanitär-Toggle (z.B. Toilette anklicken).
 - **Drop-Suche bei überlappenden OBJEKT-Polygonen** (`versucheDrop`): `findeObjektBei()` liefert das ERSTE polygon-passende OBJEKT zurück, egal ob es den Gegenstand akzeptiert. Bei Drop muss explizit nach dem ersten OBJEKT gesucht werden, das `akzeptiert[gegenstandId]` hat. Beispiel: `octopus`-Polygon `(930..1370, 380..710)` überlappt mit `toilet_1` `(1100..1240, 420..670)`. Wenn animal_3_3 in den Überlapp-Bereich gedroppt wird, würde `findeObjektBei` toilet_1 liefern → kein `akzeptiert.animal_3_3` → Drop verpufft. Lösung in `versucheDrop`: eigene Schleife über `OBJEKTE[aktuellerRaum]`, die nur OBJEKTE mit polygon-Treffer UND `akzeptiert[gegenstandId]` zurückliefert.
 - **Klon-Prefixierung bricht ID-spezifische CSS-Selektoren** (Octopus-Mund): Die CSS-Regel `.octopus *:not(#path4647) { stroke: none !important }` matcht den geklonten Mund (Front-Layer-ID `v_<idx>_path4647`) nicht — er fällt unter „andere Elemente" und verliert seinen Stroke. Symptom: Mund verschwindet, sobald die Figur in die Front-Ebene wechselt (figur.fv > octopus.fv). Lösung: Attribut-Suffix-Selektor `.octopus *:not([id$="path4647"])` matcht Original UND alle `v_*_path4647`-Klone.
+- **Slide-Algorithmus stoppt bei seitlich liegendem Polygon-Center** (Bug-Fix in `slideUmHindernis`): Der frühere Center-basierte Blocker-Filter (`along = dfu*ux + dfv*uy; if (along <= 0) continue`) klassifizierte Polygone als „behind me" sobald ihr Schwerpunkt hinter der Figur lag — auch wenn eine Polygon-Spitze noch im Pfad war. Symptom: Figur lief schräg an einem Polygon vorbei, Direkt-Schritt sagte „in Hindernis", aber slide fand keinen Blocker (Center war ja schon „hinter ihr") → return null → Figur blieb stehen. **Fix:** statt Center+Along zu schätzen, das Hindernis nehmen, in das der direkte Schritt reinläuft (`for (h of hs) if (istInForm(h, neueFu, neueFv)) { blocker = h; break; }`). Reproduzierbar beim Bad → Garten-Pfad in Haupt entlang desk_3.
+- **Slide-Schritt landet auf Polygon-Boundary** (Folge-Bug, nur theoretisch nach dem oberen Fix): Bei sehr langen Slides parallel zur Polygon-Kante driftet der reine Tangenten-Schritt (figur.pos + tangent*schritt) numerisch auf die Kante. `pktInKonvexPolygon` zählt Boundary-Punkte (alle Cross-Produkte gleichvorzeichig, eines ≈0) als „drin" → Schritt abgelehnt → Gegenrichtung osc-blockiert → null → Stuck. **Fix:** zusätzlich `+0.002 * Außen-Normale` aufaddieren, damit der Schritt sicher außerhalb landet. Driftet die Figur über viele Slide-Frames um insgesamt ~2 mm (in Bühnen-Skala) vom Polygon weg — visuell unsichtbar.
+- **Chain-3-Drop-Reihenfolge bei Octopus** (animal_3_3 + goldene_muenzen): Beide Drops sind symmetrisch — jeder öffnet seine eigene Aufgabe (`chain_2_octopus` bzw. `chain_3_pizza`), Aufgaben-Callback advanciert `octopus_zustand` um +1 (capped 3). Reihenfolge der Chains 2 und 3 ist egal. `belohnung_text` als Funktion liest den POST-callback-state (gewaehrenBelohnung ruft callback VOR text-render) und differenziert „mood improved" (state→2) vs „fully content" (state→3). Bei state=3: Exit-Animation startet erst NACH `schliesseOverlay` (siehe Octopus-Exit-Timing oben).
+- **Boundary-Check für Geheimtür**: `findeTuerBei` filtert die secret-Tür raus, wenn `!keller_freigeschaltet && !binoculars_1`-im-Inventar. Ohne Binoculars wirkt die Wand wie eine ganz normale Wand (kein Hinweis-Overlay). Mit Binoculars: Tür ist klickbar (Klick → Hinweistext), Drop von code_geheimtuer triggert akzeptiert-Callback. Nach erfolgreichem Drop: `keller_freigeschaltet=true`, `deaktiviereNachtsicht()`, Tür wird permanent in `FARBEN.tuerGeheimOffen` (b80) gerendert — kontrastiert sichtbar gegen Hauptraum-Wand b70. Phosphor-Outline (`#5fff8a` mit shadowBlur) wird in `zeichneTueren` gezeichnet, wenn Binoculars + nicht freigeschaltet — nur unter Nachtsicht-Filter wirklich sichtbar.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, Voll/Leer-Mechanik mit Spülsound), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch** (Aufgaben, Belohnungen, Overlays, Inventar-Namen). **Chain 1** komplett spielbar (Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item ins Inventar). **Chain 2** komplett spielbar (animal_3_1 vom desk_4 → toilet_2 dumpen → animal_3_2 → Wanne → animal_3_3 → Octopus 1. Drop öffnet Aufgabe `chain_2_octopus` (C=2π·100 → A=31400 cm²) → bei richtig: Mood-Hinweis + state=2 → Wanne erneut → 2. Drop → Octopus animiert sich nach unten-vorne raus, weicht der Figur aus → toilet_1 wird klickbar). Octopus-Switch-Triplet (octopus_1_1/_2/_3 deckungsgleich inline). Auto-Close für Erfolgs-Overlays + robuster Drag-Cancel (Esc / Raumwechsel / `dragAbbrechen()`).
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, Voll/Leer-Mechanik mit Spülsound), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
 
-**Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert (desk_3, Pilzlampe, plant_setzling, muffin_2/3, lamp_1, desk_4, chest_1, muffin_4, alle Garten-flowers).
+**Drei spielbare Chains + Bridge zum Keller:**
+- **Chain 1:** Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
+- **Chain 2:** animal_3_1 vom desk_4 → toilet_2 dumpen → animal_3_2 → Wanne → animal_3_3 → Octopus → Aufgabe `chain_2_octopus` (C=2π·100 → A=31400 cm²) → octopus_zustand +1.
+- **Chain 3:** zentrale Wolke klicken → Vogel sichtbar; parallel: Schlauch-MC-Aufgabe (5 Windungen d=5/π → 25 m) → gartenschlauch im Inventar → flower_1 giessen (skaliert 2×) → seed_1 → Vogel füttern → goldene_muenzen → Octopus → Aufgabe `chain_3_pizza` (60°, r=√(6/π) → A=1 m²) → octopus_zustand +1.
+- **Bridge:** Beide Octopus-Aufgaben advancen state +1, bei state=3 startet Exit-Animation NACH Overlay-Schliessen → toilet_1 frei → Sitz oben togglen → Binoculars luggen heraus → aufnehmen aktiviert Nachtsicht-Filter (CSS brightness/sepia/hue-rotate auf alle 4 Render-Layer) → Hauptraum: Geheimtür mit Phosphor-Outline → code_geheimtuer aus Inventar auf Tür droppen → Code geprüft, Binoculars + Code verbraucht, Filter aus, Tür permanent in b80 → Keller offen.
+
+Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — beide Aufgaben können in beliebiger Reihenfolge gelöst werden, jede macht +1 am Octopus-State. Chain 3 ist effektiv erforderlich für die Bridge, da Chain 2 alleine nur eine Fütterung erlaubt.
+
+**Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert.
 
 **Offen:**
 - 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius), linear I → IV mit Cross-Room-Lookups.
-- Auslösende Handlungen für Sanitär-Switch (welche Aufgabe → `setzeBadewanne(2)`, Octopus weg etc.).
+- Auslösende Handlungen für Sanitär-Switch (welche Aufgabe → `setzeBadewanne(2)` etc.).
 - Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar).
 - `localStorage` für Fortschritt (erst nach Inhalten sinnvoll).
+- Diagnose-`console.warn` in `slideUmHindernis` rausnehmen, sobald keine neuen Slide-Hänger mehr auftauchen.
 
 ## Git-Workflow
 
