@@ -115,7 +115,7 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 | ID | Name | Türen → Ziel | Wandfarben | Inhalt |
 |---|---|---|---|---|
 | `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 5 Pflanzen + painting_1 + Tisch1 (Lavalampe, cake_1) + 2 Muffins (auf Boden) + desk_3 (rotiert -2°, mit Pilzlampe + plant_setzling oben) + cupboard_3 + desk_5 (mit cake_2 + plant_geranie + muffin_1 obendrauf). desk_1 + desk_2 deaktiviert |
-| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Notizzettel + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
+| `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
 | `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
 | `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
@@ -189,8 +189,6 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 | yucca | 0.034 | 0.79 | 104 | 0.03 |
 *(`kraeuter` wurde in den Keller verschoben — siehe dort)*
 
-Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "bookshelf_umfang"` + `akzeptiert.notizzettel` (Drop-Target).
-
 4. **cupboard_3** (`assets/cupboard_3.svg?v=2`, aus Badezimmer hierher verschoben): grosser Schrank rechts an der Wand. `<image>` x=1140 y=260 width=160 height=363, `data-y-fuss="623"`, `preserveAspectRatio="none"`. Kein Hindernis. DOM-direkt vor desk_5 (beide ausserhalb `<g id="haupt-moebel">`). **Asset modifiziert** — 14 dunkle Holz-Hex-Codes durch hellere ersetzt (Mapping siehe Git-History).
 
 5. **DOM-Reihenfolge am Ende der haupt-Gruppe** (alle ausserhalb haupt-moebel): `<g id="plants">` → `cupboard_3` → `desk_5` → `plant_geranie` → `cake_2` → `muffin_1`. Wichtig wegen Tiefensortierung: cake_2 + plant_geranie + muffin_1 sitzen visuell auf desk_5 und tragen `data-y-fuss="705"` synchron mit desk_5 — wechseln die Ebene zusammen mit ihm und stehen dank DOM-Reihenfolge in beiden Ebenen davor. **Analog auf desk_3** (innerhalb haupt-moebel): desk_3 → Pilzlampe → muffin_2 + muffin_3 — alle mit `data-y-fuss="690"`. Tisch 1 + Lavalampe + cake_1 + muffin_2/3 sind alle auf data-y-fuss="639" (gemeinsamer Tisch-Stack). plant_setzling sitzt zwar visuell auch auf desk_3, lebt aber im `<g id="plants">`-Wrapper (DOM-nach haupt-moebel), trägt ebenfalls `data-y-fuss="690"`.
@@ -199,7 +197,6 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
 
 - **Tisch 2** (`assets/table_2.svg`, L-Schreibtisch): Anker = front-left-leg-Fuss SVG (311, 613) → Screen (240, 700), σ=0.55. Vorderlinks. **Helle Holz-Palette** (Original-Hex-Codes global ersetzt: `#512F18→#8B6740`, `#C77137→#DEAA6F` usw.). Metallbeine grau, Schubladengriffe `#D1C6BF`. **Stroke = Fill** auf allen 22 Polygons/Rects (ursprünglich hatten alle eine ~10% dunklere stroke-Farbe als Rand → wurde auf Fill-Farbe gesetzt, damit die Möbelteile randlos wie aus einem Guss wirken).
 - **Tischlampe** auf Tisch 2 (handgezeichnet inline, klassische Schreibtischlampe). Standfuss bei Screen (340, 495). Schirm um -20° gedreht, zwei Flächen-Hälften (`#987230` rechts/Licht, `#7a5a20` links/Schatten) mit gekrümmter Bezier-Unterkante; halbtransparenter Lichtkegel `#fff5b8` opacity 0.20.
-- **Demo-Notizzettel** am Boden (`OBJEKTE.buero[0]`): per `zeichnen`-Callback als Brief auf Canvas gemalt. `aufnehmen: "notizzettel"`. Drop auf Bookshelf zeigt Hinweis-Overlay.
 - **Bücherregal** `#bookshelf_2` (Inline-SVG, ursprünglich aus `assets/bookshelf_2.svg`): hinten-rechts an Wand, `x=700, y=270, 600×600`. Eigene Saturierung: `filter="url(#grell-mild)"`. **Hindernis** (Pixel-genau, deckt den ganzen visuellen Bookshelf-Footprint auf dem Boden ab): Trapez-Viereck `[[0.4351,0.10],[0.8247,0.10],[0.9912,0.97],[0.4017,0.97]]`. Vorderkante = Bookshelf-Bottom-Pixel y=870 → fv=0.10. Linksrand x=700 wandert perspektivisch (fv=0.10→fu=0.4351; fv=0.97→fu=0.4017), Rechtsrand x=1300 analog. Tür F-laufziel (0.88, 0.45) liegt knapp im Trapez → `setzeFigurZiel` schiebt es an die rechte Kante (≈0.896, 0.447); Tür bleibt aufrufbar. Tür "zurueck" (0.5, 0.05) klar vor dem Trapez. Lücke fu=0.35..0.43 zwischen Tisch 2 und Bookshelf bleibt durchquerbar.
 - **Schreibtischstuhl** `#chair_1` (Inline-SVG): vor Tisch 2 (im DOM nach Tisch = visuell davor), `x=200, y=440, 180×290`, an y-Mittelachse gespiegelt via `transform="matrix(-1 0 0 1 580 0)"`. Eigene Saturierung: `filter="url(#grell-mild)"`. Manuelle Säuberung der SVG: `path1545` (Detail) entfernt; alle übrigen Pfade haben `stroke = ihr Fill` mit `stroke-width:1` (puffen sich minimal auf, keine schwarze Outline). Kein eigenes Hindernis (im Footprint des Tisches).
 - **Wandbild** (linke Wand, JS-generiert via `baueBueroBild()` in script.js): Rahmen + Leinwand + 6 farbige Kreise. Alle Punkte (Polygon-Ecken UND 12 cubic-Bezier-Stützpunkte pro Kreis) werden in Wand-(u,v)-Koords definiert und mit `linkeWandPunkt()` auf die schräge Wand abgebildet → Perspektive (Fluchtpunkt 800/225) ergibt sich automatisch. Kreise geclippt auf das Leinwand-Polygon (`<clipPath id="bueroBildClip">`). Konfiguration in der Konstante `BUERO_BILD` (Rahmen-/Leinwand-uv-Bereich, Farbe pro Kreis). DOM-zuerst (`gruppe.prepend()`) → wird von allen Möbeln überdeckt. Marker `data-generated="bueroBild"` für idempotenten Re-Build.
@@ -223,10 +220,10 @@ Bookshelf hat zusätzliche Interaktion via `OBJEKTE.haupt[0]`: `aufgabe: "booksh
   - **`<g transform="translate(37 -9)">`-Wrapper** in `toilet_2_2` und `toilet_1_2`: Die beiden Switch-Partner-Assets haben ihre Pfade im viewBox um (-37, +9) verschoben — der Wrapper gleicht das aus, sodass _1 und _2 deckungsgleich liegen.
   - **CSS `.sanitar-aus { display: none !important }`** im `<style>`-Block — wird von `setSichtbar()` togglet. `!important` schlägt die Inline-display-Setzung von `aktualisierePflanzenTiefe()`, sodass der versteckte Switch-Partner zuverlässig unsichtbar bleibt.
 
-  **Toiletten-Klick** in `OBJEKTE.badezimmer`: `toilet_1`-Polygon (1040..1240, 420..670) und `toilet_2`-Polygon (590..790, 420..670), beide ohne `laufziel` → Klick toggelt sofort, Figur bleibt stehen. `toilet_1` zeigt Hinweistext, solange `spielstand.zustaende.octopus_da === true` (Tintenfisch sitzt drauf) — `toilet_2` togglet immer.
+  **Toiletten-Klick** in `OBJEKTE.badezimmer`: `toilet_1`-Polygon (1100..1240, 420..670) und `toilet_2`-Polygon (590..750, 420..670), beide ohne `laufziel` → Klick toggelt sofort, Figur bleibt stehen. Polygone bewusst enger als die volle SVG-Bbox, damit Klicks auf cupboard_2 (x=750..1100) keine Toilette mehr triggern. `toilet_1` zeigt Hinweistext, solange `spielstand.zustaende.octopus_da === true` (Tintenfisch sitzt drauf) — `toilet_2` togglet immer.
 
   Hinweis Nummerierung: Die "1"/"2" hinter `toilet_` folgt den Asset-Namen, nicht der räumlichen Lage.
-- **cupboard_2** (`assets/cupboard_2.svg?v=5`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=350 height=500, data-y-fuss="650". Asset wurde von Manuel vereinfacht (`?v=2`); danach Holztöne 2× ~20% aufgehellt (`?v=3`, dann `?v=4`); zuletzt manuelle User-Anpassungen (`?v=5`). Glas-Spiegel (Türkis-Gradients) und Türknäufe (Gradient_5/9) blieben unverändert. cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
+- **cupboard_2** (`assets/cupboard_2.svg?v=5`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=350 height=500. **KEIN data-y-fuss** — wandmontiert wie painting_2/animals (Schrank-Korpus endet im SVG bei ~81% der viewBox-Höhe, der Rest sind Schatten/Reflexion-Pfade; bei `data-y-fuss="650"` lag der vermeintliche Foot deutlich unter dem visuellen Korpus → Figur "verschwand" hinter dem Whitespace, wenn sie zu nah ranging). Hindernis stoppt die Figur korrekt davor. Asset wurde von Manuel vereinfacht (`?v=2`); danach Holztöne 2× ~20% aufgehellt (`?v=3`, dann `?v=4`); zuletzt manuelle User-Anpassungen (`?v=5`). Glas-Spiegel (Türkis-Gradients) und Türknäufe (Gradient_5/9) blieben unverändert. cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
 - **Desk 4** (`assets/desk_4.svg`, breite Anrichte mit Schubladen): inline x=1200 y=520 width=310 height=360, data-y-fuss="880" (bbox-bottom; vorher 755 als Anpassung an einen alten viewBox-Anteil — nach User-Resize obsolet, wurde im Audit korrigiert). Aus dem Hauptraum hierher verschoben. Frischer 1:1-Import aus dem Asset, **keine Strokes** (Asset hat keine — frühere weisse Stroke-Variante wurde verworfen). IDs aus dem Asset entfernt (`path2170` / `path2172` / `path2178` ×3 — Duplikate riskieren beim Klonen in die Front-Ebene). Leere Platzhalter-Pfade (`M0.322,297.233`, `M415.693,107.617`) weggelassen. **DOM-zuletzt** im Badezimmer-Block, überdeckt also Octopus + Toiletten visuell.
 
 ### Garten
@@ -302,14 +299,14 @@ Alle Inline-Imports im Keller (Kamin, Ketten, Truhe, animals) haben prefixierte 
 `HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist eine von drei Formen:
 
 - **Kreis**: `{ fu, fv, r }` — runde/kompakte Objekte (Pflanzen, Octopus).
-- **Ellipse**: `{ fu, fv, rx, ry }` — flache/breite Objekte (Tisch1, Kamin, Truhe).
+- **Ellipse**: `{ fu, fv, rx, ry, rot? }` — flache/breite Objekte (Tisch1, Kamin, Truhe). `rot` ist optional in Radian (Default 0): Rotation der rx-Achse ggü. der fu-Achse, im Uhrzeigersinn auf dem Boden-(fu,fv)-System (atan2-Konvention). Im Debug-Editor per ↻-Handle interaktiv setzbar.
 - **Viereck (konvex, polygon)**: `{ punkte: [[fu1,fv1], [fu2,fv2], [fu3,fv3], [fu4,fv4]] }` — rechteckige Möbel mit gerader Kante (Schrank, ggf. später Truhe/Schreibtisch). Konvex bedeutet: alle Innenwinkel < 180°. 3+ Punkte erlaubt, beliebige Reihenfolge (Cross-Product-Test).
 
 Form-Helper (alle in `script.js` direkt vor `istImHindernis`):
 - `istInForm(h, fu, fv)` — Type-Dispatch zwischen Ellipse-Gleichung und `pktInKonvexPolygon`.
 - `hindernisCenter(h)` — Schwerpunkt (für Slide-Distanz-Suche).
 - `hindernisMaxRadius(h)` — konservativer Maximal-Radius vom Center (Pre-Filter).
-- `naechsterRandUndNormale(h, fu, fv)` — gibt nächsten Punkt am Rand + Außen-Normale zurück. Für Vierecke: Projektion auf nächste Kante; für Ellipsen: radial vom Center.
+- `naechsterRandUndNormale(h, fu, fv)` — gibt nächsten Punkt am Rand + Außen-Normale zurück. Für Vierecke: Projektion auf nächste Kante; für Ellipsen (ggf. rotiert): Punkt in Lokal-Frame drehen, dort radiale Approximation, Randpunkt + Gradient zurück nach Welt rotieren.
 
 Hauptfunktionen:
 - `istImHindernis(fu, fv)`: iteriert via `istInForm`.
@@ -325,9 +322,11 @@ Hauptfunktionen:
 Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern. Vierecke umgekehrt: präziser visueller Footprint mit kleinem Puffer (z.B. cupboard_1 mit 3% Puffer um den sichtbaren Schrank-Linksrand).
 
 **Hindernis-Werte nicht raten — interaktiv platzieren.** Hindernis-Positionen werden NICHT im Code geschätzt (Pixel-/Perspektive-Berechnungen sind unzuverlässig), sondern interaktiv per Drag-and-Drop-Editor:
-1. `hindernisDebug(true)` in der Browser-Konsole → farbige Overlays + Eckpunkt-Marker.
-2. Eckpunkte mit der Maus an die richtige Position ziehen (jeder Drag schreibt eine kompakte Bestätigung in die Konsole).
-3. `dumpHindernisse()` (oder `dumpHindernisse("haupt")` etc.) → fertiges Code-Snippet für den ganzen Raum.
+1. `hindernisDebug(true)` in der Browser-Konsole → farbige Overlays + Handle-Marker. Handles je nach Form:
+   - **Vierecke**: pro Eckpunkt ein runder Marker mit Label `<idx>.<eckIdx>` (z.B. `3.0`).
+   - **Kreis/Ellipse**: runder Center-Marker mit `<idx>` + zwei quadratische `rx`/`ry`-Handles auf den Halbachsen + ein runder `↻`-Handle etwas außerhalb der rx-Achse (zum Drehen).
+2. Marker mit der Maus an die richtige Position ziehen (jeder Drag loggt eine kompakte Bestätigung). Achs-Drag (`rx`/`ry`) wandelt einen Kreis automatisch in eine Ellipse um (`r` weg, `rx`/`ry` neu). Rotations-Drag setzt `h.rot` in Radian; Werte unter 0.001 werden gelöscht (saubere 0-Default-Ausgabe).
+3. `dumpHindernisse()` (oder `dumpHindernisse("haupt")` etc.) → fertiges Code-Snippet für den ganzen Raum (`rot` wird nur ausgegeben, wenn ≠ 0).
 4. Snippet 1:1 in `HINDERNISSE.<raum>` in `script.js` einfügen.
 5. `hindernisDebug(false)` ausschalten.
 
@@ -359,15 +358,15 @@ const spielstand = {
 };
 ```
 
-**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` der sechs `<svg>`-Blöcke (`#bathtub_1_1/1_2`, `#toilet_1_1/1_2`, `#toilet_2_1/2_2`) per `querySelectorAll('[id="…"]').classList.toggle()` basierend auf `spielstand.zustaende`. Über `[id="…"]` (Attribute-Selektor) werden auch die Klone in `#object-layer-vorne` erfasst. Wird beim Init und nach jeder Zustandsänderung aufgerufen. Toiletten sind klickbar: `OBJEKTE.badezimmer` enthält `toilet_1` und `toilet_2` mit `aktion`-Callback (kein `laufziel` → sofortiges Toggle ohne Hinlaufen). **toilet_1 ist gesperrt, solange `spielstand.zustaende.octopus_da === true`** — Klick zeigt Hinweistext. Sobald `octopus_da = false`, togglet der Klick `wechsleToilette1()`. Aufgaben können auch direkt `setzeBadewanne(2)`, `setzeToilette1(2)`, `setzeToilette2(2)` aufrufen.
+**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` der sechs `<svg>`-Blöcke (`#bathtub_1_1/1_2`, `#toilet_1_1/1_2`, `#toilet_2_1/2_2`) basierend auf `spielstand.zustaende`. Selektor: `'[id="X"], [id^="v_"][id$="_X"]'` — matcht Original UND die Front-Layer-Klone (deren IDs von `klonePflanzenVorne()` mit `v_<idx>_` prefixed sind). Wird beim Init und nach jeder Zustandsänderung aufgerufen. Toiletten sind klickbar: `OBJEKTE.badezimmer` enthält `toilet_1` (Polygon `[1100..1240, 420..670]`) und `toilet_2` (`[590..750, 420..670]`) mit `aktion`-Callback (kein `laufziel` → sofortiges Toggle ohne Hinlaufen). Polygone sind absichtlich enger als die volle SVG-Bbox, damit ein Klick auf cupboard_2 (x=750..1100) nicht ungewollt eine Toilette togglet. **toilet_1 ist gesperrt, solange `spielstand.zustaende.octopus_da === true`** — Klick zeigt Hinweistext. Sobald `octopus_da = false`, togglet der Klick `wechsleToilette1()`. Aufgaben können auch direkt `setzeBadewanne(2)`, `setzeToilette1(2)`, `setzeToilette2(2)` aufrufen.
 
 **Dev-Helfer in der Browserkonsole:**
 ```js
 freischalten("keller_schluessel")
 verschliessen("keller_schluessel")
-gegenstandHinzufuegen("notizzettel")
-gegenstandEntfernen("notizzettel")
-verbrauche("notizzettel")              // Alias — praktisch in akzeptiert-Callbacks
+gegenstandHinzufuegen("gegenstand_id")
+gegenstandEntfernen("gegenstand_id")
+verbrauche("gegenstand_id")            // Alias — praktisch in akzeptiert-Callbacks
 setzeBadewanne(2)                      // Wanne-State setzen (1 oder 2)
 setzeToilette1(2) / setzeToilette2(2)  // Toiletten setzen
 wechsleBadewanne() / wechsleToilette1() / wechsleToilette2()  // togglen
@@ -390,7 +389,7 @@ const AUFGABEN = {
         toleranz:  0.2,
         bei_richtig: {
             schluessel:     "keller_schluessel",         // optional → freigeschalteteTueren
-            inventar:       { umfang_demo_cm: 31.4 },    // optional → spielstand.inventar
+            inventar:       { ergebnis_id: 31.4 },       // optional → spielstand.inventar
             belohnung_text: "Richtig! ...",              // optional
         },
     },
@@ -401,13 +400,13 @@ const AUFGABEN = {
 
 `zeigeOverlayText(text)` für einfachen Info-Text (z.B. „Tür verschlossen."). Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
 
-**Aktuelle Demo-Aufgabe:** `bookshelf_umfang` — Klick aufs Bücherregal, Umfang bei r=5 cm. Bei Erfolg: Inventar-Eintrag `umfang_demo_cm`.
+Aktuell sind keine Aufgaben definiert — `AUFGABEN` ist `{}`.
 
 ## Inventar + Drag & Drop
 
 ```js
 const GEGENSTAENDE = {
-    notizzettel: { name: "Notizzettel", icon: `<svg ...>` },
+    // gegenstand_id: { name: "Anzeigename", icon: `<svg viewBox="0 0 48 48">…</svg>` },
 };
 ```
 
@@ -431,7 +430,7 @@ Türen können auch `akzeptiert` haben (z.B. Schlüssel auf Schloss).
 
 ```js
 figur.ankunft = () => starteRaumwechsel("buero");        // bei Tür-Klick
-figur.ankunft = () => zeigeAufgabe("bookshelf_umfang");  // bei Objekt-Klick
+figur.ankunft = () => zeigeAufgabe("aufgabe_id");        // bei Objekt-Klick
 figur.ankunft = () => nimmAufGegenstand(obj);            // bei Aufnehm-Objekt
 ```
 
@@ -485,17 +484,19 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell, #grell-mild, #invert).
 - **Body-CSS:** `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none` — verhindert Scroll/Verschieben.
 - **Switch-Partner exakte Position:** `bathtub_1_1/1_2`, `toilet_1_1/1_2`, `toilet_2_1/2_2` müssen deckungsgleich liegen — sonst „springt" das Objekt beim Umschalten. toilet_1_2 / toilet_2_2 brauchen einen `<g transform="translate(37 -9)">`-Wrapper, weil die Pfade im Asset-viewBox verschoben sind.
+- **Sanitär-Klone-IDs in `aktualisiereSanitaer`:** Die Sanitär-SVGs haben `data-y-fuss="670"` und werden von `klonePflanzenVorne()` in die Front-Ebene geklont. Beim Klonen werden alle IDs mit `v_<idx>_` prefixed (gegen Gradient-Konflikte). Konsequenz: ein naiver Selektor `[id="toilet_1_1"]` matcht nur das Original, NICHT den Klon `v_5_toilet_1_1`. Ohne Klon-Match haben die Front-Layer-Klone NIE die `sanitar-aus`-Klasse → sobald die Figur näher als der Toiletten-Foot kommt und der Tiefen-Toggle die Klone sichtbar macht, sind alle 4 Klon-Switch-Partner gleichzeitig sichtbar (toilet_X_2 überdeckt toilet_X_1 dank DOM-Reihenfolge → User sieht „beide WCs gespült", State unverändert). Selektor muss daher Original UND Klon abdecken: `[id="X"], [id^="v_"][id$="_X"]`.
+- **Klick-Polygon vs. Möbel-Bbox-Überlapp:** Die Klick-Polygone von `OBJEKTE` werden NICHT durch Hindernisse blockiert — ein Klick auf ein Möbel ohne eigenes Klick-Objekt fällt durch zur Boden-Logik, ABER trifft trotzdem überlappende Klick-Polygone anderer Objekte. Beispiel: ursprünglich waren toilet_1/toilet_2 die volle SVG-Bbox (200×250 px) und überlappten mit cupboard_2 (x=750..1100); ein Klick auf den Schrank togglte ungewollt eine Toilette. Lösung: Klick-Polygone enger ziehen, sodass sie nicht mit Nachbar-Möbeln überlappen.
 - **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` ein `data-y-fuss` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. Paint-server-Lookup nimmt den ersten DOM-Treffer — wenn dessen Parent `display:none` ist, rendern Pfade unsichtbar (so verschwanden früher die desk_1-Beine). **Aktueller Workaround:** `klonePflanzenVorne()` prefixed seit script.js v134 alle IDs im Klon mit `v_<idx>_` und schreibt alle internen `url(#…)`-/`xlink:href="#…"`-Refs entsprechend um → beide Layer haben eigene Gradient-Defs, kein Konflikt mehr. Das löste z.B. das "verschwindende Kerzen-Flammen"-Problem (candle_2 hat 2 Gradients pro Kerze). Alternativ: solid colors statt Gradient — oder Asset als `<image href>` einbinden (Black-Box, eigener ID-Scope). cake_2 nutzt diese Alternativ-Lösung historisch.
 - **Gestapelte Möbel — `data-y-fuss` synchronisieren:** Ein Element, das visuell auf einem anderen Möbel steht (z.B. cake_2 + plant_geranie auf desk_5), MUSS denselben `data-y-fuss`-Wert wie das Trägermöbel haben. Sonst wechseln sie zu unterschiedlichen Zeitpunkten zwischen Rück- und Front-Ebene → das Trägermöbel überdeckt in der Front-Ebene das aufliegende Element, das in der Rück-Ebene bleibt. DOM-Reihenfolge zwischen Träger und Aufliegendem: Aufliegendes nach Träger, damit es in beiden Ebenen darüber gerendert wird.
 - **`klonePflanzenVorne()` muss `filter` mitkopieren** — sonst sehen Möbel in der Front-Ebene blasser aus (kein `#grell`-Saturate). Funktion liest `filter` vom Original-`<g data-raum>` und setzt ihn auf den Klon.
 - **`display:none` an `[data-y-fuss]`-Element wird vom Frame-Toggle überschrieben:** `aktualisierePflanzenTiefe()` läuft jeden Frame und setzt `el.style.display = "none"` oder `""` basierend auf figur.fv vs element.fv. Inline `display:none` wird dabei JEDEN FRAME mit `""` überschrieben → Element bleibt sichtbar. **Lösung beim Deaktivieren via `display:none`: `data-y-fuss` mit entfernen.** Beispiel desk_1/desk_2 (auskommentiert): nur dann bleibt das `display:none` stabil, weil der Toggle das Element nicht mehr anfasst. Reaktivieren: `data-y-fuss` wieder einfügen UND `display:none` aus dem Style entfernen.
-- **Wandmontierte Objekte (immer-hinten):** Elemente, die an einer Wand "kleben" (paintings, animals im Keller etc.), sollten **gar kein `data-y-fuss`** tragen. Dann werden sie weder geklont noch vom Toggle angefasst und bleiben permanent in der Rück-Ebene → Figur ist immer davor (Bookshelf/Skelett-Pattern). Wenn der visuelle Foot des Objekts UNTER y=600 liegt (also auf dem Boden, nicht an der Wand), data-y-fuss = visual_foot_y verwenden, sonst kann die Figur unsinnigerweise hinter das Objekt laufen.
+- **Wandmontierte Objekte (immer-hinten):** Elemente, die an einer Wand "kleben" (paintings, animals im Keller etc.), sollten **gar kein `data-y-fuss`** tragen. Dann werden sie weder geklont noch vom Toggle angefasst und bleiben permanent in der Rück-Ebene → Figur ist immer davor (Bookshelf/Skelett-Pattern). Wenn der visuelle Foot des Objekts UNTER y=600 liegt (also auf dem Boden, nicht an der Wand), data-y-fuss = visual_foot_y verwenden, sonst kann die Figur unsinnigerweise hinter das Objekt laufen. **Sonderfall SVG mit Whitespace unten:** Wenn der visuelle Korpus eines Möbels deutlich höher endet als die SVG-Bbox-Bottom (z.B. cupboard_2 — Korpus bis ~81% der viewBox, danach nur Schatten/Reflexion), ist `data-y-fuss="<bbox-bottom>"` falsch — die Figur „verschwindet" hinter dem Whitespace, sobald sie nah ranläuft. Lösung: data-y-fuss komplett weglassen (wandmontiert-Behandlung) und das Hindernis vor dem visuellen Korpus stoppt die Figur.
 - **Animal-Tint (animal_1):** Original-Farben sind dunkelbraun/erdig, was bei dunklem Keller-Setting visuell verschwindet. Lösung: alle Hex-Werte um Faktor t Richtung Gelb verschoben: `r += (255-r)·t; g += (255-g)·t; b -= b·t`. Bei t=0.12 wirkt es schon zu gelb; t=0.06 ist subtil-honigfarben (akzeptiert). Re-Tinten: Original-Asset jedes Mal frisch laden (Aufhellung/Tint sind nicht idempotent — wiederholtes Anwenden auf bereits getintete Farben verschiebt sie immer weiter).
 - **CSS `transform` an `<svg>`-Elementen für Möbel-Rotation:** Funktioniert (z.B. desk_3 mit `style="transform:rotate(-2deg);transform-origin:50% 100%"`), pivotiert um Bottom-Center des SVG-Box. Aber: alles, was visuell AUF dem Möbel sitzt (Lampe, Pflanze) ist ein separater SVG-Block und rotiert NICHT mit. Wenn Mit-Rotation gewünscht, müssen Aufliegende dieselbe `transform`-Eigenschaft mit dem **gleichen Drehpunkt im Screen-Space** bekommen.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen + konvexe Vierecke), Tiefensortierung via `data-y-fuss` (Pixel-Y des Möbel-Fußes), Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor — alles drin. Möbel in Hauptraum, Büro, Badezimmer, Garten, Keller weitgehend platziert. Demo-Aufgabe `bookshelf_umfang` mit Cross-Room-Lookup funktioniert.
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI, Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss` (Pixel-Y des Möbel-Fußes), Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor (rx/ry/rot-Handles für Ellipsen) — alles drin. Möbel in Hauptraum, Büro, Badezimmer, Garten, Keller platziert; Hindernisse für alle fünf Räume durchgängig per Drag-Editor gesetzt. Aufgaben + Inhalte stehen noch aus (`AUFGABEN` und `GEGENSTAENDE` sind aktuell leer).
 
 **Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert (desk_3, Pilzlampe, plant_setzling, muffin_2/3, lamp_1, desk_4, chest_1, muffin_4, alle Garten-flowers).
 

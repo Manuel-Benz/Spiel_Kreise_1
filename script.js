@@ -212,11 +212,11 @@ window.spielstand = spielstand;
 // entsprechend spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
 function aktualisiereSanitaer() {
     const setSichtbar = (id, sichtbar) => {
-        // Attribute-Selector statt #id: findet ALLE Elemente mit dieser ID, auch Klone in
-        // #object-layer-vorne (Klone haben dieselbe ID — invalides HTML, aber funktional OK).
+        // Original (z.B. id="toilet_1_1") UND Front-Layer-Klone (id="v_<idx>_toilet_1_1")
+        // matchen — `klonePflanzenVorne()` prefixt Klon-IDs mit `v_<idx>_` gegen Gradient-Konflikte.
         // Wir toggeln eine CSS-Klasse `sanitar-aus` (mit display:none !important im <style>),
         // die die Inline-display-Setzung von aktualisierePflanzenTiefe() überschreibt.
-        document.querySelectorAll(`[id="${id}"]`).forEach(el => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
             el.classList.toggle("sanitar-aus", !sichtbar);
         });
     };
@@ -370,19 +370,7 @@ window.soundTest = async () => {
 // - formel ist eine KaTeX-Formel (String, ohne $-Wrapper)
 // - loesung ist eine Zahl; toleranz = maximaler erlaubter Fehler
 // - bei_richtig: { schluessel?, inventar?, belohnung_text? }
-const AUFGABEN = {
-    bookshelf_umfang: {
-        frage: "In einem Buch auf dem Regal findest du folgende Aufgabe:",
-        formel: "U = 2 \\pi r",
-        fragetext: "Wie gross ist der Umfang eines Kreises mit Radius r = 5 cm? (π ≈ 3.14, Antwort in cm)",
-        loesung: 31.4,
-        toleranz: 0.2,
-        bei_richtig: {
-            inventar: { umfang_demo_cm: 31.4 },
-            belohnung_text: "Richtig! Den Umfang merkst du dir für später.",
-        },
-    },
-};
+const AUFGABEN = {};
 
 // Klickbare Objekte pro Raum. Polygon in Stage-Koordinaten (1600×900).
 // Mögliche Felder:
@@ -396,81 +384,17 @@ const AUFGABEN = {
 //                wenn es nicht schon durch SVG-Deko oder Möbel repräsentiert ist).
 //   `aufgenommen` boolean (intern) — wird true gesetzt, nachdem `aufnehmen` ausgelöst hat.
 const OBJEKTE = {
-    haupt: [
-        // Bookshelf: transform translate(650 310) scale(0.5), Inhalt ~610×550 → Screen x ~647..952, y 310..585
-        {
-            id: "bookshelf",
-            aufgabe: "bookshelf_umfang",
-            polygon: [[647, 310], [953, 310], [953, 585], [647, 585]],
-            laufziel: { fu: 0.5, fv: 0.88 },
-            // Demo: Notizzettel auf Bookshelf droppen zeigt einen Hinweis.
-            akzeptiert: {
-                notizzettel: (s) => {
-                    zeigeOverlayText("Auf dem Notizzettel steht:\n\u201er = 5 cm\u201c");
-                },
-            },
-        },
-    ],
-    buero: [
-        // Demo-Aufnehm-Gegenstand: Notizzettel auf dem Boden.
-        {
-            id: "buero_notizzettel",
-            aufnehmen: "notizzettel",
-            polygon: [[822, 643], [918, 643], [918, 703], [822, 703]],
-            laufziel: { fu: 0.5, fv: 0.85 },
-            zeichnen: (ctx) => {
-                // Brief: Blatt mit Datum oben-rechts, Anrede, Textzeilen unterschiedlicher
-                // Länge und Unterschrift-Zickzack unten.
-                ctx.save();
-                // -20 % Skalierung um Brief-Mittelpunkt (870, 675).
-                ctx.translate(870, 675);
-                ctx.scale(0.8, 0.8);
-                ctx.translate(-870, -675);
-                ctx.fillStyle = "#fffbe6";
-                ctx.strokeStyle = "#333";
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.roundRect(820, 645, 100, 60, 3);
-                ctx.fill();
-                ctx.stroke();
-                // Liniatur (Datum, Anrede, Text) in gedämpftem Grau
-                ctx.strokeStyle = "#777";
-                ctx.lineWidth = 1;
-                const linie = (x1, y, x2) => {
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y);
-                    ctx.lineTo(x2, y);
-                    ctx.stroke();
-                };
-                // Datum oben-rechts
-                linie(885, 652, 912);
-                // Anrede (kürzer, linksbündig)
-                linie(828, 662, 864);
-                // Drei Textzeilen mit abnehmender Länge (letzter Absatz zu Ende)
-                linie(828, 672, 910);
-                linie(828, 679, 908);
-                linie(828, 686, 895);
-                // Unterschrift als Zickzack (unten-rechts)
-                ctx.strokeStyle = "#333";
-                ctx.lineWidth = 1.2;
-                ctx.beginPath();
-                ctx.moveTo(880, 698);
-                ctx.lineTo(885, 694);
-                ctx.lineTo(890, 699);
-                ctx.lineTo(898, 695);
-                ctx.lineTo(906, 700);
-                ctx.stroke();
-                ctx.restore();
-            },
-        },
-    ],
+    haupt: [],
+    buero: [],
     badezimmer: [
         // Toilette 1 (rechts, x=1040..1240): Klick toggelt Spülung sofort (kein laufziel —
         // Spülung ist eine Knopf-Aktion, Figur muss nicht erst hinlaufen). ABER solange der
         // Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert er die Spülung.
+        // Polygone enger als die volle SVG-Bbox, damit sie nicht mit cupboard_2 (x=750..1100)
+        // überlappen — sonst toggelt ein Klick auf den Schrank ungewollt eine Toilette.
         {
             id: "toilet_1",
-            polygon: [[1040, 420], [1240, 420], [1240, 670], [1040, 670]],
+            polygon: [[1100, 420], [1240, 420], [1240, 670], [1100, 670]],
             aktion: (s) => {
                 if (s.zustaende.octopus_da) {
                     zeigeOverlayText("Auf dieser Toilette sitzt ein Tintenfisch.\nDu kannst die Spülung erst betätigen, wenn er weg ist.");
@@ -479,10 +403,10 @@ const OBJEKTE = {
                 }
             },
         },
-        // Toilette 2 (links, x=590..790): Klick toggelt Spülung sofort. Hier sitzt nichts drauf.
+        // Toilette 2 (links): Polygon endet bei x=750, kein Überlapp mit cupboard_2.
         {
             id: "toilet_2",
-            polygon: [[590, 420], [790, 420], [790, 670], [590, 670]],
+            polygon: [[590, 420], [750, 420], [750, 670], [590, 670]],
             aktion: () => wechsleToilette2(),
         },
     ],
@@ -642,50 +566,51 @@ function wechsleRaum(zielId) {
 // Werte lassen sich live in der Konsole ändern:  HINDERNISSE.haupt[0].r = 0.08
 const HINDERNISSE = {
     haupt: [
-        // Radien sind am Fussabdruck der Pflanze orientiert (Topfbasis, nicht Blätter).
-        // So kann die Figur knapp vorbei — Körper verschwindet perspektivisch hinter den Blättern.
-        { fu: 0.034, fv: 0.787, r: 0.03 }, // yucca (vor dem Tisch links, nach -10x/-50y verschoben)
-        { fu: 0.94, fv: 0.78, r: 0.03 },   // geranie (hinten-rechts)
-        { fu: 0.12, fv: 0.50, r: 0.035 },  // setzling (mitte-links) — muss Tür L (fv 0.45) frei lassen
-        // kraeuter wurde in den Keller verschoben (auf Kaminsims), kein Boden-Hindernis mehr
-        { fu: 0.87, fv: 0.15, r: 0.05 },   // blume (vorne-rechts, grösser)
-        { fu: 0.15, fv: 0.12, r: 0.05 },   // tulpe (vorne-links, grösser)
-        // Tisch 1 + Lavalampe: ELLIPSE statt Kreis (rx > ry → flach), Center hinter den Tisch verschoben
-        // (fv=0.88), damit die Ellipse den BACK-AREA mit abdeckt → die Figur kann nicht mehr zwischen
-        // linker Wand und Tisch hinter den Tisch durchschlüpfen. Tür A (laufziel fu=0.26 fv=0.92) und
-        // Bookshelf (laufziel fu=0.5) liegen ausserhalb der Ellipse.
-        { fu: 0.10, fv: 0.88, rx: 0.14, ry: 0.12 },
-        // Desk 1 (rechts hinten): Footprint fu 0.74–0.84, fv 0.80–0.91. Tür geheim
-        // (laufziel fu=0.88 fv=0.45) und Pflanze geranie (fu=0.94 fv=0.78) liegen ausserhalb.
-        { fu: 0.79, fv: 0.86, rx: 0.06, ry: 0.05 },
+        // Pflanzen am Boden — rotierte Ellipsen am Topfabdruck (interaktiv eingestellt, Manuel).
+        { fu: 0.0309, fv: 0.8087, rx: 0.03, ry: 0.0497, rot: 0.2737 },                            // [0] yucca
+        { fu: 0.9653, fv: 0.1798, rx: 0.0404, ry: 0.0919, rot: -0.1559 },                         // [1] blume
+        { fu: 0.0368, fv: 0.0982, rx: 0.0456, ry: 0.0793, rot: 0.1521 },                          // [2] tulpe
+        // (geranie auf desk_5, setzling auf desk_3 — keine Boden-Hindernisse mehr)
+        // Möbel-Vierecke (interaktiv eingestellt, Manuel):
+        { punkte: [[0.0001, 0.9056], [0.1627, 0.8996], [0.1648, 0.9979], [0.001, 0.9988]] },     // [3] Tisch 1
+        { punkte: [[0.3894, 0.789], [0.5122, 0.681], [0.5915, 0.7561], [0.4795, 0.8494]] },      // [4] desk_3
+        { punkte: [[0.8869, 0.6244], [1, 0.6575], [0.9994, 0.8034], [0.8634, 0.7758]] },         // [5] desk_5
+        { punkte: [[0.8223, 0.9241], [0.9999, 0.9274], [0.9979, 0.9982], [0.8381, 0.9993]] },    // [6] cupboard_3
     ],
     buero: [
-        // Tisch 2 (vorderlinks): 3 Kreise decken den L-förmigen Schreibtisch-Footprint ab.
-        // Werte interaktiv per Drag-and-Drop im Debug-Modus eingestellt (Manuel).
-        { fu: 0.0975, fv: 0.8172, r: 0.1 },     // [0] vorne
-        { fu: 0.1745, fv: 0.7503, r: 0.1 },     // [1] mitte
-        { fu: 0.2548, fv: 0.8168, r: 0.1 },     // [2] hinten
+        // Tisch 2 (vorderlinks): 2 Kreise + 1 rotierte Ellipse decken den L-förmigen
+        // Schreibtisch-Footprint ab. Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
+        { fu: 0.0975, fv: 0.8172, r: 0.1 },                                                   // [0] vorne
+        { fu: 0.1745, fv: 0.7503, r: 0.1 },                                                   // [1] mitte
+        { fu: 0.2709, fv: 0.8383, rx: 0.1416, ry: 0.1, rot: 1.296 },                          // [2] hinten (schräg)
         // cupboard_1 (rechts an Wand): Viereck am tatsächlichen Boden-Footprint des Schranks.
-        // Werte interaktiv eingestellt (Drag-and-Drop, Manuel) — kompakter als der visuelle
-        // Pixel-Footprint, nur der Bereich, in dem die Figur physisch im Schrank wäre.
         // Schrank hat KEIN data-fv → immer in Rück-Ebene, Figur überdeckt korrekt.
         { punkte: [[0.7268, 0.9031], [0.9424, 0.808], [0.9991, 0.9295], [0.7411, 0.9996]] },  // [3]
-        // bookshelf_2 (hinten an Wand bei x=700..1300): Viereck am tatsächlichen Boden-Footprint
-        // hinten an der Wand. Werte interaktiv eingestellt (Drag-and-Drop, Manuel).
+        // bookshelf_2 (hinten an Wand bei x=700..1300): Viereck am tatsächlichen Boden-Footprint.
         { punkte: [[0.3339, 0.9058], [0.6748, 0.9009], [0.68, 0.9999], [0.3286, 0.9998]] },   // [4]
+        // lamp_1 (Pixar-Lampe vorne-links): leicht rotierte Ellipse am Lampenfuß.
+        { fu: 0.0508, fv: 0.2055, rx: 0.0542, ry: 0.1241, rot: 0.1197 },                      // [5]
     ],
     badezimmer: [
-        // Octopus hinten-rechts: zentriert ca. fu=0.85 fv=0.80 (Inline-SVG-Mitte), kompakter Kreis.
-        { fu: 0.85, fv: 0.80, r: 0.08 },
+        // Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
+        { fu: 0.1354, fv: 0.9505, rx: 0.1798, ry: 0.1623, rot: -0.0215 },                         // [0]
+        { fu: 0.7552, fv: 0.8073, rx: 0.1, ry: 0.1922 },                                          // [1]
+        { fu: 0.4047, fv: 0.9243, rx: 0.0548, ry: 0.1104 },                                       // [2]
+        { punkte: [[0.4898, 0.8668], [0.7479, 0.8667], [0.7638, 0.9995], [0.5, 0.9993]] },        // [3]
+        { punkte: [[0.7954, 0.5619], [0.9932, 0.7535], [0.9985, 0.9943], [0.7566, 0.9999]] },     // [4]
+        { punkte: [[0.7712, 0.1016], [0.9165, 0.0331], [0.9999, 0.2984], [0.8558, 0.448]] },      // [5]
     ],
-    garten:  [],
-    keller:  [
-        // Kamin (fireplace_1) hinten-links: Display-Footprint x=440-820 y=600 → fv≈0.95, fu≈0.33.
-        // Flache Ellipse, damit die Figur knapp davor stehen kann ohne durch das Möbel zu laufen.
-        { fu: 0.33, fv: 0.95, rx: 0.18, ry: 0.04 },
-        // Schatztruhe (chest_1) vorne-rechts: Display x=908-1118 y=810 → fv≈0.30, fu≈0.65.
-        // Breit + flach (rx > ry).
-        { fu: 0.65, fv: 0.30, rx: 0.10, ry: 0.04 },
+    garten: [
+        // flower_1 (Inline-SVG vorne-links, überlappt mit flower_3) — interaktiv eingestellt (Manuel).
+        { fu: 0.0524, fv: 0.9972, rx: 0.0605, ry: 0.0795, rot: -0.2473 },                         // [0] flower_1
+    ],
+    keller: [
+        // Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
+        { punkte: [[0.1616, 0.8226], [0.5289, 0.8242], [0.51, 0.99], [0.1486, 0.9978]] },     // [0] Kamin (fireplace_1)
+        { punkte: [[0.7376, 0.0731], [1, 0.1028], [0.9982, 0.3324], [0.776, 0.3108]] },       // [1] Schatztruhe (chest_1)
+        { fu: 0.8673, fv: 0.8258, rx: 0.1521, ry: 0.2861, rot: -0.2141 },                     // [2] Kerzen-Cluster A
+        { punkte: [[0.0958, 0.3492], [0.2752, 0.0456], [0.4894, 0.0835], [0.4201, 0.4351]] }, // [3] chain_1 (Boden, mit Kugel)
+        { fu: 0.6905, fv: 0.8474, rx: 0.096, ry: 0.2469, rot: -0.4399 },                      // [4] Kerzen-Cluster B
     ],
 };
 window.HINDERNISSE = HINDERNISSE;
@@ -733,8 +658,15 @@ function pktInKonvexPolygon(fu, fv, punkte) {
 // Test: Liegt (fu, fv) IM Hindernis (innerhalb der Form, nicht auf der Grenze)?
 function istInForm(h, fu, fv) {
     if (h.punkte) return pktInKonvexPolygon(fu, fv, h.punkte);
-    const dfu = fu - h.fu, dfv = fv - h.fv;
     const rx = h.rx ?? h.r, ry = h.ry ?? h.r;
+    const rot = h.rot ?? 0;
+    const dfu = fu - h.fu, dfv = fv - h.fv;
+    if (rot) {
+        const c = Math.cos(rot), s = Math.sin(rot);
+        const lx =  dfu * c + dfv * s;
+        const ly = -dfu * s + dfv * c;
+        return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) < 1;
+    }
     return (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry) < 1;
 }
 
@@ -772,16 +704,28 @@ function naechsterRandUndNormale(h, fu, fv) {
         if ((bestPkt.fu - c.fu) * nx + (bestPkt.fv - c.fv) * ny < 0) { nx = -nx; ny = -ny; }
         return { fu: bestPkt.fu, fv: bestPkt.fv, nx, ny, kante: bestKante };
     }
-    // Ellipse: Radial vom Center (Approximation des nächsten Randpunkts).
-    const dfu = fu - h.fu, dfv = fv - h.fv;
+    // Ellipse (ggf. rotiert): in Lokal-Frame transformieren, dort radiale Approximation,
+    // Randpunkt + Gradient zurück nach Welt drehen.
     const rx = h.rx ?? h.r, ry = h.ry ?? h.r;
-    const dEll = (dfu * dfu) / (rx * rx) + (dfv * dfv) / (ry * ry);
-    if (dEll < 1e-6) return { fu: h.fu + rx, fv: h.fv, nx: 1, ny: 0, kante: -1 };
+    const rot = h.rot ?? 0;
+    const c = Math.cos(rot), s = Math.sin(rot);
+    const dfu = fu - h.fu, dfv = fv - h.fv;
+    const lx =  dfu * c + dfv * s;
+    const ly = -dfu * s + dfv * c;
+    const dEll = (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry);
+    if (dEll < 1e-6) {
+        // Center: nimm die rx-Achse als Default-Richtung (in Welt-Koords).
+        return { fu: h.fu + rx * c, fv: h.fv + rx * s, nx: c, ny: s, kante: -1 };
+    }
     const k = 1 / Math.sqrt(dEll);
-    const randFu = h.fu + dfu * k, randFv = h.fv + dfv * k;
-    // Außen-Normale = Ellipsen-Gradient.
-    let nx = (randFu - h.fu) / (rx * rx);
-    let ny = (randFv - h.fv) / (ry * ry);
+    const randLx = lx * k, randLy = ly * k;
+    const randFu = h.fu + randLx * c - randLy * s;
+    const randFv = h.fv + randLx * s + randLy * c;
+    // Außen-Normale: Gradient im Lokal-Frame, dann zurück nach Welt rotiert.
+    const nLx = randLx / (rx * rx);
+    const nLy = randLy / (ry * ry);
+    let nx = nLx * c - nLy * s;
+    let ny = nLx * s + nLy * c;
     const nlen = Math.sqrt(nx * nx + ny * ny) || 1;
     return { fu: randFu, fv: randFv, nx: nx / nlen, ny: ny / nlen, kante: -1 };
 }
@@ -1463,15 +1407,20 @@ function zeichneHindernisseDebug() {
                 ctx.fillText(`${idx}.${i}`, x, y);
             });
         } else {
-            // Kreis/Ellipse: 32-fach gesampelte Kontur, perspektivisch korrekt auf den Boden projiziert
+            // Kreis/Ellipse (ggf. rotiert): 36-fach gesampelte Kontur in Lokal-Koords, dann
+            // mit Rotation in Welt-Koords transformiert und perspektivisch auf den Boden projiziert.
             const rx = h.rx ?? h.r;
             const ry = h.ry ?? h.r;
+            const rot = h.rot ?? 0;
+            const cR = Math.cos(rot), sR = Math.sin(rot);
             ctx.beginPath();
             const SAMPLES = 36;
             for (let s = 0; s < SAMPLES; s++) {
                 const theta = (s * 2 * Math.PI) / SAMPLES;
-                const fu = h.fu + Math.cos(theta) * rx;
-                const fv = h.fv + Math.sin(theta) * ry;
+                const lx = Math.cos(theta) * rx;
+                const ly = Math.sin(theta) * ry;
+                const fu = h.fu + lx * cR - ly * sR;
+                const fv = h.fv + lx * sR + ly * cR;
                 const [x, y] = bodenPunkt(fu, fv);
                 if (s === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
@@ -1490,6 +1439,39 @@ function zeichneHindernisseDebug() {
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(`${idx}`, cx, cy);
+            // Achs-Handles (Quadrate) für rx und ry — Position rotiert mit, ändert Halbachse separat.
+            const HANDLE = 18;
+            const handlePositionen = [
+                ["rx", h.fu + rx * cR,           h.fv + rx * sR],
+                ["ry", h.fu - ry * sR,           h.fv + ry * cR],
+            ];
+            for (const [achse, fuV, fvV] of handlePositionen) {
+                const [hx, hy] = bodenPunkt(fuV, fvV);
+                ctx.fillStyle = punktBg;
+                ctx.fillRect(hx - HANDLE / 2, hy - HANDLE / 2, HANDLE, HANDLE);
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 10px sans-serif";
+                ctx.fillText(achse, hx, hy);
+            }
+            // Rotations-Handle (kleiner Kreis), etwas außerhalb der rx-Achse — drag setzt rot.
+            const ROT_OFFSET = 0.025;
+            const rotFu = h.fu + (rx + ROT_OFFSET) * cR;
+            const rotFv = h.fv + (rx + ROT_OFFSET) * sR;
+            const [rhx, rhy] = bodenPunkt(rotFu, rotFv);
+            // Linie vom Center zum rot-Handle (Achs-Visualisierung).
+            ctx.strokeStyle = punktBg;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(rhx, rhy);
+            ctx.stroke();
+            ctx.fillStyle = punktBg;
+            ctx.beginPath();
+            ctx.arc(rhx, rhy, 9, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 11px sans-serif";
+            ctx.fillText("↻", rhx, rhy + 1);
         }
     });
 }
@@ -2285,26 +2267,54 @@ function setzeFigurZiel(fu, fv) {
 // Aktiv nur wenn window.HINDERNIS_DEBUG === true. Sucht zuerst Eckpunkt-Marker (oder Center
 // von Kreisen/Ellipsen) im 14-px-Radius. Treffer → Drag startet, Spiel-Klick wird NICHT
 // ausgelöst (Figur läuft nicht los, Türen werden nicht geöffnet).
-let hindernisDrag = null;   // { hidx, eckIdx | null }   (null = Kreis/Ellipse-Center)
+let hindernisDrag = null;   // { hidx, eckIdx | null, achse: null | 'rx' | 'ry' | 'rot' }
+                            // eckIdx: Vierecks-Eckpunkt; achse: Ellipsen-Handle; sonst Center
 
 function findeHindernisGriffBei(x, y) {
     if (!window.HINDERNIS_DEBUG) return null;
     const hs = HINDERNISSE[aktuellerRaum] || [];
     const TREFFER = 14;
+    const ROT_OFFSET = 0.025;
+    // Erst Vierecks-Eckpunkte und Ellipsen-Handles (rx, ry, rot) prüfen — kleinere Targets,
+    // höhere Prio (sonst kann der Center-Marker einen Handle dicht daneben verdecken).
     for (let hidx = 0; hidx < hs.length; hidx++) {
         const h = hs[hidx];
         if (h.punkte) {
             for (let i = 0; i < h.punkte.length; i++) {
                 const [px, py] = bodenPunkt(h.punkte[i][0], h.punkte[i][1]);
                 if (Math.hypot(x - px, y - py) <= TREFFER) {
-                    return { hidx, eckIdx: i };
+                    return { hidx, eckIdx: i, achse: null };
                 }
             }
         } else {
-            const [cx, cy] = bodenPunkt(h.fu, h.fv);
-            if (Math.hypot(x - cx, y - cy) <= TREFFER) {
-                return { hidx, eckIdx: null };
+            const rxVal = h.rx ?? h.r;
+            const ryVal = h.ry ?? h.r;
+            const rot = h.rot ?? 0;
+            const cR = Math.cos(rot), sR = Math.sin(rot);
+            const [rxX, rxY] = bodenPunkt(h.fu + rxVal * cR, h.fv + rxVal * sR);
+            if (Math.hypot(x - rxX, y - rxY) <= TREFFER) {
+                return { hidx, eckIdx: null, achse: "rx" };
             }
+            const [ryX, ryY] = bodenPunkt(h.fu - ryVal * sR, h.fv + ryVal * cR);
+            if (Math.hypot(x - ryX, y - ryY) <= TREFFER) {
+                return { hidx, eckIdx: null, achse: "ry" };
+            }
+            const [rotX, rotY] = bodenPunkt(
+                h.fu + (rxVal + ROT_OFFSET) * cR,
+                h.fv + (rxVal + ROT_OFFSET) * sR,
+            );
+            if (Math.hypot(x - rotX, y - rotY) <= TREFFER) {
+                return { hidx, eckIdx: null, achse: "rot" };
+            }
+        }
+    }
+    // Dann Ellipsen-Center (Fallback).
+    for (let hidx = 0; hidx < hs.length; hidx++) {
+        const h = hs[hidx];
+        if (h.punkte) continue;
+        const [cx, cy] = bodenPunkt(h.fu, h.fv);
+        if (Math.hypot(x - cx, y - cy) <= TREFFER) {
+            return { hidx, eckIdx: null, achse: null };
         }
     }
     return null;
@@ -2318,6 +2328,29 @@ function aktualisiereHindernisDrag(clientX, clientY) {
     const h = HINDERNISSE[aktuellerRaum][hindernisDrag.hidx];
     if (hindernisDrag.eckIdx !== null) {
         h.punkte[hindernisDrag.eckIdx] = [+fuFv[0].toFixed(4), +fuFv[1].toFixed(4)];
+    } else if (hindernisDrag.achse) {
+        // Drag eines Ellipsen-Handles: aus Kreis (h.r) wird Ellipse, sobald eine Achse separat
+        // gezogen wird. rx/ry werden auf die Achs-Komponente projiziert (Drag-Position vom
+        // Center, im Lokal-Frame der aktuellen Rotation).
+        if (h.r !== undefined && h.rx === undefined) {
+            h.rx = h.r;
+            h.ry = h.r;
+            delete h.r;
+        }
+        const rot = h.rot ?? 0;
+        const cR = Math.cos(rot), sR = Math.sin(rot);
+        const dfu = fuFv[0] - h.fu, dfv = fuFv[1] - h.fv;
+        if (hindernisDrag.achse === "rx") {
+            const proj =  dfu * cR + dfv * sR;
+            h.rx = +Math.max(0.005, Math.abs(proj)).toFixed(4);
+        } else if (hindernisDrag.achse === "ry") {
+            const proj = -dfu * sR + dfv * cR;
+            h.ry = +Math.max(0.005, Math.abs(proj)).toFixed(4);
+        } else if (hindernisDrag.achse === "rot") {
+            const neueRot = Math.atan2(dfv, dfu);
+            h.rot = +neueRot.toFixed(4);
+            if (Math.abs(h.rot) < 1e-3) delete h.rot;   // 0 sauber halten
+        }
     } else {
         h.fu = +fuFv[0].toFixed(4);
         h.fv = +fuFv[1].toFixed(4);
@@ -2329,11 +2362,13 @@ function beendeHindernisDrag() {
     if (!hindernisDrag) return;
     // Nur kompakte 1-Zeilen-Bestätigung beim Loslassen — den vollen Code holst du dir jederzeit
     // mit dumpHindernisse() (siehe Konsolen-Helfer unten).
-    const { hidx, eckIdx } = hindernisDrag;
+    const { hidx, eckIdx, achse } = hindernisDrag;
     const h = HINDERNISSE[aktuellerRaum][hidx];
     if (eckIdx !== null) {
         const p = h.punkte[eckIdx];
         console.log(`✓ ${aktuellerRaum}[${hidx}].punkte[${eckIdx}] = [${p[0]}, ${p[1]}]`);
+    } else if (achse) {
+        console.log(`✓ ${aktuellerRaum}[${hidx}].${achse} = ${h[achse] ?? 0}`);
     } else {
         console.log(`✓ ${aktuellerRaum}[${hidx}] center → fu=${h.fu}, fv=${h.fv}`);
     }
@@ -2351,7 +2386,8 @@ window.dumpHindernisse = (raum = aktuellerRaum) => {
             return `    { punkte: [${repr}] },   // [${i}]`;
         }
         if (h.rx !== undefined) {
-            return `    { fu: ${h.fu}, fv: ${h.fv}, rx: ${h.rx}, ry: ${h.ry} },   // [${i}]`;
+            const rotPart = h.rot ? `, rot: ${h.rot}` : "";
+            return `    { fu: ${h.fu}, fv: ${h.fv}, rx: ${h.rx}, ry: ${h.ry}${rotPart} },   // [${i}]`;
         }
         return `    { fu: ${h.fu}, fv: ${h.fv}, r: ${h.r} },   // [${i}]`;
     });
@@ -2485,24 +2521,7 @@ document.addEventListener("keydown", (e) => {
 // andere Objekte oder Türen gezogen werden (Drop-Target hat `akzeptiert[id]`).
 
 // Registry aller möglichen Gegenstände. Icon ist Inline-SVG (viewBox 0..48).
-const GEGENSTAENDE = {
-    notizzettel: {
-        name: "Notizzettel",
-        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-            <rect x="9" y="6" width="30" height="36" rx="2" fill="#fffbe6" stroke="#222" stroke-width="1.6"/>
-            <!-- Datum oben-rechts -->
-            <line x1="30" y1="11" x2="37" y2="11" stroke="#777" stroke-width="1.2"/>
-            <!-- Anrede (kurz, linksbündig) -->
-            <line x1="12" y1="17" x2="24" y2="17" stroke="#777" stroke-width="1.2"/>
-            <!-- Text-Zeilen mit abnehmender Länge -->
-            <line x1="12" y1="23" x2="36" y2="23" stroke="#666" stroke-width="1.2"/>
-            <line x1="12" y1="28" x2="35" y2="28" stroke="#666" stroke-width="1.2"/>
-            <line x1="12" y1="33" x2="31" y2="33" stroke="#666" stroke-width="1.2"/>
-            <!-- Unterschrift-Zickzack unten-rechts -->
-            <path d="M26 38 L27.5 36 L29 38.5 L31.5 37 L34 38.5" stroke="#333" stroke-width="1.2" fill="none"/>
-        </svg>`,
-    },
-};
+const GEGENSTAENDE = {};
 
 const inventarEl = document.getElementById("inventar");
 const dragPreviewEl = document.getElementById("drag-preview");
