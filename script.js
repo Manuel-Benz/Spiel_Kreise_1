@@ -183,11 +183,20 @@ const spielstand = {
         badewanne: 1,
         toilette_1: 1,  // toilet_1_1 (Ring unten, x=1090) / toilet_1_2 (Ring oben)
         toilette_2: 1,  // toilet_2_1 (Ring unten, x=600) / toilet_2_2 (Ring oben)
-        octopus_da: true,  // Tintenfisch sitzt auf toilet_1 — solange true, blockiert er die Spülung dort.
+        // "voll"-Status der Toiletten — orthogonal zum Sitz-Switch oben:
+        //   leer (false) = Klick togglet Sitz; voll (true) = Klick spült + setzt voll=false.
+        //   Ein Objekt (animal_3_1, duck_1) im WC entleeren → voll=true.
+        toilette_1_voll: false,
+        toilette_2_voll: false,
+        octopus_da: true,        // Tintenfisch sitzt auf toilet_1 — solange true, blockiert er die Spülung dort.
+        octopus_zustand: 1,      // 1 = mürrisch (octopus_1_1, initial) / 2 = leicht aufgehellt / 3 = zufrieden (animiert sich anschliessend weg).
         formelbuch_gefunden: false,  // wird true, sobald die 5 Bücher in regal-4 (2. von unten) im Hauptraum angeklickt wurden.
         // Chain 1 — Hauptraum-Torte → Schlüssel → cupboard_1 → Zettel → Lampe → Code (siehe AUFGABEN.chain_1_*).
         chain_1_step: 0,           // 0 = nichts, 1 = Kuchen gelöst, 2 = Schrank offen, 3 = Zettel im Inventar, 4 = unter Lampe, 5 = π-Aufgabe gelöst
         cupboard_1_offen: false,   // toggelt Sichtbarkeit zwischen #cupboard_1_1 (geschlossen) und #cupboard_1_2 (offen) — beide als <image>, Konvention wie Sanitärobjekte.
+        // Chain 2 — animal_3_1 (Glas mit Fisch) → toilet_2 dumpen → animal_3_2 (leeres Glas)
+        // → in Wanne füllen → animal_3_3 (Glas mit Wasser) → Octopus zwei Mal füttern.
+        chain_2_step: 0,           // 0 = nichts, 1 = animal_3_1 aufgenommen, 2 = im WC entleert, 3 = aufgefüllt, 4 = Octopus 1× gefüttert, 5 = Octopus 2× → exit.
     },
 };
 
@@ -230,6 +239,21 @@ function aktualisiereSanitaer() {
     setSichtbar("toilet_1_2", spielstand.zustaende.toilette_1 === 2);
     setSichtbar("toilet_2_1", spielstand.zustaende.toilette_2 === 1);
     setSichtbar("toilet_2_2", spielstand.zustaende.toilette_2 === 2);
+    // Voll-Indikatoren: nur sichtbar, wenn Toilette voll UND Sitz oben (Schüsselöffnung sichtbar).
+    setSichtbar("toilet_1_voll", spielstand.zustaende.toilette_1_voll && spielstand.zustaende.toilette_1 === 2);
+    setSichtbar("toilet_2_voll", spielstand.zustaende.toilette_2_voll && spielstand.zustaende.toilette_2 === 2);
+    // Octopus-Switch: einer der drei sichtbar (oder keiner, wenn er das Bad verlassen hat).
+    const oz = spielstand.zustaende.octopus_zustand;
+    setSichtbar("octopus_1_1", spielstand.zustaende.octopus_da && oz === 1);
+    setSichtbar("octopus_1_2", spielstand.zustaende.octopus_da && oz === 2);
+    setSichtbar("octopus_1_3", spielstand.zustaende.octopus_da && oz === 3);
+    // animal_3_1-Image auf desk_4 verstecken, sobald irgendeine Variante (oder Folgestand) im
+    // Inventar / Spielstand erreicht ist — egal ob _1, _2 oder _3 bzw. chain_2_step >= 1.
+    const animal3InSpielstand = spielstand.gegenstaende.has("animal_3_1") ||
+                                spielstand.gegenstaende.has("animal_3_2") ||
+                                spielstand.gegenstaende.has("animal_3_3") ||
+                                (spielstand.zustaende.chain_2_step ?? 0) >= 1;
+    setSichtbar("animal_3_1", !animal3InSpielstand);
 }
 
 function setzeBadewanne(zustand) {
@@ -251,7 +275,72 @@ function wechsleBadewanne()  { setzeBadewanne(spielstand.zustaende.badewanne ===
 function wechsleToilette1()  { setzeToilette1(spielstand.zustaende.toilette_1 === 1 ? 2 : 1); }
 function wechsleToilette2()  { setzeToilette2(spielstand.zustaende.toilette_2 === 1 ? 2 : 1); }
 
+// Toilet-Voll-Helfer: setzen Voll-State + Indikator, ohne den Sitz-Switch anzufassen.
+function setzeToilette1Voll(voll) {
+    spielstand.zustaende.toilette_1_voll = !!voll;
+    aktualisiereSanitaer();
+}
+function setzeToilette2Voll(voll) {
+    spielstand.zustaende.toilette_2_voll = !!voll;
+    aktualisiereSanitaer();
+}
+
+// Octopus-Switch-Helfer (analog setzeBadewanne etc.).
+function setzeOctopusZustand(zustand) {
+    spielstand.zustaende.octopus_zustand = (zustand === 2 ? 2 : zustand === 3 ? 3 : 1);
+    aktualisiereSanitaer();
+    console.log(`Octopus: Zustand ${spielstand.zustaende.octopus_zustand} (octopus_1_${spielstand.zustaende.octopus_zustand})`);
+}
+
 window.setzeBadewanne = setzeBadewanne;
+window.setzeToilette1Voll = setzeToilette1Voll;
+window.setzeToilette2Voll = setzeToilette2Voll;
+window.setzeOctopusZustand = setzeOctopusZustand;
+
+// Octopus-Exit-Animation: octopus_1_3 wird per CSS-Transition aus dem Bild geschoben
+// (Richtung "zurueck"-Pfeil = nach unten-vorne). Versatz nach links/rechts kippt der
+// Figur-Position aus, damit der Octopus ihr ausweicht.
+// Ende: octopus_da=false, Sichtbarkeit aus, toilet_1 wird damit klickbar.
+function animiereOctopusRaus() {
+    // Beide DOM-Vorkommen (Rück- + Front-Layer-Klon mit `v_<idx>_octopus_1_3`-Prefix) ansprechen.
+    const els = document.querySelectorAll(`[id="octopus_1_3"], [id^="v_"][id$="_octopus_1_3"]`);
+    if (!els.length) {
+        // Sicherheitsnetz: falls kein Element gefunden, sofort wegschalten.
+        spielstand.zustaende.octopus_da = false;
+        aktualisiereSanitaer();
+        return;
+    }
+    // Figur ist links der Mitte → Octopus bewegt sich nach RECHTS raus, sonst nach links.
+    // (figur.fu < 0.5 → rechte Seite frei, weicht der Figur aus.)
+    const richtungRechts = (figur.fu < 0.5);
+    const dx = richtungRechts ? 380 : -560;
+    const dy = 520;  // nach unten-vorne raus (Richtung "zurueck"-Pfeil unten am Bildrand).
+    let abgeschlossen = false;
+    const beenden = () => {
+        if (abgeschlossen) return;
+        abgeschlossen = true;
+        spielstand.zustaende.octopus_da = false;
+        aktualisiereSanitaer();
+        els.forEach(el => {
+            el.classList.remove("octopus-leaving");
+            el.style.transform = "";
+            el.style.opacity = "";
+        });
+    };
+    els.forEach(el => {
+        el.classList.add("octopus-leaving");
+        // Im nächsten Frame Transform setzen, damit die CSS-Transition greift.
+        requestAnimationFrame(() => {
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            el.style.opacity = "0";
+        });
+        el.addEventListener("transitionend", beenden, { once: true });
+    });
+    // Safety-Net: falls transitionend nicht feuert (z.B. Element wird vorher hidden),
+    // nach 2 s zwangsweise abschliessen.
+    setTimeout(beenden, 2000);
+}
+window.animiereOctopusRaus = animiereOctopusRaus;
 window.setzeToilette1 = setzeToilette1;
 window.setzeToilette2 = setzeToilette2;
 window.wechsleBadewanne = wechsleBadewanne;
@@ -347,6 +436,41 @@ function spieleSchritt() {
     src.stop(now + v.dur);
 }
 
+// Spülsound (Platzhalter): 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep abwärts +
+// langsam ansteigender und wieder abfallender Lautstärke. Klingt nach "Schwall + Abfluss".
+function spieleSpuelung() {
+    if (!soundAn) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const dauer = 1.6;
+    const sampleRate = audioCtx.sampleRate;
+    const len = Math.floor(dauer * sampleRate);
+    const buf = audioCtx.createBuffer(1, len, sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    const now = audioCtx.currentTime;
+    // Tiefpass-Sweep: 1200 Hz → 250 Hz (Wasser läuft ab → Restgurgeln)
+    filter.frequency.setValueAtTime(1200, now);
+    filter.frequency.exponentialRampToValueAtTime(250, now + dauer);
+    filter.Q.value = 0.7;
+    const gain = audioCtx.createGain();
+    // Hüllkurve: Attack 0.1 s → Sustain 0.25 → Decay zum Ende
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.1);
+    gain.gain.setValueAtTime(0.25, now + 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dauer);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start(now);
+    src.stop(now + dauer);
+}
+window.spieleSpuelung = spieleSpuelung;
+
 // Konsolen-Helfer: Sound an/aus
 window.soundAnAus = (an) => { soundAn = !!an; console.log("Sound:", soundAn ? "an" : "aus"); };
 
@@ -411,28 +535,50 @@ const AUFGABEN = {
     // Distraktoren entsprechen typischen Schülerfehlern: 2-Vergessen, d²-Statt-r², d-statt-r.
     chain_1_kuchen: {
         typ: "multiple_choice",
-        frage: "Wie gross sind der Umfang und die Fläche dieses Kuchens, wenn sein Durchmesser 20 cm beträgt?",
+        frage: "How large are the circumference and area of this cake if its diameter is 20 cm?",
         pi_hinweis: true,
         optionen: [
-            { katex: "U = 31{,}4\\text{ cm}, \\quad A = 314\\text{ cm}^2" },
-            { katex: "U = 62{,}8\\text{ cm}, \\quad A = 314\\text{ cm}^2", korrekt: true },
-            { katex: "U = 62{,}8\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
-            { katex: "U = 125{,}6\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
+            { katex: "C = 31.4\\text{ cm}, \\quad A = 314\\text{ cm}^2" },
+            { katex: "C = 62.8\\text{ cm}, \\quad A = 314\\text{ cm}^2", korrekt: true },
+            { katex: "C = 62.8\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
+            { katex: "C = 125.6\\text{ cm}, \\quad A = 1256\\text{ cm}^2" },
         ],
         bei_richtig: {
             gegenstand: "schluessel_buero",
-            belohnung_text: "Richtig! Du hast einen Schlüssel gefunden — er liegt jetzt in deinem Inventar.",
+            belohnung_text: "Correct! You found a key — it's now in your inventory.",
             callback: (s) => { s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 1); },
         },
     },
     // Chain 1, Aufgabe 2: Zettel auf den Lampenschein gezogen → π-Approximationen.
     // Werte: 22/7 ≈ 3,142857; √10 ≈ 3,162278; 355/113 ≈ 3,141593; √2+√3 ≈ 3,146264.
     // π ≈ 3,14159265 — also ist 355/113 die beste Annäherung.
+    // Chain 2: Octopus-Drop (animal_3_3) → Zahlenaufgabe gate ihn vor dem ersten Füttern.
+    // C = 2π · 100 cm → r = 100 cm → A = π · 100² = 10000π → mit π = 3.14: 31400 cm².
+    // bei_richtig.callback verbraucht das Glas, advanced den Octopus auf zustand 2 + chain_2_step=4.
+    // Zweiter Drop (animal_3_3 nach erneutem Wanne-Auffüllen) ist NICHT durch Aufgabe gegated —
+    // siehe OBJEKTE.badezimmer.octopus.akzeptiert.animal_3_3.
+    chain_2_octopus: {
+        frage: "If the circumference is C = 2π · 100 cm, how large is the area A?",
+        formel: "C = 2\\pi r, \\quad A = \\pi r^2",
+        fragetext: "Enter A as a number in cm².",
+        loesung: 31400,
+        toleranz: 1,
+        pi_hinweis: true,
+        bei_richtig: {
+            belohnung_text: "Correct! The octopus' mood has improved, but it is not quite happy yet.",
+            callback: (s) => {
+                verbrauche("animal_3_3");
+                aktualisiereInventar();
+                setzeOctopusZustand(2);
+                s.zustaende.chain_2_step = Math.max(s.zustaende.chain_2_step ?? 0, 4);
+            },
+        },
+    },
     chain_1_pi: {
         typ: "multiple_choice",
-        frage: "Welche der folgenden Zahlen kommt der Zahl π am nächsten?",
-        fragetext: "π ≈ 3,14159265…",
-        tipp: "Du darfst deinen Taschenrechner verwenden.",
+        frage: "Which of the following numbers is closest to π?",
+        fragetext: "π ≈ 3.14159265…",
+        tipp: "You may use your calculator.",
         optionen: [
             { katex: "\\dfrac{22}{7}" },
             { katex: "\\sqrt{10}" },
@@ -444,7 +590,7 @@ const AUFGABEN = {
             // gegenstand "code_geheimtuer" ist das sichtbare Tag-Icon im Inventar.
             inventar: { keller_code: 355113 },
             gegenstand: "code_geheimtuer",
-            belohnung_text: "Richtig! Im Lampenschein wird die Schrift lesbar — auf dem Zettel steht der Code für eine Geheimtür: 355113.",
+            belohnung_text: "Correct! In the lamplight the writing becomes readable — the note shows the code for a secret door: 355113.",
             callback: (s) => {
                 s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 5);
                 s.gegenstaende.delete("zettel");
@@ -505,7 +651,7 @@ const OBJEKTE = {
                 schluessel_buero: (s) => {
                     verbrauche("schluessel_buero");
                     oeffneCupboard1();
-                    zeigeOverlayText("Klick — der Schlüssel passt. Die linke Schranktür öffnet sich quietschend.");
+                    zeigeOverlayText("Click — the key fits. The left cabinet door creaks open.");
                     automatischSchliessen(3000);
                 },
             },
@@ -524,7 +670,7 @@ const OBJEKTE = {
                 aktualisiereInventar();
                 aktualisiereCupboard1();
                 draw();
-                zeigeOverlayText("Du nimmst einen zerknitterten Zettel in die Hand, er ist fast nicht lesbar.");
+                zeigeOverlayText("You take a crumpled note. It's barely legible.");
                 automatischSchliessen(3000);
             },
         },
@@ -546,27 +692,116 @@ const OBJEKTE = {
         },
     ],
     badezimmer: [
-        // Toilette 1 (rechts, x=1040..1240): Klick toggelt Spülung sofort (kein laufziel —
-        // Spülung ist eine Knopf-Aktion, Figur muss nicht erst hinlaufen). ABER solange der
-        // Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert er die Spülung.
+        // animal_3_1 (Aquarium-Glas mit Goldfisch) auf desk_4 — kann ins Inventar genommen werden.
+        // Polygon entspricht dem <image>-Bereich in index.html (x=1308 y=435 110×110).
+        // Gating: erst nach Formelbuch-Fund klickbar (analog cake_1 in Chain 1) — Klick davor
+        // fällt durch zur Boden-Logik, ohne Hinweis-Overlay.
+        // Sobald aufgenommen, blendet aktualisiereSanitaer() das <image> aus (chain_2_step >= 1
+        // oder eine der drei animal_3_*-IDs im Inventar).
+        {
+            id: "animal_3_1",
+            polygon: [[1308, 435], [1418, 435], [1418, 545], [1308, 545]],
+            laufziel: { fu: 0.86, fv: 0.10 },
+            aufnehmen: "animal_3_1",
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
+        },
+        // Toilette 1 (rechts, x=1040..1240): Sitz-Toggle (toilette_1 1↔2) ODER Spülung (voll → leer).
+        // ABER solange der Tintenfisch drauf sitzt (spielstand.zustaende.octopus_da), blockiert
+        // er beides. Voll-Mechanik ist Chain-Reserve (z.B. duck_1 → toilet_1 in späterer Chain),
+        // aktuell wird toilette_1_voll von keinem Drop-Target gesetzt — die Spül-Logik ist aber
+        // bereits da, damit sie konsistent zu toilet_2 funktioniert.
         // Polygone enger als die volle SVG-Bbox, damit sie nicht mit cupboard_2 (x=750..1100)
         // überlappen — sonst toggelt ein Klick auf den Schrank ungewollt eine Toilette.
         {
             id: "toilet_1",
             polygon: [[1100, 420], [1240, 420], [1240, 670], [1100, 670]],
             aktion: (s) => {
-                if (s.zustaende.octopus_da) {
-                    zeigeOverlayText("Auf dieser Toilette sitzt ein Tintenfisch.\nDu kannst die Spülung erst betätigen, wenn er weg ist.");
+                if (s.zustaende.octopus_da) return;  // Tintenfisch sitzt drauf — Klick fällt durch.
+                if (s.zustaende.toilette_1_voll) {
+                    spieleSpuelung();
+                    setzeToilette1Voll(false);
                 } else {
                     wechsleToilette1();
                 }
             },
         },
         // Toilette 2 (links): Polygon endet bei x=750, kein Überlapp mit cupboard_2.
+        // Drop-Target für animal_3_1: nur akzeptiert, wenn Sitz oben (toilette_2===2) UND leer.
+        // Klick: voll → spülen + sound; leer → Sitz togglen.
         {
             id: "toilet_2",
             polygon: [[590, 420], [750, 420], [750, 670], [590, 670]],
-            aktion: () => wechsleToilette2(),
+            aktion: (s) => {
+                if (s.zustaende.toilette_2_voll) {
+                    spieleSpuelung();
+                    setzeToilette2Voll(false);
+                } else {
+                    wechsleToilette2();
+                }
+            },
+            akzeptiert: {
+                animal_3_1: (s) => {
+                    // Drop nur wenn Sitz oben UND leer — sonst still ablehnen (Glas bleibt im Inventar).
+                    if (s.zustaende.toilette_2 !== 2) return;
+                    if (s.zustaende.toilette_2_voll) return;
+                    verbrauche("animal_3_1");
+                    spielstand.gegenstaende.add("animal_3_2");
+                    spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 2);
+                    setzeToilette2Voll(true);
+                    aktualisiereInventar();
+                    zeigeOverlayText("You tip the fish into the toilet.\nThe glass is now empty.");
+                    automatischSchliessen(2800);
+                },
+            },
+        },
+        // Badewanne — Drop-Target für animal_3_2 (Glas mit Wasser auffüllen).
+        // Kein `aktion` — Klick auf die Wanne fällt durch zur Boden-Logik (Figur läuft hin).
+        {
+            id: "bathtub",
+            polygon: [[130, 440], [730, 440], [730, 640], [130, 640]],
+            laufziel: { fu: 0.18, fv: 0.20 },
+            akzeptiert: {
+                animal_3_2: (s) => {
+                    verbrauche("animal_3_2");
+                    spielstand.gegenstaende.add("animal_3_3");
+                    spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 3);
+                    aktualisiereInventar();
+                    zeigeOverlayText("You fill the glass with water from the bathtub.");
+                    automatischSchliessen(2500);
+                },
+            },
+        },
+        // Octopus — Drop-Target für animal_3_3 (Wasser geben → Stimmung steigt).
+        // Polygon (x=930..1300, y=380..710) deckt den sichtbaren Octopus-Körper ab, ohne
+        // bis ans rechte SVG-Ende (x=1370) zu reichen — sonst überlappt es mit desk_4
+        // (x=1200..1510) und ein Klick auf den Tisch fängt sich am Octopus.
+        // Kein `aktion` — Klick ohne Drag fällt durch zur Boden-Logik.
+        // Zwei Stufen: 1→2 (Mood-Hinweis), 2→3 (nach 2 s Exit-Animation).
+        {
+            id: "octopus",
+            polygon: [[930, 380], [1300, 380], [1300, 710], [930, 710]],
+            laufziel: { fu: 0.78, fv: 0.32 },
+            akzeptiert: {
+                animal_3_3: (s) => {
+                    const aktuell = s.zustaende.octopus_zustand ?? 1;
+                    if (aktuell === 1) {
+                        // Erste Fütterung: Aufgabe gates den Übergang. Glas wird in
+                        // chain_2_octopus.bei_richtig.callback verbraucht, octopus_zustand
+                        // dort auf 2 gesetzt + chain_2_step=4. Bei falsch: nichts ändert sich,
+                        // User kann erneut versuchen oder Aufgabe schliessen + nochmals droppen.
+                        zeigeAufgabe("chain_2_octopus");
+                    } else if (aktuell === 2) {
+                        // Zweite Fütterung: kein Aufgaben-Gate, direkt advance + Exit-Animation.
+                        verbrauche("animal_3_3");
+                        aktualisiereInventar();
+                        setzeOctopusZustand(3);
+                        s.zustaende.chain_2_step = Math.max(s.zustaende.chain_2_step ?? 0, 5);
+                        // 2 s Pause auf octopus_1_3, dann Exit-Animation.
+                        setTimeout(() => animiereOctopusRaus(), 2000);
+                    }
+                },
+            },
+            aktiv: (s) => s.zustaende.octopus_da !== false,
         },
     ],
     garten: [],
@@ -617,21 +852,21 @@ function zeigeAufgabe(id) {
     if (a.pi_hinweis) {
         const pi = document.createElement("p");
         pi.className = "aufgabe-pi-hinweis";
-        pi.textContent = "Rechne mit π = 3.14.";
+        pi.textContent = "Use π = 3.14.";
         overlayInhaltEl.appendChild(pi);
     }
 
     if (a.tipp) {
         const tipp = document.createElement("p");
         tipp.className = "aufgabe-tipp";
-        tipp.textContent = `Tipp: ${a.tipp}`;
+        tipp.textContent = `Hint: ${a.tipp}`;
         overlayInhaltEl.appendChild(tipp);
     }
 
     if (geloest) {
         const info = document.createElement("p");
         info.className = "feedback richtig";
-        info.textContent = "Diese Aufgabe hast du schon gelöst.";
+        info.textContent = "You've already solved this task.";
         overlayInhaltEl.appendChild(info);
         overlayEl.hidden = false;
         return;
@@ -655,13 +890,13 @@ function baueZahlenAufgabe(id) {
     input.type = "text";
     input.className = "aufgabe-input";
     input.inputMode = "decimal";
-    input.placeholder = "Deine Antwort";
+    input.placeholder = "Your answer";
     input.required = true;
 
     const btn = document.createElement("button");
     btn.type = "submit";
     btn.className = "aufgabe-pruefen";
-    btn.textContent = "Prüfen";
+    btn.textContent = "Check";
 
     const feedback = document.createElement("p");
     feedback.className = "feedback";
@@ -711,7 +946,7 @@ function pruefeMultipleChoice(id, idx, btnGedrueckt, liste, feedbackEl) {
     if (!opt.korrekt) {
         btnGedrueckt.classList.add("falsch");
         btnGedrueckt.disabled = true;
-        feedbackEl.textContent = "Das ist leider nicht richtig. Versuch's nochmal.";
+        feedbackEl.textContent = "That's not right. Try again.";
         feedbackEl.className = "feedback falsch";
         return;
     }
@@ -725,13 +960,13 @@ function pruefeAntwort(id, eingabeStr, feedbackEl, inputEl) {
     const a = AUFGABEN[id];
     const zahl = parseFloat(String(eingabeStr).replace(",", ".").trim());
     if (!isFinite(zahl)) {
-        feedbackEl.textContent = "Bitte eine Zahl eingeben.";
+        feedbackEl.textContent = "Please enter a number.";
         feedbackEl.className = "feedback falsch";
         return;
     }
     const richtig = Math.abs(zahl - a.loesung) <= a.toleranz;
     if (!richtig) {
-        feedbackEl.textContent = "Das ist leider nicht richtig. Versuch's nochmal.";
+        feedbackEl.textContent = "That's not right. Try again.";
         feedbackEl.className = "feedback falsch";
         inputEl.select();
         return;
@@ -757,7 +992,7 @@ function gewaehrenBelohnung(id, feedbackEl) {
     }
     if (typeof b.callback === "function") b.callback(spielstand);
 
-    feedbackEl.textContent = b.belohnung_text || "Richtig!";
+    feedbackEl.textContent = b.belohnung_text || "Correct!";
     feedbackEl.className = "feedback richtig";
 
     draw();
@@ -2664,7 +2899,7 @@ canvas.addEventListener("pointerdown", (e) => {
         setzeFigurZiel(z.fu, z.fv);
         figur.ankunft = () => {
             if (!istFrei(tuer)) {
-                zeigeOverlayText("Diese Tür ist verschlossen.\nDu musst zuerst einen Schlüssel finden.");
+                zeigeOverlayText("This door is locked.\nYou need to find a key first.");
                 return;
             }
             starteRaumwechsel(tuer.ziel);
@@ -2850,7 +3085,7 @@ function zeigeFormelbuch() {
 
     const titel = document.createElement("h2");
     titel.className = "formelbuch-titel";
-    titel.textContent = "Formelbuch — Kreise";
+    titel.textContent = "Formula Book — Circles";
     overlayInhaltEl.appendChild(titel);
 
     const tabelle = document.createElement("table");
@@ -2898,7 +3133,7 @@ function zeigeFormelbuch() {
 // Funktion am Anfang ihres aktion/aufgabe-Callbacks auf.
 function pruefeFormelbuch() {
     if (spielstand.zustaende.formelbuch_gefunden) return true;
-    zeigeOverlayText("Du brauchst zuerst die passenden Formeln.\nSuche das Formelbuch im Hauptraum.");
+    zeigeOverlayText("You need the right formulas first.\nLook for the formula book in the main room.");
     return false;
 }
 
@@ -2915,7 +3150,7 @@ const GEGENSTAENDE = {
     // Chain 1: Schlüssel für cupboard_1 (Büro). Klassischer Schlüssel mit rundem Bart links,
     // Schaft nach rechts, zwei Zähne am Ende.
     schluessel_buero: {
-        name: "Schlüssel",
+        name: "Key",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <g fill="#e8b840" stroke="#7c5f1e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
                    <circle cx="13" cy="24" r="9"/>
@@ -2928,7 +3163,7 @@ const GEGENSTAENDE = {
     },
     // Chain 1: Zerknitterter Zettel mit Schrift drauf. Eckige Form mit Falt-Ecke + Linien.
     zettel: {
-        name: "Zerknitterter Zettel",
+        name: "Crumpled Note",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <path d="M10 8 L34 8 L40 14 L40 42 L10 42 Z" fill="#f7ecc8" stroke="#7d6a3a" stroke-width="1.6" stroke-linejoin="round"/>
                  <path d="M34 8 L34 14 L40 14 Z" fill="#dfc888" stroke="#7d6a3a" stroke-width="1.6" stroke-linejoin="round"/>
@@ -2943,13 +3178,34 @@ const GEGENSTAENDE = {
     // Chain 1: Code für die Geheimtür (entstanden aus dem Zettel im Lampenschein).
     // Tag-Optik mit Loch oben + monospace-Code "355113" — Ziffern müssen klein lesbar sein.
     code_geheimtuer: {
-        name: "Code für die Geheimtür: 355113",
+        name: "Code for the secret door: 355113",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <rect x="4" y="10" width="40" height="28" rx="3" fill="#fff8e1" stroke="#7d6a3a" stroke-width="1.6"/>
                  <circle cx="9" cy="16" r="1.4" fill="#7d6a3a"/>
                  <text x="24" y="30" text-anchor="middle"
                        font-family="ui-monospace, Menlo, Consolas, monospace"
                        font-size="11" font-weight="700" fill="#1a1a1a" letter-spacing="0.5">355113</text>
+               </svg>`,
+    },
+    // Chain 2: drei Glas-Zustände — verwenden direkt das Asset-SVG als <image>, damit
+    // jede Variante ihren Detailzustand (Fisch / leer / Wasser) ohne Inline-Replikation zeigt.
+    // Icons werden bei 48×48 angezeigt; preserveAspectRatio belässt die Proportionen.
+    animal_3_1: {
+        name: "Glass with goldfish",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <image href="assets/animal_3_1.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
+               </svg>`,
+    },
+    animal_3_2: {
+        name: "Empty glass",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <image href="assets/animal_3_2.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
+               </svg>`,
+    },
+    animal_3_3: {
+        name: "Glass of water",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <image href="assets/animal_3_3.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
                </svg>`,
     },
 };
@@ -2983,6 +3239,9 @@ function nimmAufGegenstand(obj) {
     obj.aufgenommen = true;
     spielstand.gegenstaende.add(obj.aufnehmen);
     aktualisiereInventar();
+    // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.
+    // animal_3_1-Image auf desk_4 verschwinden lassen, sobald es im Inventar liegt).
+    aktualisiereSanitaer();
     draw();
 }
 
@@ -3079,7 +3338,18 @@ function versucheDrop(clientX, clientY, gegenstandId) {
     const [x, y] = canvasZuLogisch(clientX, clientY);
 
     // Erst Objekte, dann Türen prüfen — bei Treffer Figur hinlaufen lassen, dann Callback.
-    const obj = findeObjektBei(x, y);
+    // Drop-spezifische Suche: erstes aktives Objekt, dessen Polygon den Drop enthält UND
+    // das den Gegenstand akzeptiert. Wichtig bei überlappenden Polygonen — z.B. animal_3_3
+    // landet sonst bei toilet_1 (kein akzeptiert) statt beim octopus dahinter.
+    const objekte = OBJEKTE[aktuellerRaum] || [];
+    let obj = null;
+    for (const o of objekte) {
+        if (objektIstAktiv(o) && istInPolygon(x, y, o.polygon) &&
+            o.akzeptiert && o.akzeptiert[gegenstandId]) {
+            obj = o;
+            break;
+        }
+    }
     if (obj && obj.akzeptiert && obj.akzeptiert[gegenstandId]) {
         const z = obj.laufziel || null;
         const aktion = () => obj.akzeptiert[gegenstandId](spielstand, gegenstandId);

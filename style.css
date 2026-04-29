@@ -490,11 +490,22 @@ h1 {
     min-width: 32rem;
 }
 
-/* Octopus im Badezimmer (Inline-SVG aus assets/octopus_1.svg).
+/* Octopus im Badezimmer (Inline-SVG aus assets/octopus_1_1/_1_2/_1_3.svg, Switch-Triplet).
    Schwarze Outlines (Strokes) global entfernen → Flächen nehmen die umliegende Farbe an.
+   In _1_2/_1_3 sind die Strokes als separate Pfade mit fill-opacity=0 dupliziert; durch
+   stroke:none werden sie unsichtbar (kein Fill, kein Stroke).
    path3950 / path3950-4 sind die Augen-Pupillen (NICHT der Mund — Verwechslung korrigiert):
    sie behalten ihren Original-Look (fill:#000 aus dem Inline-Style; Stroke wird global entfernt).
-   Ausnahme: #path4647 ist der Mund (offene Kurve, nur Stroke) — Dunkelrot behalten. */
-.octopus *:not(#path4647) {
+   Ausnahme: #path4647 ist der Mund (offene Kurve, nur Stroke) — Dunkelrot behalten.
+   `:not(#path4647)` matcht ALLE Elemente mit anderer ID, auch wenn ID dreimal im DOM
+   vorkommt (alle drei Octopus-Varianten teilen Asset-IDs). */
+.octopus *:not([id$="path4647"]) {
     stroke: none !important;
+}
+
+/* Octopus-Exit-Animation: bei octopus_1_3 → translate aus dem Bild raus + Fade.
+   transform-origin=center, ease-in damit die Bewegung sanft anrollt.
+   Wird via JS auf #octopus_1_3 gesetzt (animiereOctopusRaus); transitionend → display:none. */
+.octopus-leaving {
+    transition: transform 1.6s cubic-bezier(0.45, 0, 0.55, 1), opacity 1.6s ease-in !important;
 }

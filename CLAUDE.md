@@ -26,7 +26,7 @@ CLAUDE.md         ← diese Datei
 | `table_1.svg`, `table_2.svg` | Holztisch Hauptraum / Schreibtisch Büro | Inline-SVG |
 | `lamp_lava_1.svg`, `bookshelf_1.svg` | Originale; Inline-Varianten im Hauptraum | nicht direkt |
 | `bookshelf_2.svg`, `chair_1.svg` | Bücherregal + Bürostuhl im Büro | Inline-SVG (kopiert) |
-| `octopus_1.svg`, `duck_1.svg` | Tintenfisch + Quietscheente im Badezimmer | Inline-SVG |
+| `octopus_1_1.svg`, `octopus_1_2.svg`, `octopus_1_3.svg`, `duck_1.svg` | Tintenfisch (3 Stimmungs-States, Switch-Triplet für Chain 2) + Quietscheente | Inline-SVG (alle drei Octopus-Varianten deckungsgleich, `class="octopus"`, IDs der Asset-Pfade NICHT geprefixed → bewusste Duplikate; CSS `:not(#path4647)` matcht alle drei) |
 | `bathtub_1_1/1_2.svg`, `toilet_2_1/2.svg` | Wanne + WC, je 2 Switch-States | Inline-SVG |
 | `skeleton_3.svg` | Tanzendes Skelett im Keller | `<image href>` |
 | `fireplace_1.svg` | Steinkamin im Keller | Inline-SVG |
@@ -49,6 +49,9 @@ CLAUDE.md         ← diese Datei
 | `cupboard_1_1.svg`, `cupboard_1_2.svg`, `cupboard_2.svg`, `cupboard_3.svg` | cupboard_1 (Büro, gespiegelt) als Switch-Paar `_1`/`_2` (geschlossen/offen) nach Sanitär-Konvention, beide als `<image>`; cupboard_2 im Badezimmer; cupboard_3 im Hauptraum | `<image href>` mit Cache-Bust. cupboard_1_1: Asset geändert (Gradients entfernt). cupboard_1_2: vom User selbst gezeichneter Offen-Zustand. cupboard_2: Asset geändert (Holztöne 2× ~20% aufgehellt, dann manuelle User-Anpassungen, `?v=5`). cupboard_3: Asset geändert (Holztöne 2× aufgehellt + Richtung helleres Holz verschoben, dann viewBox auf 400×660 vergrößert mit Padding, `?v=4`). |
 | `lamp_1.svg` | Pixar-Stil Schreibtischlampe (Schwenkarm, goldene Birne, gelblicher Schein) im Büro | Inline-SVG (IDs mit `l1_` prefixed gegen Konflikte; 9 Gradients erhalten) |
 | `animal_1.svg`, `animal_2.svg` | Zwei Tiere/Kreaturen an der Wand im Keller (siehe Keller) | Inline-SVG (IDs mit `a1_`/`a2_` prefixed; animal_1 mit Gelb-Tint t=0.06; animal_2 hat 10 Gradients) |
+| `animal_3_1.svg` | Aquarium-Glas mit Goldfisch (Initial auf desk_4 im Badezimmer; Inventar-Item) | `<image href>` mit Cache-Bust auf desk_4; gleiche Datei als `<image>` 44×44 im Inventar-Icon |
+| `animal_3_2.svg` | Leeres Glas (Inventar-State nach Dump in toilet_2) | `<image href>` im Inventar-Icon (Asset selbst nie auf der Bühne sichtbar) |
+| `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
 **Cache-Busting** in `index.html`: aktuell `style.css?v=23`, `script.js?v=147`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
@@ -116,7 +119,7 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 |---|---|---|---|---|
 | `haupt` | Hauptraum | A→Büro, B→Badezimmer, L→Garten, geheim→Keller | b90/b90, Wände b70 | Bookshelf + 5 Pflanzen + painting_1 + Tisch1 (Lavalampe, cake_1) + 2 Muffins (auf Boden) + desk_3 (rotiert -2°, mit Pilzlampe + plant_setzling oben) + cupboard_3 + desk_5 (mit cake_2 + plant_geranie + muffin_1 obendrauf). desk_1 + desk_2 deaktiviert |
 | `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
-| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 |
+| `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 (mit animal_3_1/Aquarium oben drauf) |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
 | `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
 
@@ -208,8 +211,13 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 
 ### Badezimmer
 
-- **Tintenfisch** (`assets/octopus_1.svg`) inline, hinten-rechts. Anker `<svg class="octopus" data-y-fuss="700" x="930" y="380" width="440" height="330" viewBox="0 0 640.08 479.93">`. DOM-Position: zwischen cupboard_2/Toiletten und desk_4 — er überdeckt cupboard_2 und Toiletten, wird aber selbst von desk_4 überdeckt (desk_4 ist DOM-zuletzt). CSS in `style.css`:
-  - `.octopus *:not(#path4647) { stroke: none !important }` — entfernt schwarze Outlines global, AUSSER beim Mund.
+- **Tintenfisch (Switch-Triplet)** — 3 Stimmungs-States deckungsgleich inline, jeder mit `data-y-fuss="700" x="930" y="380" width="440" height="330" viewBox="0 0 640.08 479.93" class="octopus"`. DOM-Position: zwischen cupboard_2/Toiletten und desk_4 — alle drei überdecken cupboard_2 und Toiletten, werden aber selbst von desk_4 überdeckt (desk_4 ist DOM-zuletzt).
+  - `octopus_1_1` (mürrisch, Inline aus `assets/octopus_1_1.svg`, Old-Format mit `style="stroke...;fill..."` pro Pfad) — initial sichtbar.
+  - `octopus_1_2` (leicht aufgehellte Stimmung, Inline aus `assets/octopus_1_2.svg`, Dual-Path-Format: pro Form ein Fill-Pfad + ein Stroke-Pfad mit `fill-opacity=0`) — initial `display:none`.
+  - `octopus_1_3` (zufrieden, gleiche Dual-Path-Struktur) — initial `display:none`.
+  - **Sichtbarkeitslogik**: `aktualisiereSanitaer()` togglet `sanitar-aus` basierend auf `spielstand.zustaende.octopus_da && octopus_zustand === N`. Wenn `octopus_da=false` (nach Exit-Animation), sind ALLE drei verborgen.
+  - **CSS in `style.css`**: `.octopus *:not(#path4647) { stroke: none !important }` — entfernt schwarze Outlines global, AUSSER beim Mund. Wirkt auf alle drei States; in _1_2/_1_3 macht es zusätzlich die separaten Stroke-Pfade unsichtbar (kein Fill, kein Stroke).
+  - Asset-Pfad-IDs (`path3982-5`, `path4647`, etc.) bleiben in allen drei States gleich — bewusste DOM-Duplikate. CSS-`:not(#path4647)` matcht trotzdem alle Mund-Pfade. Funktioniert, weil keine Gradients (nur solid fills) → keine Paint-Server-Lookups, die durch Duplikat-IDs verwirrt würden.
   - **Augen-Pupillen** (path3950, path3950-4): liegen IM Auge, behalten Inline-`fill:#000`.
   - **Mund** (`#path4647`): offene Kurve, nur Stroke, Farbe `#5a0000` (dunkelrot).
 - **Sanitärobjekte** (Renderreihenfolge hinten → vorn). Drei Switch-Paare: jeweils zwei `<svg>`-Blöcke an exakt derselben Position/Größe, einer initial sichtbar, der andere `display:none`. Konvention: `#X_1` = Initialzustand, `#X_2` = nach Handlung. Sitzring ist rot eingefärbt (Inline-Fills `#FF5C5C` dunkel + `#FF8C8C` hell), Wasser bei der Wanne wechselt von blau (`#A7C5EA`) zu klar (`#FCFCFC`).
@@ -225,6 +233,8 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
   Hinweis Nummerierung: Die "1"/"2" hinter `toilet_` folgt den Asset-Namen, nicht der räumlichen Lage.
 - **cupboard_2** (`assets/cupboard_2.svg?v=5`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=350 height=500. **KEIN data-y-fuss** — wandmontiert wie painting_2/animals (Schrank-Korpus endet im SVG bei ~81% der viewBox-Höhe, der Rest sind Schatten/Reflexion-Pfade; bei `data-y-fuss="650"` lag der vermeintliche Foot deutlich unter dem visuellen Korpus → Figur "verschwand" hinter dem Whitespace, wenn sie zu nah ranging). Hindernis stoppt die Figur korrekt davor. Asset wurde von Manuel vereinfacht (`?v=2`); danach Holztöne 2× ~20% aufgehellt (`?v=3`, dann `?v=4`); zuletzt manuelle User-Anpassungen (`?v=5`). Glas-Spiegel (Türkis-Gradients) und Türknäufe (Gradient_5/9) blieben unverändert. cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
 - **Desk 4** (`assets/desk_4.svg`, breite Anrichte mit Schubladen): inline x=1200 y=520 width=310 height=360, data-y-fuss="880" (bbox-bottom; vorher 755 als Anpassung an einen alten viewBox-Anteil — nach User-Resize obsolet, wurde im Audit korrigiert). Aus dem Hauptraum hierher verschoben. Frischer 1:1-Import aus dem Asset, **keine Strokes** (Asset hat keine — frühere weisse Stroke-Variante wurde verworfen). IDs aus dem Asset entfernt (`path2170` / `path2172` / `path2178` ×3 — Duplikate riskieren beim Klonen in die Front-Ebene). Leere Platzhalter-Pfade (`M0.322,297.233`, `M415.693,107.617`) weggelassen. **DOM-zuletzt** im Badezimmer-Block, überdeckt also Octopus + Toiletten visuell.
+- **animal_3_1** (`assets/animal_3_1.svg?v=1`, Aquarium mit Goldfisch + 2 Luftblasen, blauer Wasser-Hintergrund): `<image>` x=1308 y=435 width=110 height=110, `data-y-fuss="880"` synchron mit desk_4 (gestapeltes Möbel). `preserveAspectRatio="none"`, `filter="url(#grell-mild)"` (analog desk_4 selbst). Position: mittig auf der Top-Platte (screen-y ~545 = Mitte zwischen Top-Hinterkante 529 und Vorderkante 561). DOM direkt nach desk_4. Kein eigenes Hindernis (steht auf dem Tisch, Tisch-Hindernis stoppt Figur ohnehin). **Im Inventar nehmbar** (Chain 2): OBJEKTE.badezimmer.animal_3_1 hat `aufnehmen: "animal_3_1"`. `aktualisiereSanitaer()` blendet das `<image>` aus, sobald `chain_2_step >= 1` (oder eine animal_3_*-ID im Inventar liegt). animal_3_2 und animal_3_3 sind reine Inventar-Items (Asset nur als 44×44 `<image>` im Icon).
+- **toilet_X_voll-Indikatoren**: zwei kleine `<svg>` (id=`toilet_2_voll`, `toilet_1_voll`) deckungsgleich mit toilet_X_2 (x=590/1040, y=420, 200×250, viewBox 0 0 383.9 505.1). Inhalt: gelbe Ellipse (cx=190, cy=270, rx=55, ry=20, `#d4b300` opacity 0.55) — soll wie verschmutztes Wasser in der Schüsselöffnung wirken. `pointer-events:none` (Klicks fallen auf das toilet_X-OBJEKT durch). Sichtbarkeit über `aktualisiereSanitaer()`: nur wenn `toilette_X_voll && toilette_X === 2` (Sitz oben + voll). `data-y-fuss="670"` synchron mit Toiletten.
 
 ### Garten
 
@@ -354,11 +364,29 @@ const spielstand = {
     freigeschalteteTueren: new Set(),  // eingesammelte Schlüssel-IDs
     inventar: {},                      // gefundene Zahlen / Infos (Cross-Room-Lookup)
     gegenstaende: new Set(),           // physische Inventar-Gegenstände
-    zustaende: { badewanne: 1, toilette_1: 1, toilette_2: 1, octopus_da: true },  // 1 = Initialstate, 2 = nach Handlung. octopus_da = sitzt der Tintenfisch noch auf toilet_1?
+    zustaende: {
+        badewanne: 1, toilette_1: 1, toilette_2: 1,    // 1 = Initialstate (Sitz), 2 = nach Handlung
+        toilette_1_voll: false, toilette_2_voll: false, // orthogonal zum Sitz: leer/voll (siehe unten)
+        octopus_da: true,                               // Tintenfisch noch im Bad? false nach Exit-Animation
+        octopus_zustand: 1,                             // 1 = mürrisch / 2 = aufgehellt / 3 = zufrieden (animiert sich weg)
+    },
 };
 ```
 
-**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` der sechs `<svg>`-Blöcke (`#bathtub_1_1/1_2`, `#toilet_1_1/1_2`, `#toilet_2_1/2_2`) basierend auf `spielstand.zustaende`. Selektor: `'[id="X"], [id^="v_"][id$="_X"]'` — matcht Original UND die Front-Layer-Klone (deren IDs von `klonePflanzenVorne()` mit `v_<idx>_` prefixed sind). Wird beim Init und nach jeder Zustandsänderung aufgerufen. Toiletten sind klickbar: `OBJEKTE.badezimmer` enthält `toilet_1` (Polygon `[1100..1240, 420..670]`) und `toilet_2` (`[590..750, 420..670]`) mit `aktion`-Callback (kein `laufziel` → sofortiges Toggle ohne Hinlaufen). Polygone sind absichtlich enger als die volle SVG-Bbox, damit ein Klick auf cupboard_2 (x=750..1100) nicht ungewollt eine Toilette togglet. **toilet_1 ist gesperrt, solange `spielstand.zustaende.octopus_da === true`** — Klick zeigt Hinweistext. Sobald `octopus_da = false`, togglet der Klick `wechsleToilette1()`. Aufgaben können auch direkt `setzeBadewanne(2)`, `setzeToilette1(2)`, `setzeToilette2(2)` aufrufen.
+**Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` mehrerer `<svg>`-Blöcke basierend auf `spielstand.zustaende`. Selektor: `'[id="X"], [id^="v_"][id$="_X"]'` — matcht Original UND die Front-Layer-Klone (deren IDs von `klonePflanzenVorne()` mit `v_<idx>_` prefixed sind). Wird beim Init und nach jeder Zustandsänderung aufgerufen. Behandelt:
+- Bathtub `#bathtub_1_1/1_2` (Sitz-Switch via `badewanne`).
+- Toiletten `#toilet_1_1/1_2`, `#toilet_2_1/2_2` (Sitz-Switch via `toilette_1/2`).
+- Voll-Indikatoren `#toilet_1_voll`, `#toilet_2_voll` (gelbe Ellipsen) — sichtbar nur, wenn `toilette_X_voll && toilette_X === 2` (Sitz oben + voll).
+- Octopus `#octopus_1_1/_2/_3` — sichtbar nach `octopus_da && octopus_zustand === N`.
+- `#animal_3_1`-Image auf desk_4 — versteckt, sobald irgendeine animal_3_*-ID im Inventar liegt oder `chain_2_step >= 1`.
+
+**Toiletten-Klick** (OBJEKTE.badezimmer.toilet_1/2, beide ohne `laufziel` → sofortige Aktion):
+- toilet_X mit `voll=true` → Klick spielt **Spülsound** (`spieleSpuelung()`) + setzt voll=false. Optional, blockiert Chain 2 nicht.
+- toilet_X mit `voll=false` → Klick togglet Sitz (1↔2).
+- **toilet_1 ist gesperrt**, solange `octopus_da===true` — Hinweistext, kein Toggle/Spülen. Sobald Octopus weg, normale Logik.
+- toilet_2 hat zusätzlich `akzeptiert.animal_3_1`: Drop nur, wenn `toilette_2===2 && !toilette_2_voll`. Effekt: animal_3_1 verbraucht, animal_3_2 ins Inventar, `toilette_2_voll=true`, `chain_2_step→2`.
+
+Polygone bewusst enger als die volle SVG-Bbox (`toilet_1` 1100..1240, `toilet_2` 590..750), damit ein Klick auf cupboard_2 (x=750..1100) keine Toilette togglet. Bathtub-Polygon `[130..730, 440..640]` mit Drop-Target `akzeptiert.animal_3_2` (egal ob `badewanne===1` oder 2 — Wanne ist immer mit Wasser gefüllt) → animal_3_3 ins Inventar, `chain_2_step→3`. Octopus-Polygon `[930..1300, 380..710]` mit Drop-Target `akzeptiert.animal_3_3` → erste Fütterung öffnet `chain_2_octopus`-Aufgabe (Zahleneingabe; bei richtig: `octopus_zustand=2` + Mood-Hinweis), zweite Fütterung läuft direkt durch zu `octopus_zustand=3` mit 2 s Verzögerung + Exit-Animation. Bathtub und Octopus haben **kein** `aktion` — Klick ohne Drag fällt durch zur Boden-Logik. Konsole-Helfer: `setzeBadewanne(N)`, `setzeToilette1/2(N)`, `setzeToilette1/2Voll(bool)`, `setzeOctopusZustand(N)`, `animiereOctopusRaus()`, `spieleSpuelung()`.
 
 **Dev-Helfer in der Browserkonsole:**
 ```js
@@ -381,7 +409,9 @@ dumpHindernisse() / dumpHindernisse("haupt")  // Aktuelles HINDERNISSE.<raum>-Ar
 
 **π = 3.14** im ganzen Spiel. Konstante `PI_KONSTANTE = 3.14` in script.js. Aufgaben-Lösungen werden mit dieser Konstante berechnet (Sonderfall: π-Annäherungs-Aufgabe in Chain 1, dort ist der Vergleich zu echtem π das Thema).
 
-Aufgaben mit π im Text setzen `pi_hinweis: true` → blendet automatisch eine Hinweiszeile **„Rechne mit π = 3.14."** im Overlay ein. Optional `tipp: "<text>"` für sonstige Hinweise (z.B. „Du darfst deinen Taschenrechner verwenden.").
+Aufgaben mit π im Text setzen `pi_hinweis: true` → blendet automatisch eine Hinweiszeile **„Use π = 3.14."** im Overlay ein. Optional `tipp: "<text>"` für sonstige Hinweise (Prefix „Hint: ").
+
+**Zahleneingabe** ist der Default — Aufgabe definiert `loesung: <Zahl>` und `toleranz: <maxAbsErrror>`. Eingabe akzeptiert Komma oder Punkt (parseFloat-normalisiert). Falsche Eingabe → roter Feedback-Text, User kann erneut probieren. Beispiel: `chain_2_octopus` (C=2π·100 cm gegeben, A=31400 cm² gesucht).
 
 **Multiple-Choice** wird über `typ: "multiple_choice"` aktiviert mit `optionen: [{ katex|label, korrekt? }, …]`. Genau eine Option hat `korrekt: true`. Falsche Antworten färben den Button rot + sperren ihn, korrekte Antwort sperrt alle + triggert Belohnung. Falsche Versuche bleiben offen → User kann nochmal probieren.
 
@@ -408,6 +438,24 @@ Mehrere lineare Chains laufen parallel; gelöste Aufgaben dürfen voneinander ab
 Der `keller_code` (Zahl) wird später für die Geheimtür-Code-Prüfung gebraucht; das `code_geheimtuer`-Item dient als sichtbarer Inventar-Eintrag (Tag mit „355113"). Aktuell ist die Geheimtür sichtbar/begehbar — Code-Prüfung kommt mit der Aktivierungs-Chain.
 
 cupboard_1-Switch in [index.html](index.html): `cupboard_1_1` (geschlossen, `<image>` href `cupboard_1_1.svg`) und `cupboard_1_2` (offen, `<image>` href `cupboard_1_2.svg`) togglen via `aktualisiereCupboard1()` und CSS-Klasse `sanitar-aus` (analog zum Sanitärobjekt-Switch). Der Zettel ist ein separates Inline-SVG-Element `cupboard_1_zettel_visual` über cupboard_1_2 — wird unabhängig getogglet, sobald er im Inventar liegt.
+
+### Chain 2 — animal_3_1 (Glas mit Fisch) → toilet_2 → Glas leer → Wanne → Glas mit Wasser → Octopus → Octopus geht
+
+**Vorbedingung:** animal_3_1 ist KOMPLETT inaktiv, solange `formelbuch_gefunden=false` — `aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0`. Klick fällt einfach durch zur Boden-Logik, ohne Hinweis-Overlay (analog Chain 1 / cake_1).
+
+**Spielertexte:** Alle Spieler-sichtbaren Strings sind auf Englisch (Aufgaben-Fragen, Belohnungstexte, Overlay-Texte, Inventar-Namen, „Hint:"-Prefix, „Use π = 3.14."-Hinweis). Konsolenausgaben (`console.log`/`console.error`) und Code-Kommentare bleiben auf Deutsch (dev-facing). Formelbuch zeigt englischen Namen primär + deutsche Übersetzung in Subtitle-Style (`(DE: ${eintrag.de})`).
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 0→1 | Klick `animal_3_1` auf desk_4 (Badezimmer) — nur nach Formelbuch-Fund | `gegenstaende += "animal_3_1"`, Image auf desk_4 verschwindet via `aktualisiereSanitaer()` (jetzt aufgerufen aus `nimmAufGegenstand`). |
+| 1→2 | animal_3_1 auf toilet_2 gezogen — nur wenn `toilette_2===2` (Sitz oben) UND `!toilette_2_voll`. Sonst Hinweistext. | `verbrauche("animal_3_1")`, `gegenstaende += "animal_3_2"`, `toilette_2_voll=true` (gelbe Voll-Ellipse erscheint). |
+| 2→3 | animal_3_2 auf Wanne gezogen (egal ob blaues oder klares Wasser — die Wanne ist immer voll) | `verbrauche("animal_3_2")`, `gegenstaende += "animal_3_3"`. |
+| 3→4 | animal_3_3 auf Octopus gezogen (Polygon `[930..1300, 380..710]`) — **Aufgabe `chain_2_octopus` öffnet sich** | Bei richtig: `verbrauche("animal_3_3")`, `octopus_zustand=2` (octopus_1_2 sichtbar), Mood-Hinweis: "Correct! The octopus' mood has improved, but it is not quite happy yet." Bei falsch: nichts ändert sich, User kann erneut versuchen oder schliessen + nochmals droppen. |
+| 4→5 | nochmals animal_3_3 auf Octopus (User muss erneut Wanne-Tour machen) | `octopus_zustand=3` (octopus_1_3 sichtbar) → `setTimeout(animiereOctopusRaus, 2000)`. Animation: CSS-`transition: transform 1.6s` schiebt octopus_1_3 nach unten + zur Seite (Richtung weg von der Figur), `transitionend` → `octopus_da=false` → toilet_1 ist klickbar. |
+
+**Optional/parallel:** Klick auf voll gewordene Toilette → `spieleSpuelung()` (Web Audio Platzhalter: 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep 1200 Hz → 250 Hz, Hüllkurve attack/sustain/decay) + setzt `voll=false`. Nicht nötig für Chain-Fortschritt. Generischer Mechanismus: `toilette_1_voll` ist genauso definiert (für duck_1 → toilet_1 in einer späteren Chain), aktuell wird kein Drop-Target ihn setzen.
+
+**Octopus-Exit-Richtung:** `animiereOctopusRaus()` liest `figur.fu` und kippt das Ziel zur jeweils anderen Seite (figur.fu < 0.5 → Octopus nach rechts/+380 px, sonst nach links/-560 px), y immer +520 px (nach unten-vorne raus Richtung "zurueck"-Pfeil). 2 s Safety-Timeout, falls `transitionend` nicht feuert (z.B. weil `display:none` schon vorher zugeschlagen hat).
 
 ## Aufgaben + Overlay
 
@@ -477,7 +525,9 @@ Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter z
 
 `audioCtx` wird beim ersten `pointerdown` via `ensureAudio()` initialisiert (Safari/Chrome starten oft `suspended` → `audioCtx.resume()`). `spieleSchritt()` feuert in `aktualisiereFigur`, wenn die Gehphase π oder 2π überquert.
 
-Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`.
+`spieleSpuelung()` (Chain 2): 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep 1200 Hz → 250 Hz und Hüllkurve (Attack 0.1 s, Sustain 0.6 s, Decay zum Ende). Spielt beim Klick auf eine `voll`-Toilette.
+
+Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`.
 
 ## Input / Loop
 
@@ -527,10 +577,15 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **Wandmontierte Objekte (immer-hinten):** Elemente, die an einer Wand "kleben" (paintings, animals im Keller etc.), sollten **gar kein `data-y-fuss`** tragen. Dann werden sie weder geklont noch vom Toggle angefasst und bleiben permanent in der Rück-Ebene → Figur ist immer davor (Bookshelf/Skelett-Pattern). Wenn der visuelle Foot des Objekts UNTER y=600 liegt (also auf dem Boden, nicht an der Wand), data-y-fuss = visual_foot_y verwenden, sonst kann die Figur unsinnigerweise hinter das Objekt laufen. **Sonderfall SVG mit Whitespace unten:** Wenn der visuelle Korpus eines Möbels deutlich höher endet als die SVG-Bbox-Bottom (z.B. cupboard_2 — Korpus bis ~81% der viewBox, danach nur Schatten/Reflexion), ist `data-y-fuss="<bbox-bottom>"` falsch — die Figur „verschwindet" hinter dem Whitespace, sobald sie nah ranläuft. Lösung: data-y-fuss komplett weglassen (wandmontiert-Behandlung) und das Hindernis vor dem visuellen Korpus stoppt die Figur.
 - **Animal-Tint (animal_1):** Original-Farben sind dunkelbraun/erdig, was bei dunklem Keller-Setting visuell verschwindet. Lösung: alle Hex-Werte um Faktor t Richtung Gelb verschoben: `r += (255-r)·t; g += (255-g)·t; b -= b·t`. Bei t=0.12 wirkt es schon zu gelb; t=0.06 ist subtil-honigfarben (akzeptiert). Re-Tinten: Original-Asset jedes Mal frisch laden (Aufhellung/Tint sind nicht idempotent — wiederholtes Anwenden auf bereits getintete Farben verschiebt sie immer weiter).
 - **CSS `transform` an `<svg>`-Elementen für Möbel-Rotation:** Funktioniert (z.B. desk_3 mit `style="transform:rotate(-2deg);transform-origin:50% 100%"`), pivotiert um Bottom-Center des SVG-Box. Aber: alles, was visuell AUF dem Möbel sitzt (Lampe, Pflanze) ist ein separater SVG-Block und rotiert NICHT mit. Wenn Mit-Rotation gewünscht, müssen Aufliegende dieselbe `transform`-Eigenschaft mit dem **gleichen Drehpunkt im Screen-Space** bekommen.
+- **Switch-Triplet (Octopus) — Asset-IDs absichtlich dupliziert:** Die drei Octopus-Varianten (`octopus_1_1/_2/_3`) sind alle gleichzeitig im DOM, deckungsgleich, einer sichtbar via `aktualisiereSanitaer()`. Asset-Pfad-IDs (`path3982-5`, `path4647`, etc.) wurden NICHT geprefixed — alle drei tragen dieselben IDs. Funktioniert hier, weil: 1) keine Gradients (nur solid fills) → keine Paint-Server-Lookups, die Duplikat-IDs ins Wanken bringen würden; 2) CSS-`:not(#path4647)` matcht ALLE Elemente mit dieser ID (auch dreifach im DOM); 3) `klonePflanzenVorne()` prefixt für die Front-Ebene mit `v_<idx>_`, der Rück-Layer bleibt mit Duplikaten. JS verwendet keine `getElementById` auf Inner-Pfade. Bei Bedarf für künftige Switch-Triplets mit Gradients: pro State per Skript prefixen (z.B. `o1_`/`o2_`/`o3_`).
+- **Sanitärobjekt mit zwei orthogonalen States** (Sitz vs. Voll/Leer): toilet_2 hat zwei unabhängige Switch-States — `toilette_2` (1=Sitz unten / 2=Sitz oben) UND `toilette_2_voll` (false/true). Visualisierung der voll-State über separates `<svg id="toilet_2_voll">` mit gelber Ellipse, deckungsgleich mit toilet_2_2. `aktualisiereSanitaer()` macht den Voll-Indikator nur sichtbar, wenn BEIDE Bedingungen erfüllt sind: `toilette_2_voll && toilette_2 === 2` (sonst sieht man die Schüsselöffnung nicht und der Indikator wäre nicht plausibel). Klick-Aktion auf toilet_2 ist zustandsabhängig: voll → spülen + sound + voll=false; leer → Sitz togglen.
+- **Inventar-Item-Transition** (Glas-Varianten): animal_3_1 → animal_3_2 → animal_3_3 sind drei unterschiedliche IDs, die nacheinander durchs Inventar wandern. `aktualisiereSanitaer()` blendet das `<image id="animal_3_1">` auf desk_4 aus, sobald irgendeine der drei IDs im Inventar liegt ODER `chain_2_step >= 1` — sonst würde das Glas auf desk_4 wieder erscheinen, sobald _1 verbraucht und _2 erzeugt wird. Die `aktiv`-Funktion am OBJEKT verhindert weitere Aufnehm-Klicks parallel. Wichtig: `nimmAufGegenstand()` ruft `aktualisiereSanitaer()` direkt nach `gegenstaende.add()` auf, sonst verschwindet das Image erst beim nächsten Sanitär-Toggle (z.B. Toilette anklicken).
+- **Drop-Suche bei überlappenden OBJEKT-Polygonen** (`versucheDrop`): `findeObjektBei()` liefert das ERSTE polygon-passende OBJEKT zurück, egal ob es den Gegenstand akzeptiert. Bei Drop muss explizit nach dem ersten OBJEKT gesucht werden, das `akzeptiert[gegenstandId]` hat. Beispiel: `octopus`-Polygon `(930..1370, 380..710)` überlappt mit `toilet_1` `(1100..1240, 420..670)`. Wenn animal_3_3 in den Überlapp-Bereich gedroppt wird, würde `findeObjektBei` toilet_1 liefern → kein `akzeptiert.animal_3_3` → Drop verpufft. Lösung in `versucheDrop`: eigene Schleife über `OBJEKTE[aktuellerRaum]`, die nur OBJEKTE mit polygon-Treffer UND `akzeptiert[gegenstandId]` zurückliefert.
+- **Klon-Prefixierung bricht ID-spezifische CSS-Selektoren** (Octopus-Mund): Die CSS-Regel `.octopus *:not(#path4647) { stroke: none !important }` matcht den geklonten Mund (Front-Layer-ID `v_<idx>_path4647`) nicht — er fällt unter „andere Elemente" und verliert seinen Stroke. Symptom: Mund verschwindet, sobald die Figur in die Front-Ebene wechselt (figur.fv > octopus.fv). Lösung: Attribut-Suffix-Selektor `.octopus *:not([id$="path4647"])` matcht Original UND alle `v_*_path4647`-Klone.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Chain 1** komplett spielbar (Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item ins Inventar). Auto-Close für Erfolgs-Overlays + robuster Drag-Cancel (Esc / Raumwechsel / `dragAbbrechen()`).
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, Voll/Leer-Mechanik mit Spülsound), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch** (Aufgaben, Belohnungen, Overlays, Inventar-Namen). **Chain 1** komplett spielbar (Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item ins Inventar). **Chain 2** komplett spielbar (animal_3_1 vom desk_4 → toilet_2 dumpen → animal_3_2 → Wanne → animal_3_3 → Octopus 1. Drop öffnet Aufgabe `chain_2_octopus` (C=2π·100 → A=31400 cm²) → bei richtig: Mood-Hinweis + state=2 → Wanne erneut → 2. Drop → Octopus animiert sich nach unten-vorne raus, weicht der Figur aus → toilet_1 wird klickbar). Octopus-Switch-Triplet (octopus_1_1/_2/_3 deckungsgleich inline). Auto-Close für Erfolgs-Overlays + robuster Drag-Cancel (Esc / Raumwechsel / `dragAbbrechen()`).
 
 **Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert (desk_3, Pilzlampe, plant_setzling, muffin_2/3, lamp_1, desk_4, chest_1, muffin_4, alle Garten-flowers).
 
