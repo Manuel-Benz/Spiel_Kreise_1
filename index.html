@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=27">
+    <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -42,24 +42,6 @@
                     <filter id="invert" color-interpolation-filters="sRGB">
                         <feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/>
                     </filter>
-                    <!-- Hinweis-Hand-Symbol (Tutorial-Indikator nach Formelbuch-Fund).
-                         Cartoon-Hand mit ausgestrecktem Zeigefinger nach unten + roter Pfeil oberhalb.
-                         viewBox 0 0 60 90; per <use> an Stellen mit data-hint=… platziert.
-                         Animation siehe style.css (.hint-hand). -->
-                    <symbol id="hint-hand-symbol" viewBox="0 0 60 90" overflow="visible">
-                        <!-- Roter Pfeil oben, zeigt nach unten -->
-                        <path d="M30,2 L18,16 L24,16 L24,26 L36,26 L36,16 L42,16 Z"
-                              fill="#e63b18" stroke="#1a1a1a" stroke-width="2" stroke-linejoin="round"/>
-                        <!-- Handgelenk + Faust + Daumen + Zeigefinger (Cartoon, gelb) -->
-                        <g fill="#ffce40" stroke="#1a1a1a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
-                            <!-- Faust: gerundetes Rechteck mit eingerollten Fingern -->
-                            <path d="M14,40 Q14,32 22,32 L34,32 Q42,32 42,40 L42,68 Q42,76 34,76 L22,76 Q14,76 14,68 Z"/>
-                            <!-- Daumen rechts, leicht abstehend -->
-                            <path d="M42,46 Q50,46 50,52 Q50,58 42,58 Z"/>
-                            <!-- Ausgestreckter Zeigefinger nach unten — überlappt Faust -->
-                            <path d="M22,60 L22,86 Q22,90 26,90 L30,90 Q34,90 34,86 L34,60 Z"/>
-                        </g>
-                    </symbol>
                 </defs>
                 <!--
                   Deko-Gruppen pro Raum. JavaScript schaltet via data-raum-Attribut zwischen
@@ -1430,9 +1412,6 @@
     <path d="M334.956,663.333 C336.293,669.06 331.682,681.149 326.715,687.293 C322.253,692.812 321.287,701.797 319.516,706.529" fill-opacity="0" stroke="#03C100" stroke-width="3" id="f2b_path8670"/>
   </g></g>
 </svg></g>
-                    <!-- Tutorial-Hinweis-Hände: erscheinen nach Formelbuch-Fund an interaktiven Stellen.
-                         Sichtbarkeit per CSS-Klasse `hint-aus` (siehe aktualisiereHinweise() in script.js). -->
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="flower_1" x="330" y="415" width="60" height="90"/>
                 </g>
                 <g data-raum="keller" style="display:none" filter="url(#grell)">
                     <!-- painting_2 an der hinteren Wand, mittig über dem Kamin
@@ -2688,10 +2667,6 @@
     <path d="M70.421,238.682 C70.421,238.682 61.041,238.64 61.041,238.64 C61.041,238.64 47.923,231.547 47.923,231.547 C47.923,231.547 57.945,231.351 57.945,231.351 C57.945,231.351 70.421,238.621 70.421,238.682 z" fill="url(#l1_Gradient_9)"/>
   </g>
 </svg>
-                    <!-- Tutorial-Hinweis-Hände: erscheinen nach Formelbuch-Fund an interaktiven Stellen.
-                         cupboard_1 (linke Tür für Schlüssel-Drop / Zettel-Klick), Lichtkegel auf table_2. -->
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="cupboard_1" x="1050" y="305" width="60" height="90"/>
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="lichtkegel" x="357" y="350" width="60" height="90"/>
 </g>
                 <g data-raum="badezimmer" style="display:none" filter="url(#grell)">
                     <!-- Badezimmer-Assets (aus assets/ inline importiert). Renderreihenfolge:
@@ -3176,9 +3151,9 @@
                          Sichtbar nur, wenn !octopus_da && toilette_1===2 && !binoculars_genommen
                          (siehe aktualisiereChain3). data-y-fuss=670 → synchron mit toilet_1_2.
                          Ragt oben aus der Schüssel heraus ("herauslugend"), Boden in der Öffnung. -->
-                    <svg id="binoculars_1_visual" class="sanitar-aus" data-y-fuss="670" x="1102" y="495" width="77" height="67"
+                    <svg id="binoculars_1_visual" class="sanitar-aus" data-y-fuss="670" x="1110" y="522" width="62" height="54"
                          preserveAspectRatio="xMidYMid meet">
-                        <image href="assets/binoculars_1.svg?v=1" x="0" y="0" width="77" height="67"
+                        <image href="assets/binoculars_1.svg?v=1" x="0" y="0" width="62" height="54"
                                preserveAspectRatio="xMidYMid meet"/>
                     </svg>
                     <!-- Desk 4 (assets/desk_4.svg, breite Anrichte mit Schubladen).
@@ -3221,12 +3196,6 @@
                          Top-Hinterkante 529 und Vorderkante 561). -->
                     <image id="animal_3_1" data-y-fuss="880" href="assets/animal_3_1.svg?v=1" x="1308" y="435" width="110" height="110" preserveAspectRatio="none" filter="url(#grell-mild)"/>
 
-                    <!-- Tutorial-Hinweis-Hände: erscheinen nach Formelbuch-Fund an interaktiven Stellen.
-                         bathtub, toilet_2, octopus, toilet_1 — siehe aktualisiereHinweise() in script.js. -->
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="bathtub" x="400" y="345" width="60" height="90"/>
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="toilet_2" x="640" y="325" width="60" height="90"/>
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="octopus" x="1085" y="285" width="60" height="90"/>
-                    <use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="toilet_1" x="1140" y="325" width="60" height="90"/>
                 </g>
             </svg>
             <canvas id="figure-canvas"></canvas>
@@ -3248,6 +3217,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=191"></script>
+    <script src="script.js?v=192"></script>
 </body>
 </html>

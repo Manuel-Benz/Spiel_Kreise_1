@@ -149,8 +149,15 @@ const RAEUME = {
             hintereWand: GRAU.b80, linkeWand: GRAU.b80, rechteWand: GRAU.b80,
         },
         tueren: [
-            { id: "zurueck", label: "H", polygon: seitenTuerPolygon(linkeWandPunkt),
-              ziel: "haupt", laufziel: { fu: 0.12, fv: 0.45 } },
+            // Keller-Rück-Tür: gleiche Polygon-Geometrie wie die Geheimtür im Hauptraum
+            // (rechte Wand u 0.325..0.575, v 0..0.4, hier auf die linke Kellerwand gespiegelt)
+            // und gleiche Farbe wie die freigeschaltete Geheimtür (b80) → konsistent zur
+            // Tür auf der anderen Seite. Ohne Label, damit die beiden Türen optisch identisch sind.
+            { id: "zurueck",
+              polygon: [linkeWandPunkt(0.325, 0), linkeWandPunkt(0.575, 0),
+                        linkeWandPunkt(0.575, 0.4), linkeWandPunkt(0.325, 0.4)],
+              ziel: "haupt", laufziel: { fu: 0.12, fv: 0.45 },
+              farbe: GRAU.b80 },
         ],
     },
     buero: {
@@ -360,7 +367,6 @@ function animiereOctopusRaus() {
         els.forEach(el => {
             el.classList.remove("octopus-leaving");
             el.style.transform = "";
-            el.style.opacity = "";
         });
     };
     els.forEach(el => {
@@ -368,13 +374,12 @@ function animiereOctopusRaus() {
         // Im nächsten Frame Transform setzen, damit die CSS-Transition greift.
         requestAnimationFrame(() => {
             el.style.transform = `translate(${dx}px, ${dy}px)`;
-            el.style.opacity = "0";
         });
         el.addEventListener("transitionend", beenden, { once: true });
     });
     // Safety-Net: falls transitionend nicht feuert (z.B. Element wird vorher hidden),
-    // nach 2 s zwangsweise abschliessen.
-    setTimeout(beenden, 2000);
+    // nach 2.4 s zwangsweise abschliessen (Transition selbst dauert 1.92 s).
+    setTimeout(beenden, 2400);
 }
 window.animiereOctopusRaus = animiereOctopusRaus;
 window.setzeToilette1 = setzeToilette1;
@@ -398,8 +403,6 @@ function aktualisiereCupboard1() {
     setSichtbar("cupboard_1_2", offen);
     // Zettel im Schrank verschwinden lassen, sobald er im Inventar liegt.
     setSichtbar("cupboard_1_zettel_visual", offen && !spielstand.gegenstaende.has("zettel"));
-    // Tutorial-Hand an cupboard_1 hängt am offen-State.
-    if (typeof aktualisiereHinweise === "function") aktualisiereHinweise();
 }
 
 function oeffneCupboard1() {
@@ -433,44 +436,6 @@ function aktualisiereChain3() {
     document.querySelectorAll(".flower-1").forEach(el => {
         el.classList.toggle("flower-1-gross", !!z.flower_1_gegossen);
     });
-    // Tutorial-Hinweis-Hände aktualisieren (formelbuch + per-Stelle-Logik).
-    aktualisiereHinweise();
-}
-
-// ---------- Tutorial-Hinweis-Hände ----------
-// Cartoon-Hand mit Pfeil pulsiert an interaktiven Stellen. Erscheint NUR, wenn
-// formelbuch_gefunden=true UND die nächste sinnvolle Aktion an der Stelle noch
-// zu tun ist (sonst pulsiert die Hand an Stellen, wo es nichts mehr zu klicken gibt).
-// Bedingungen pro data-hint:
-//   cupboard_1  — Schrank noch zu (Schlüssel-Drop), oder offen aber Zettel noch drin.
-//   lichtkegel  — Zettel im Inventar (Drop auf Tischlampe).
-//   bathtub     — animal_3_2 im Inventar (Glas mit Wasser füllen).
-//   toilet_2    — Sitz noch unten ODER animal_3_1 im Inventar zum Drop.
-//   toilet_1    — Octopus weg, Binoculars noch nicht genommen.
-//   octopus     — Octopus noch da UND animal_3_3 oder goldene_muenzen im Inventar.
-//   flower_1    — gartenschlauch im Inventar (giessen).
-function aktualisiereHinweise() {
-    const z = spielstand.zustaende;
-    const inv = spielstand.gegenstaende;
-    const fb = !!z.formelbuch_gefunden;
-    const setHint = (id, sichtbar) => {
-        document.querySelectorAll(`.hint-hand[data-hint="${id}"]`).forEach(el => {
-            el.classList.toggle("hint-aus", !(fb && sichtbar));
-        });
-    };
-    setHint("cupboard_1",
-        !z.cupboard_1_offen
-        || (z.cupboard_1_offen && !inv.has("zettel") && (z.chain_1_step ?? 0) < 3));
-    setHint("lichtkegel", inv.has("zettel"));
-    setHint("bathtub", inv.has("animal_3_2"));
-    setHint("toilet_2",
-        z.toilette_2 !== 2
-        || inv.has("animal_3_1"));
-    setHint("toilet_1", !z.octopus_da && !z.binoculars_genommen);
-    setHint("octopus",
-        z.octopus_da
-        && (inv.has("animal_3_3") || inv.has("goldene_muenzen")));
-    setHint("flower_1", inv.has("gartenschlauch"));
 }
 window.aktualisiereChain3 = aktualisiereChain3;
 
@@ -834,7 +799,7 @@ const OBJEKTE = {
             id: "cupboard_1_drop",
             polygon: [[980, 106], [1180, 106], [1180, 706], [980, 706]],
             laufziel: { fu: 0.72, fv: 0.55 },
-            aktiv: (s) => !s.zustaende.cupboard_1_offen,
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.cupboard_1_offen,
             akzeptiert: {
                 schluessel_buero: (s) => {
                     verbrauche("schluessel_buero");
@@ -870,7 +835,8 @@ const OBJEKTE = {
             id: "tischlampe_lichtkegel",
             polygon: [[330, 430], [445, 430], [445, 515], [330, 515]],
             laufziel: { fu: 0.30, fv: 0.55 },
-            aktiv: (s) => s.zustaende.chain_1_step < 5,
+            // Cursor:pointer (und Drop-Annahme) nur, wenn der Zettel zum Drop bereit ist.
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && s.gegenstaende.has("zettel"),
             akzeptiert: {
                 zettel: () => {
                     spielstand.zustaende.chain_1_step = Math.max(spielstand.zustaende.chain_1_step, 4);
@@ -902,7 +868,7 @@ const OBJEKTE = {
         // laufziel etwas vor toilet_1 (analog zu animal_3_1 in Chain 2).
         {
             id: "binoculars_1",
-            polygon: [[1102, 495], [1179, 495], [1179, 562], [1102, 562]],
+            polygon: [[1110, 522], [1172, 522], [1172, 576], [1110, 576]],
             laufziel: { fu: 0.74, fv: 0.20 },
             aufnehmen: "binoculars_1",
             aktiv: (s) => !s.zustaende.octopus_da && s.zustaende.toilette_1 === 2 && !s.zustaende.binoculars_genommen,
@@ -917,6 +883,8 @@ const OBJEKTE = {
         {
             id: "toilet_1",
             polygon: [[1100, 420], [1240, 420], [1240, 670], [1100, 670]],
+            // Cursor:pointer erst, sobald der Octopus weg ist (vorher blockiert die aktion sowieso).
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.octopus_da,
             aktion: (s) => {
                 if (s.zustaende.octopus_da) return;  // Tintenfisch sitzt drauf — Klick fällt durch.
                 if (s.zustaende.toilette_1_voll) {
@@ -933,8 +901,10 @@ const OBJEKTE = {
         {
             id: "toilet_2",
             polygon: [[590, 420], [750, 420], [750, 670], [590, 670]],
+            // Cursor:pointer + Sitz-Toggle erst nach Formelbuch-Fund. Drop von animal_3_1
+            // wird damit ebenfalls gegated, ist aber unkritisch (Item liegt erst nach Formelbuch im Inventar).
+            aktiv: (s) => s.zustaende.formelbuch_gefunden,
             aktion: (s) => {
-                if (!s.zustaende.formelbuch_gefunden) return;  // Sitz-Toggle erst nach Formelbuch-Fund.
                 if (s.zustaende.toilette_2_voll) {
                     spieleSpuelung();
                     setzeToilette2Voll(false);
@@ -963,6 +933,8 @@ const OBJEKTE = {
             id: "bathtub",
             polygon: [[130, 440], [730, 440], [730, 640], [130, 640]],
             laufziel: { fu: 0.18, fv: 0.20 },
+            // Cursor:pointer nur, wenn animal_3_2 zum Drop bereit ist (sonst gibt's keine Aktion).
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && s.gegenstaende.has("animal_3_2"),
             akzeptiert: {
                 animal_3_2: (s) => {
                     verbrauche("animal_3_2");
@@ -992,7 +964,10 @@ const OBJEKTE = {
                 animal_3_3: () => zeigeAufgabe("chain_2_octopus"),
                 goldene_muenzen: () => zeigeAufgabe("chain_3_pizza"),
             },
-            aktiv: (s) => s.zustaende.octopus_da !== false,
+            // Cursor:pointer nur, wenn ein passendes Drop-Item im Inventar liegt.
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && s.zustaende.octopus_da !== false
+                       && (s.gegenstaende.has("animal_3_3") || s.gegenstaende.has("goldene_muenzen")),
         },
     ],
     garten: [
@@ -1053,7 +1028,10 @@ const OBJEKTE = {
             id: "flower_1_drop",
             polygon: [[320, 510], [400, 510], [400, 613], [320, 613]],
             laufziel: { fu: 0.18, fv: 0.85 },
-            aktiv: (s) => !s.zustaende.flower_1_gegossen,
+            // Cursor:pointer nur, wenn der Schlauch im Inventar liegt (sonst keine Aktion).
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && s.gegenstaende.has("gartenschlauch")
+                       && !s.zustaende.flower_1_gegossen,
             akzeptiert: {
                 gartenschlauch: (s) => {
                     if (s.zustaende.flower_1_gegossen) return;
@@ -1998,7 +1976,8 @@ function zeichneTueren() {
                 ctx.restore();
             }
         } else {
-            fuellePolygon(t.polygon, FARBEN.tuer);
+            // t.farbe: pro-Tür-Override (z.B. Keller-Rück-Tür in b80, analog zur Geheimtür-offen).
+            fuellePolygon(t.polygon, t.farbe || FARBEN.tuer);
         }
         const cx = t.polygon.reduce((s, pp) => s + pp[0], 0) / t.polygon.length;
         const cy = t.polygon.reduce((s, pp) => s + pp[1], 0) / t.polygon.length;
@@ -3419,7 +3398,6 @@ function rendereInlineMath(text, ziel) {
 
 function zeigeFormelbuch() {
     spielstand.zustaende.formelbuch_gefunden = true;
-    aktualisiereHinweise();  // Tutorial-Hände erscheinen jetzt an interaktiven Stellen.
     clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
 
@@ -3595,7 +3573,7 @@ const GEGENSTAENDE = {
     binoculars_1: {
         name: "Night vision device",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <image href="assets/binoculars_1.svg?v=1" x="8.5" y="8.5" width="31" height="31" preserveAspectRatio="xMidYMid meet"/>
+                 <image href="assets/binoculars_1.svg?v=1" x="11.5" y="11.5" width="25" height="25" preserveAspectRatio="xMidYMid meet"/>
                </svg>`,
     },
 };
@@ -3607,22 +3585,20 @@ function aktualisiereInventar() {
     inventarEl.innerHTML = "";
     if (spielstand.gegenstaende.size === 0) {
         inventarEl.hidden = true;
-    } else {
-        inventarEl.hidden = false;
-        for (const id of spielstand.gegenstaende) {
-            const g = GEGENSTAENDE[id];
-            if (!g) continue;
-            const slot = document.createElement("div");
-            slot.className = "inventar-slot";
-            slot.dataset.gegenstand = id;
-            slot.title = g.name;
-            slot.innerHTML = g.icon;
-            slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
-            inventarEl.appendChild(slot);
-        }
+        return;
     }
-    // Tutorial-Hände hängen an Inventar-Inhalten (animal_3_2 da → bathtub-Hand etc.).
-    aktualisiereHinweise();
+    inventarEl.hidden = false;
+    for (const id of spielstand.gegenstaende) {
+        const g = GEGENSTAENDE[id];
+        if (!g) continue;
+        const slot = document.createElement("div");
+        slot.className = "inventar-slot";
+        slot.dataset.gegenstand = id;
+        slot.title = g.name;
+        slot.innerHTML = g.icon;
+        slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
+        inventarEl.appendChild(slot);
+    }
 }
 
 // Gegenstand aufnehmen: wird vom Objekt-Klick-Handler aufgerufen, nachdem die Figur angekommen ist.

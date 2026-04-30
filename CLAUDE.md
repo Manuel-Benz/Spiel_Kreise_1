@@ -41,7 +41,7 @@ CLAUDE.md         ← diese Datei
 | `flower_5.svg` | Original-Asset, nicht mehr verwendet (User-Wunsch) | — |
 | `bird_1.svg` | Vogel-Silhouette (Chain 3a) — taucht im Garten an Wolken-Position auf, sobald die zentrale Wolke geklickt wurde | Inline-SVG (Single-Path-Silhouette `#484a54`, viewBox 600×300, IDs mit `b1_`-Prefix). Initial `class="sanitar-aus"`; aktualisiereChain3() togglet anhand `vogel_da` |
 | `seed_1.svg` | Samenkorn (Chain 3b) — kein eigenes Bühnen-Element, nur Inventar-Icon nach gegossener flower_1 | `<image>` 44×44 im Inventar-Icon mit `?v=1`. Even-odd-Path-Silhouette, viewBox 144 144 512 512 |
-| `binoculars_1.svg` | „Night vision device" (Chain 3 / Bridge) — luggt aus toilet_1 heraus, sobald Octopus weg + Sitz oben | Sowohl `<image>` in `#binoculars_1_visual` (toilet_1-Schüssel x=1102 y=495 77×67, data-y-fuss=670) als auch Inventar-Icon (31×31 in 48er-Slot zentriert). ?v=1. Mit clipPaths — Inline würde IDs benötigen, aber `<image>` ist Black-Box. Bühne und Inventar-Icon beide auf 70 % der Original-Grösse skaliert. |
+| `binoculars_1.svg` | „Night vision device" (Chain 3 / Bridge) — luggt aus toilet_1 heraus, sobald Octopus weg + Sitz oben | Sowohl `<image>` in `#binoculars_1_visual` (toilet_1-Schüssel x=1110 y=522 62×54, data-y-fuss=670) als auch Inventar-Icon (25×25 in 48er-Slot zentriert). ?v=1. Mit clipPaths — Inline würde IDs benötigen, aber `<image>` ist Black-Box. Bühne und Inventar-Icon iterativ verkleinert (zuletzt auf ca. 56 % der Original-Grösse), Schüssel-Position y +20 px → Fernglas sitzt tief in der Schüssel. |
 | `flower_2a.svg` *(virtuell)* / `flower_2b.svg` *(virtuell)* | Variationen von flower_2: 3 Blüten rot-orange + 5 Blüten blau gespiegelt; Inline-SVG-Klone von flower_2 mit `f2a_`/`f2b_`-Prefix, wenigeren Blüten, Hex-Recolor (siehe Garten-Sektion) | Inline-SVG |
 | `gradenhose_1.svg` | Gartenschlauch frontal-Aufsicht (Original-User-Asset), hängt an rechter Hauswand im Garten | `<image>` mit Affin-Matrix (siehe Garten-Sektion) |
 | `gradenhose_2.svg` | Stilisierte Seitenansicht des Schlauchs (Wandhaken + 8 Coil-Ovale + Düse), aktuell **unbenutzt** als Alternative | — |
@@ -57,7 +57,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=27`, `script.js?v=191`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=28`, `script.js?v=192`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -124,7 +124,7 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 | `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
 | `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 (mit animal_3_1/Aquarium oben drauf) |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
-| `keller` | Keller | H→Haupt | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
+| `keller` | Keller | (kleine, b80) →Haupt an linker Wand, gleiche Geometrie wie Geheimtür im Hauptraum | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
 
 `aktuellerRaum` hält die aktive ID. `wechsleRaum(zielId)`:
 - merkt `vonRaum`, setzt `aktuellerRaum = zielId`
@@ -141,9 +141,12 @@ Jede Tür hat `polygon`, `ziel`, `laufziel: {fu, fv}`, optional `label`/`secret`
 
 - **Hauptraum:** A, B an hinterer Wand, L an linker Wand, geheim an rechter Wand (`secret: true`, wandfarben).
 - **Büro/Badezimmer:** `zurueck` als 2D-Pfeil unten am Bildrand (`PFEIL_POLYGON`); seitliche Durchgangstür F bzw. B.
-- **Garten/Keller:** einzelne Rück-Tür auf Seitenwand.
+- **Garten:** einzelne Rück-Tür auf Seitenwand (`seitenTuerPolygon(rechteWandPunkt)`, Standard-Türgrösse).
+- **Keller:** Rück-Tür auf linker Wand mit **gleichem Polygon und gleicher Farbe wie die Geheimtür im Hauptraum** — `linkeWandPunkt(0.325..0.575, 0..0.4)` (kleiner als `seitenTuerPolygon`) und `farbe: GRAU.b80` als Pro-Tür-Override (keine `secret`-Logik). Kein Label. Geht visuell in der b80-Wand fast unter — bewusster „Hidden-Door"-Stil, symmetrisch zur Hauptraum-Geheimtür-offen.
 
 **Türen-Schlösser:** `schloss: "<id>"` macht Tür gesperrt, bis der Schlüssel in `spielstand.freigeschalteteTueren` liegt. `zeichneSchloss()` malt ein weisses Schloss unten in der Tür (NICHT auf `secret`-Türen). Aktuell keine Tür verschlossen — die Geheim-Tür in den Keller ist offen, Mechanik kann jederzeit reaktiviert werden.
+
+**Pro-Tür-Farb-Override:** Optional kann eine Tür eine `farbe`-Property tragen (z.B. `GRAU.b80`). Im `else`-Branch von `zeichneTueren` wird `t.farbe || FARBEN.tuer` benutzt. Aktuell genutzt: Keller-Rück-Tür in b80, damit sie identisch zur freigeschalteten Geheimtür im Hauptraum aussieht.
 
 ## Farb-Palette
 
@@ -401,7 +404,7 @@ Am Ende ruft `aktualisiereSanitaer()` auch `aktualisiereChain3()` auf (function-
 - `#binoculars_1_visual` (Badezimmer, in toilet_1-Schüssel) — sichtbar wenn `!octopus_da && toilette_1 === 2 && !binoculars_genommen`.
 - `.flower-1`-Wrapper (alle, Original + Klone) bekommt zusätzlich Klasse `flower-1-gross` (CSS scale(2)) wenn `flower_1_gegossen`.
 
-**Nachtsicht** (Chain 3 / Bridge): Body-Klasse `nachtsicht` wird über `aktiviereNachtsicht()` (in `nimmAufGegenstand`-Hook bei `obj.aufnehmen === "binoculars_1"`) gesetzt. CSS-Filter `brightness(0.5) sepia(1) hue-rotate(50deg) saturate(3.5)` wird pro Render-Layer (`#game-canvas`, `#object-layer`, `#figure-canvas`, `#object-layer-vorne`) angewendet — nicht auf `#game-stage`, weil Inventar (Kind von #game-stage) sonst auch eingefärbt würde. `deaktiviereNachtsicht()` entfernt die Klasse (nach erfolgreichem Code-Drop auf Geheimtür).
+**Nachtsicht** (Chain 3 / Bridge): Body-Klasse `nachtsicht` wird über `aktiviereNachtsicht()` (in `nimmAufGegenstand`-Hook bei `obj.aufnehmen === "binoculars_1"`) gesetzt. CSS-Filter `brightness(0.5) sepia(1) hue-rotate(50deg) saturate(3.5)` wird auf die **drei statischen** Render-Layer (`#game-canvas`, `#object-layer`, `#object-layer-vorne`) angewendet — `#figure-canvas` ist BEWUSST AUSGENOMMEN, weil es 60×/s neu gezeichnet wird und der Composite-Filter mit 4 Funktionen sonst pro Frame neu berechnet werden müsste → spürbar sluggish. Die statischen Layer cachen den Filter-Output mit `will-change: filter` als eigene GPU-Layer. Filter sitzt nicht auf `#game-stage`, weil Inventar (Kind von #game-stage) sonst auch eingefärbt würde. Die Figur ist sowieso fast komplett schwarz, der Farbeffekt fällt visuell kaum auf. `deaktiviereNachtsicht()` entfernt die Klasse (nach erfolgreichem Code-Drop auf Geheimtür).
 
 **Toiletten-Klick** (OBJEKTE.badezimmer.toilet_1/2, beide ohne `laufziel` → sofortige Aktion):
 - toilet_X mit `voll=true` → Klick spielt **Spülsound** (`spieleSpuelung()`) + setzt voll=false. Optional, blockiert Chain 2 nicht.
@@ -485,7 +488,7 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 **Octopus-Exit-Timing:** `setTimeout(() => animiereOctopusRaus(), 2000)` wird **nicht** im Aufgaben-Callback gestartet, sondern in `schliesseOverlay()` über einen Hook: wenn nach Schliessen `octopus_zustand===3 && octopus_da && !octopus_exit_gestartet`, dann startet der 2-Sekunden-Timer. Damit zählt die Pause ab dem Moment, in dem User wieder das Spiel sieht (statt schon während des Mood-Hinweis-Overlays). `octopus_exit_gestartet`-Flag verhindert Doppel-Trigger.
 
-**Octopus-Exit-Richtung:** `animiereOctopusRaus()` liest `figur.fu` und kippt das Ziel zur jeweils anderen Seite (figur.fu < 0.5 → Octopus nach rechts/+380 px, sonst nach links/-560 px), y immer +520 px (nach unten-vorne raus Richtung "zurueck"-Pfeil). 2 s Safety-Timeout, falls `transitionend` nicht feuert (z.B. weil `display:none` schon vorher zugeschlagen hat).
+**Octopus-Exit-Richtung:** `animiereOctopusRaus()` liest `figur.fu` und kippt das Ziel zur jeweils anderen Seite (figur.fu < 0.5 → Octopus nach rechts/+380 px, sonst nach links/-560 px), y immer +520 px (nach unten-vorne raus Richtung "zurueck"-Pfeil). 2.4 s Safety-Timeout, falls `transitionend` nicht feuert (z.B. weil `display:none` schon vorher zugeschlagen hat). **Kein Fade** — der Octopus krabbelt mit voller Opacity aus dem Bild; CSS-Transition `transform 1.92s cubic-bezier(0.45, 0, 0.55, 1)` (1.6 s × 1.2 = 20 % langsamer als ursprünglich, damit die Bewegung gemächlicher wirkt).
 
 ### Chain 3 — Wolke → Vogel + Schlauch → Blume → Samen + Vogel → Münzen → Octopus
 
@@ -517,33 +520,34 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 **Geheimtür ohne Binoculars + nicht freigeschaltet:** `findeTuerBei` filtert komplett raus → Klick fällt zur Boden-Logik durch (wie ganz normale Wand, kein Hinweis-Overlay).
 
-## Tutorial-Hinweis-Hände
+## Cursor-Feedback (Browser-Klickhand)
 
-Cartoon-Hand mit ausgestrecktem Zeigefinger nach unten + roter Pfeil oberhalb pulsiert an interaktiven Stellen. Erscheint NUR, wenn `formelbuch_gefunden=true` UND die nächste sinnvolle Aktion an der Stelle noch zu tun ist (sonst pulsiert die Hand bei abgeschlossenen Steps weiter — verwirrend).
+Statt eigener Tutorial-Hand-Grafiken steuert das Spiel den nativen Browser-Cursor (`pointer` für Hand-Icon, `default` sonst). Wert: bei interaktiven Stellen wie der Wolke ist die Hand nur sichtbar, wenn die Aktion **gerade sinnvoll** ist; abgeschlossene oder noch nicht zugängliche Stellen zeigen den Default-Cursor.
 
-**Mechanik:**
-- SVG-`<symbol id="hint-hand-symbol">` in `<defs>` der `#object-layer` (viewBox 60×90, gelbe Hand + roter Pfeil).
-- Pro Stelle ein `<use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="<id>" x=Y y=Z width="60" height="90"/>` als DOM-letztes Element der jeweiligen `<g data-raum>`-Gruppe → überdeckt Möbel in der Rück-Ebene.
-- Hände haben **kein** `data-y-fuss`, werden also nicht von `klonePflanzenVorne()` in die Front-Ebene geklont. Folge: sobald die Figur in die Front-Ebene wechselt (figur.fv > möbel.fv), kann ein Möbel die Hand kurzzeitig verdecken — bewusst akzeptiert.
-- CSS `.hint-hand` mit `pointer-events:none` (Klicks fallen zum darunterliegenden OBJEKT durch) + `@keyframes hint-pulse` (Translate-Y −6 px + scale 1.05, opacity 0.85→1, 1.4 s).
-- Sichtbarkeit über `.hint-aus { display:none !important }` — togglet `aktualisiereHinweise()` in script.js.
+**Mechanik:** `pointermove` auf `#game-canvas` ruft `findeObjektBei(x, y)` (filtert über `objektIstAktiv`) und `findeTuerBei(x, y)`. Trifft eines, wird `cursor = "pointer"` gesetzt. → `aktiv`-Predikat eines Objekts ist die zentrale Stellschraube für den Cursor.
 
-**Sichtbarkeits-Bedingungen pro `data-hint`** (alle AND `formelbuch_gefunden`):
-| `data-hint` | Raum | Position (x,y) | Sichtbar wenn |
-|---|---|---|---|
-| `cupboard_1` | buero | (1050, 305) | Schrank zu, ODER offen + Zettel noch drin (`!cupboard_1_offen \|\| (cupboard_1_offen && !zettel-im-Inv && chain_1_step < 3)`) |
-| `lichtkegel` | buero | (357, 350) | Zettel im Inventar |
-| `bathtub` | badezimmer | (400, 345) | animal_3_2 im Inventar |
-| `toilet_2` | badezimmer | (640, 325) | Sitz noch unten (toilette_2 !== 2) ODER animal_3_1 im Inventar |
-| `octopus` | badezimmer | (1085, 285) | Octopus noch da UND (animal_3_3 oder goldene_muenzen im Inventar) |
-| `toilet_1` | badezimmer | (1140, 325) | Octopus weg, Binoculars noch nicht genommen |
-| `flower_1` | garten | (330, 415) | gartenschlauch im Inventar |
+**Konvention für `aktiv`-Predikate** an "Tutorial-relevanten" Stellen: Cursor:pointer NUR, wenn `formelbuch_gefunden=true` UND die nächste sinnvolle Aktion am Objekt machbar ist (Drop-Item im Inventar, Vorzustand erfüllt). Beispiele:
 
-**Aufruf-Punkte für `aktualisiereHinweise()`:**
-- `aktualisiereChain3()` ruft es am Ende auf → wird via `aktualisiereSanitaer()` bei jeder Sanitär-/Inventar-Änderung getriggert.
-- `aktualisiereInventar()` ruft es am Ende auf → bei jedem Drop/Aufnehmen.
-- `aktualisiereCupboard1()` ruft es am Ende auf → beim Öffnen des Schranks.
-- `zeigeFormelbuch()` ruft es einmal beim Setzen von `formelbuch_gefunden=true` auf → Hände erscheinen sofort.
+| Objekt | `aktiv`-Bedingung |
+|---|---|
+| `cake_1_klick` (haupt) | `formelbuch_gefunden` |
+| `cupboard_1_drop` (buero) | `formelbuch_gefunden && !cupboard_1_offen` |
+| `cupboard_1_zettel` (buero) | `cupboard_1_offen && !zettel-im-Inv` (impliziert formelbuch) |
+| `tischlampe_lichtkegel` (buero) | `formelbuch_gefunden && zettel-im-Inv` |
+| `animal_3_1` (badezimmer) | `formelbuch_gefunden && chain_2_step === 0` |
+| `binoculars_1` (badezimmer) | `!octopus_da && toilette_1 === 2 && !binoculars_genommen` |
+| `toilet_1` (badezimmer) | `formelbuch_gefunden && !octopus_da` |
+| `toilet_2` (badezimmer) | `formelbuch_gefunden` |
+| `bathtub` (badezimmer) | `formelbuch_gefunden && animal_3_2-im-Inv` |
+| `octopus` (badezimmer) | `formelbuch_gefunden && octopus_da && (animal_3_3-im-Inv \|\| goldene_muenzen-im-Inv)` |
+| `wolke_zentral` (garten) | `formelbuch_gefunden && !vogel_da && !wolke_zentral_weg` |
+| `bird_1` (garten) | `vogel_da` |
+| `gartenschlauch` (garten) | `formelbuch_gefunden && !schlauch_genommen` |
+| `flower_1_drop` (garten) | `formelbuch_gefunden && gartenschlauch-im-Inv && !flower_1_gegossen` |
+
+**Wichtig zu Drop-Targets mit "Item-im-Inventar"-Bedingung:** Während eines Drag bleibt das Item im `spielstand.gegenstaende`-Set (delete erst durch `verbrauche()` im Drop-Callback). Daher greift das Predikat sowohl beim Hover (Cursor) als auch beim Drop (`versucheDrop` filtert via `objektIstAktiv`). Nach dem Drop wird das Item entfernt und das Objekt automatisch inaktiv.
+
+**Toilette-Sonderfall** `toilet_2.aktion`: Sitz-Toggle erst nach Formelbuch-Fund (kombiniert mit `aktiv: formelbuch_gefunden` doppelt abgesichert). Drop von animal_3_1 läuft separat über `akzeptiert` und braucht zusätzlich `toilette_2 === 2 && !toilette_2_voll`.
 
 ## Aufgaben + Overlay
 
@@ -677,7 +681,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Tutorial-Hinweis-Hände an 7 interaktiven Stellen (erscheinen nach Formelbuch-Fund, verschwinden pro Stelle bei Erledigung), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate (Hand-Icon erscheint nur an Stellen, wo gerade eine sinnvolle Aktion möglich ist), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
 
 **Drei spielbare Chains + Bridge zum Keller:**
 - **Chain 1:** Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
