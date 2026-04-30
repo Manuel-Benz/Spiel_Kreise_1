@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=29">
+    <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -41,6 +41,19 @@
                     <!-- Schwarz → Weiss (für schwarze Skelett-SVGs, damit sie auf dunkler Kellerwand sichtbar sind) -->
                     <filter id="invert" color-interpolation-filters="sRGB">
                         <feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/>
+                    </filter>
+                    <!-- Nachtsicht-Filter (Single-Pass, performance-optimiert).
+                         Ersetzt die alte 4-fach-CSS-Filter-Kette (brightness × sepia × hue-rotate × saturate)
+                         durch eine einzige 4×5-Farbmatrix → eine Matrix-Multiplikation pro Pixel statt vier.
+                         Effekt: Phosphor-Grün-Nachtsicht. R/B-Kanal stark gedämpft, G-Kanal aus Luminanz
+                         der Original-Helligkeit (gewichtet ähnlich Grayscale). Zusätzlicher G-Bias 0.05 für
+                         leichten Schimmer, Alpha unverändert. -->
+                    <filter id="nachtsicht" color-interpolation-filters="sRGB">
+                        <feColorMatrix type="matrix" values="
+                            0     0     0     0  0
+                            0.18  0.36  0.06  0  0.05
+                            0     0     0     0  0
+                            0     0     0     1  0"/>
                     </filter>
                 </defs>
                 <!--
@@ -1728,9 +1741,11 @@
                     <!-- Chain 4: duck_1 im Keller, "in den Ketten gefangen". DOM-VOR den Ketten
                          platziert → Ketten überdecken die Ente visuell (= Ente "hinter" den Ketten).
                          Initial display:none; aktualisiereChain4() blendet sie ein nach Ketten-Drop.
-                         Ente kann via .duck-gross (CSS) auf 2× wachsen, transform-origin bottom-center
-                         → wächst nach oben, bleibt in den Ketten. -->
-                    <svg id="duck_1_keller" class="sanitar-aus" x="395" y="775" width="50" height="55" viewBox="0 0 273.67 287.351" preserveAspectRatio="xMidYMid meet">
+                         Initialgröße 120×132 = 3× so gross wie duck_1 in der Wanne (40×44).
+                         Nach Füttern (CSS-Klasse .duck-gross auf #duck_1_keller selbst) skaliert
+                         sie nochmals um Faktor 3 (transform-origin bottom-center → wächst nach oben).
+                         overflow="visible" damit die skalierte Ente nicht von der SVG-Bbox geclippt wird. -->
+                    <svg id="duck_1_keller" class="sanitar-aus" x="370" y="750" width="120" height="132" viewBox="0 0 273.67 287.351" preserveAspectRatio="xMidYMid meet" overflow="visible">
                         <g class="duck-keller-inner">
                             <path d="M51.071,116.57 C67.165,114.414 83.493,131.226 83.493,131.226 C83.493,131.226 89.899,126.554 108.587,122.453 C95.056,110.133 86.595,92.351 86.595,72.617 C86.595,35.351 116.79,5.179 154.056,5.179 C191.321,5.179 221.524,35.351 221.524,72.617 C221.524,95.383 210.228,115.492 192.985,127.719 C187.61,136.25 198.978,137.734 207.321,146 C222.056,160.617 240.298,163.515 246.735,211.648 C253.149,259.687 234.743,273.883 194.235,279.367 C153.743,284.773 67.165,280.758 67.165,280.758 C67.165,280.758 4.087,255.336 5.173,218.156 C6.282,181.015 26.126,119.929 51.071,116.57" fill="#FFDA1A"/>
                             <path d="M158.837,79.429 C158.837,79.429 183.587,45.547 195.978,45.547 C208.368,45.547 223.157,52.109 248.001,52.109 C272.806,52.109 270.837,63.648 264.173,72.617 C257.532,81.648 239.509,94.765 239.509,94.765 C239.509,94.765 249.603,112.758 248.001,116.57 C244.415,124.758 203.571,131.836 197.884,130.765 C185.97,128.594 160.915,117.664 154.056,103.492 C147.181,89.281 158.837,79.429 158.837,79.429" fill="#E6762B"/>
@@ -3236,6 +3251,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=193"></script>
+    <script src="script.js?v=194"></script>
 </body>
 </html>

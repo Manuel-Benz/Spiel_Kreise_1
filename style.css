@@ -526,36 +526,37 @@ h1 {
     transform: scale(2);
 }
 
-/* Chain 4: duck_1 im Keller wächst nach Muffin-Drop auf 2×. transform-origin Bottom-Center
-   am Inner-<g class="duck-keller-inner">, damit die Ente nach oben wächst und ihr Anker
-   (Bottom-Center der bbox 273.67×287.351 im viewBox) als Boden-Anker dient. */
+/* Chain 4: duck_1 im Keller. Initialgröße ist via SVG-width/height (120×132) bereits
+   3× so gross wie in der Wanne (40×44). Nach Muffin-Drop skaliert sie nochmal um Faktor 3.
+   Die Skalierung läuft auf dem inneren <g class="duck-keller-inner"> mit
+   transform-box: fill-box (= bbox der Pfade im viewBox 0..273×0..287) und
+   transform-origin: 50% 100% (Bottom-Center) → Ente wächst nach oben, der untere Anker
+   bleibt an seiner Stelle in den Ketten. Das outer #duck_1_keller hat overflow="visible",
+   damit der skalierte Inhalt nicht abgeschnitten wird. */
 .duck-keller-inner {
     transition: transform 0.8s ease-out;
     transform-box: fill-box;
     transform-origin: 50% 100%;
 }
 .duck-keller-inner.duck-gross {
-    transform: scale(2);
+    transform: scale(3);
 }
 
 /* Chain 3 / Bridge: Nachtsicht-Filter — Spieler hat binoculars_1 aufgenommen.
    Wird per JS via body.classList.add("nachtsicht") aktiviert.
-   Filter sitzt nicht auf #game-stage, weil das Inventar (Kind von #game-stage) nicht
-   eingefärbt werden soll. Stattdessen pro Render-Layer einzeln. Drag-Preview und
-   Overlay liegen ohnehin ausserhalb #game-stage und bleiben unberührt.
 
-   PERFORMANCE: #figure-canvas BEWUSST AUSGENOMMEN. Es wird 60×/s neu gezeichnet
-   (Figur bewegt sich), und ein composite-CSS-Filter mit 4 Funktionen darauf zwingt
-   den Browser, jeden Frame frisch zu rastern → spürbar sluggish. Die statischen
-   Layer (Raum/Objekte) cachen den Filter-Output dagegen problemlos. Die Figur
-   ist sowieso fast komplett schwarz, der Farbeffekt fällt kaum auf.
-   `will-change: filter` markiert die statischen Layer als eigene GPU-Layer →
-   der Filter wird einmal berechnet und liegt auf der GPU. */
+   PERFORMANCE: Statt einer 4-fach-CSS-Filter-Kette (brightness × sepia × hue-rotate
+   × saturate, 4 Render-Pässe pro Frame) verwenden wir einen einzigen SVG-Filter
+   #nachtsicht mit feColorMatrix → eine Matrix-Multiplikation pro Pixel, eine
+   Pipeline-Stufe. Zusätzlich: #figure-canvas bewusst ausgenommen, weil es 60×/s neu
+   gezeichnet wird und der Filter sonst pro Frame frisch berechnet würde. Die Figur
+   ist fast komplett schwarz, der Farbeffekt fällt kaum auf.
+   Filter sitzt nicht auf #game-stage, weil das Inventar (Kind von #game-stage)
+   sonst auch eingefärbt würde. */
 body.nachtsicht #game-canvas,
 body.nachtsicht #object-layer,
 body.nachtsicht #object-layer-vorne {
-    filter: brightness(0.5) sepia(1) hue-rotate(50deg) saturate(3.5);
-    will-change: filter;
+    filter: url(#nachtsicht);
 }
 #game-canvas,
 #object-layer,

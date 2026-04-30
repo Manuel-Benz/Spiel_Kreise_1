@@ -150,14 +150,15 @@ const RAEUME = {
         },
         tueren: [
             // Keller-Rück-Tür: gleiche Polygon-Geometrie wie die Geheimtür im Hauptraum
-            // (rechte Wand u 0.325..0.575, v 0..0.4, hier auf die linke Kellerwand gespiegelt)
-            // und gleiche Farbe wie die freigeschaltete Geheimtür (b80) → konsistent zur
-            // Tür auf der anderen Seite. Ohne Label, damit die beiden Türen optisch identisch sind.
+            // (rechte Wand u 0.325..0.575, v 0..0.4, hier auf die linke Kellerwand gespiegelt).
+            // Farbe b90 (eine Stufe dunkler als die b80-Wand → die Tür hebt sich subtil ab,
+            // statt komplett zu verschmelzen). Ohne Label, damit sie optisch wie die
+            // freigeschaltete Geheimtür drüben wirkt — nur dunkler an die Keller-Atmosphäre angepasst.
             { id: "zurueck",
               polygon: [linkeWandPunkt(0.325, 0), linkeWandPunkt(0.575, 0),
                         linkeWandPunkt(0.575, 0.4), linkeWandPunkt(0.325, 0.4)],
               ziel: "haupt", laufziel: { fu: 0.12, fv: 0.45 },
-              farbe: GRAU.b80 },
+              farbe: GRAU.b90 },
         ],
     },
     buero: {
@@ -831,12 +832,21 @@ const AUFGABEN = {
             { katex: "6\\,280\\ \\mathrm{cm}^2" },
         ],
         bei_richtig: {
+            // Schaufel-Fund kommt als ZWEITES Overlay (siehe callback) — der erste Text
+            // bestätigt nur die Mathe-Lösung, dann nach Schliessen des ersten Overlays
+            // erscheint der Story-Text. So merkt der Spieler den Schaufel-Fund klar.
             gegenstand: "schaufel",
-            belohnung_text: "Correct — the area of the outermost ring is 5966 cm². Lifting a corner of the rug, you find a flat trowel hidden underneath.",
+            belohnung_text: "Correct! The area of the outermost ring is 5966 cm².",
             callback: (s) => {
                 verbrauche("messgeraet");
                 s.zustaende.teppich_gemessen = true;
                 aktualisiereInventar();
+                // Nach Schliessen des Aufgaben-Overlays (3 s automatischSchliessen in
+                // gewaehrenBelohnung) ein zweites Overlay mit dem Story-Text öffnen.
+                setTimeout(() => {
+                    zeigeOverlayText("Lifting a corner of the rug, you find\na flat trowel hidden underneath.");
+                    automatischSchliessen(3500);
+                }, 3300);
             },
         },
     },
@@ -1187,7 +1197,10 @@ const OBJEKTE = {
         {
             id: "ketten_drop",
             polygon: [[280, 770], [740, 770], [740, 880], [280, 880]],
-            laufziel: { fu: 0.32, fv: 0.05 },
+            // laufziel HINTER den Ketten (chain_1-Hindernis reicht von fv=0.05..0.43,
+            // fu=0.10..0.49) — sonst läuft die Figur in das Hindernis-Polygon und der
+            // Slide-Algorithmus pendelt. Vom Eingang (fu 0.12, fv 0.45) ist (0.55, 0.55) frei.
+            laufziel: { fu: 0.55, fv: 0.55 },
             aktiv: (s) => s.gegenstaende.has("duck_1") && !s.zustaende.duck_im_keller,
             akzeptiert: {
                 duck_1: (s) => {
@@ -1206,8 +1219,11 @@ const OBJEKTE = {
         // Bei Drop: Ente skaliert auf 2× via CSS-Klasse + Burp-Sound + Messgerät ins Inventar.
         {
             id: "duck_1_keller",
-            polygon: [[385, 765], [455, 765], [455, 840], [385, 840]],
-            laufziel: { fu: 0.27, fv: 0.05 },
+            // Polygon = aktuelle Bbox der duck_1_keller-SVG (x=370 y=750 width=120 height=132)
+            // — initial 3× so gross wie in der Wanne, sitzt zwischen chain_2 und chain_1.
+            polygon: [[370, 750], [490, 750], [490, 882], [370, 882]],
+            // laufziel synchron mit ketten_drop hinter den Ketten (siehe Kommentar dort).
+            laufziel: { fu: 0.55, fv: 0.55 },
             aktiv: (s) => s.zustaende.duck_im_keller && !s.zustaende.duck_gefuettert,
             akzeptiert: {
                 muffin_1: (s) => {
@@ -3375,16 +3391,15 @@ canvas.addEventListener("pointerdown", (e) => {
                 zeigeOverlayText("This door is locked.\nYou need to find a key first.");
                 return;
             }
-            // Geheimtür mit Binoculars (aber noch nicht freigeschaltet) → Hinweis,
-            // dass man den Code aus dem Inventar auf die Tür ziehen muss. Ohne Binoculars
-            // filtert findeTuerBei die Tür schon aus.
+            // Geheimtür mit Binoculars (aber noch nicht freigeschaltet): Klick OHNE Code
+            // → Hinweis, dass ein Code nötig ist. Klick MIT Code → kein Overlay (Spieler weiss,
+            // dass er den Code droppen muss; der erste Hint reicht). Ohne Binoculars filtert
+            // findeTuerBei die Tür komplett aus.
             if (tuer.secret && !spielstand.zustaende.keller_freigeschaltet) {
-                if (spielstand.gegenstaende.has("code_geheimtuer")) {
-                    zeigeOverlayText("A keypad sits next to the door.\nDrag the code from your inventory onto the door.");
-                } else {
+                if (!spielstand.gegenstaende.has("code_geheimtuer")) {
                     zeigeOverlayText("A keypad sits next to the door.\nYou need to find a code first.");
+                    automatischSchliessen(3500);
                 }
-                automatischSchliessen(3500);
                 return;
             }
             starteRaumwechsel(tuer.ziel);
@@ -3749,7 +3764,7 @@ const GEGENSTAENDE = {
     binoculars_1: {
         name: "Night vision device",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <image href="assets/binoculars_1.svg?v=1" x="11.5" y="11.5" width="25" height="25" preserveAspectRatio="xMidYMid meet"/>
+                 <image href="assets/binoculars_1.svg?v=1" x="5" y="5" width="38" height="38" preserveAspectRatio="xMidYMid meet"/>
                </svg>`,
     },
     // Chain 4: duck_1 (Quietscheente) — Inline-SVG, kompakt aus dem Asset duck_1.svg.
