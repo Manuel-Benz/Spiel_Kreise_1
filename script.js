@@ -122,7 +122,7 @@ const RAEUME = {
                       deaktiviereNachtsicht();
                       aktualisiereInventar();
                       zeigeOverlayText("The keypad clicks open. The hatch to the cellar swings free.");
-                      automatischSchliessen(3000);
+                      automatischSchliessen(4000);
                       draw();
                   },
               },
@@ -203,6 +203,10 @@ const spielstand = {
     freigeschalteteTueren: new Set(),
     inventar: {},
     gegenstaende: new Set(),   // Phase 6: aufgenommene Gegenstände (Set von IDs aus GEGENSTAENDE)
+    // Chain 6: linkes Sammel-Inventar für die 3 Schlüsselteile + Leim. Items darin sind
+    // NICHT interaktiv (kein Drag, Klick zeigt nur einen Hinweis). Sobald alle 4 drin sind,
+    // verschmelzen sie zu `vereinter_schluessel` im rechten Inventar.
+    linkesInventar: new Set(),
     // Switch-States für Sanitärobjekte im Badezimmer (1 = Initialzustand, 2 = nach Handlung).
     // Schlüssel-Konvention folgt den IDs: toilette_1 steuert toilet_1_1/_2, toilette_2 steuert toilet_2_1/_2.
     // Konkrete Auslöse-Handlung wird später definiert; bis dahin per Konsole umschaltbar.
@@ -244,6 +248,20 @@ const spielstand = {
         duck_im_keller: false,     // duck_1 in den Ketten platziert (DOM-Element duck_1_keller sichtbar)
         duck_gefuettert: false,    // muffin_1 verfüttert → CSS-Klasse duck-gross + Messgerät spawnt
         teppich_gemessen: false,   // Aufgabe chain_4_teppich gelöst → Schaufel im Inventar
+        // Chain 5 — Bürobild-Sequenz (gelb-rot-violett) → Aufgabe (R = r·√2) → Drei-Kreise-Item
+        // → Drop auf painting_2 (Keller) → Skelett lacht 2 s → Pickel.
+        chain_5_step: 0,                  // 0 = nichts, 1 = MC gelöst, 4 = drei_kreise gedroppt + Pickel direkt im Inventar (Schritte 2 und 3 entfallen seit Vereinfachung)
+        bild_kreise_sequenz: [],          // aktuelle Klick-Sequenz, Array von "yellow"|"red"|"violet"
+        bild_kreise_replay_aktiv: false,  // sperrt Klicks während Replay
+        bild_kreise_geloest: false,       // MC gelöst → drei_kreise im Inventar; Bürobild-Kreise versteckt
+        bild_kreise_im_keller: false,     // drei_kreise auf painting_2 gedroppt → Overlay sichtbar
+        // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte
+        // → Truhe ausheben → mit Schlüssel öffnen → Sieg-Overlay (Feuerwerk + Schatz).
+        // Reihenfolge Schaufel/Pickel egal; Loch öffnet sich nach beiden Drops.
+        chain_7_schaufel_gedroppt: false, // Schaufel auf gartenmitte_grab gedroppt
+        chain_7_pickel_gedroppt: false,   // Pickel auf gartenmitte_grab gedroppt
+        chain_7_loch_offen: false,        // beide Werkzeuge gedroppt → Loch + Truhe sichtbar (chain_7_grab visible)
+        chain_7_geoeffnet: false,         // vereinter_schluessel auf chest_1 gedroppt → Sieg-Overlay
     },
 };
 
@@ -468,8 +486,378 @@ function aktualisiereChain4() {
     document.querySelectorAll(".duck-keller-inner").forEach(el => {
         el.classList.toggle("duck-gross", !!z.duck_gefuettert);
     });
+    if (typeof aktualisiereChain5 === "function") aktualisiereChain5();
 }
+
+// ---------- Chain 5 — Bürobild-Sequenz, Drei-Kreise-Item, Pickel ----------
+//   • bild_kreis_yellow/red/violet (Bürobild-Pfade) — versteckt nach bild_kreise_geloest.
+//   • painting_2_kreise (Keller, Overlay über painting_2) — sichtbar nach bild_kreise_im_keller.
+//   • Pickel landet seit der Story-Vereinfachung DIREKT ins Inventar nach drei_kreise-Drop
+//     (kein separates Aufnehm-SVG im Keller mehr; pickel_da-Flag obsolet).
+function aktualisiereChain5() {
+    const z = spielstand.zustaende;
+    const setSichtbar = (id, sichtbar) => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
+    };
+    // Drei klickbare Bürobild-Kreise — verstecken, sobald die Aufgabe gelöst ist.
+    const kreiseSichtbar = !z.bild_kreise_geloest;
+    setSichtbar("bild_kreis_yellow", kreiseSichtbar);
+    setSichtbar("bild_kreis_red",    kreiseSichtbar);
+    setSichtbar("bild_kreis_violet", kreiseSichtbar);
+    // Drei Kreise auf painting_2 (Keller) — sichtbar nach Drop.
+    setSichtbar("painting_2_kreise", !!z.bild_kreise_im_keller);
+    // Chain 7 nachziehen (function-hoisting macht das sicher).
+    if (typeof aktualisiereChain7 === "function") aktualisiereChain7();
+}
+window.aktualisiereChain5 = aktualisiereChain5;
+
+// Frequenzen der drei klickbaren Bürobild-Kreise — C4/E4/G4 (Dur-Akkord, harmonisch).
+const KREIS_FREQ = { yellow: 261.63, red: 329.63, violet: 392.00 };
+const KREIS_SEQUENZ_KORREKT = ["yellow", "red", "violet"];
+
+// Klick-Handler eines Bild-Kreises (gelb/rot/violett). Spielt Ton, fügt Farbe in die Sequenz
+// ein. Nach 3 Klicks kurz warten, dann Replay (immer — auch bei falscher Eingabe gibt's
+// akustisches Feedback) und je nach Korrektheit Aufgabe öffnen oder Sequenz zurücksetzen.
+function kreisGedrueckt(farbe) {
+    const z = spielstand.zustaende;
+    if (z.bild_kreise_replay_aktiv) return;       // Klicks während Replay ignorieren
+    if (z.bild_kreise_geloest) return;            // Aufgabe schon gelöst
+    spieleTon(KREIS_FREQ[farbe]);
+    z.bild_kreise_sequenz.push(farbe);
+    if (z.bild_kreise_sequenz.length >= 3) {
+        // Kurze Pause vor Replay, damit der dritte Ton nicht direkt ineinander fällt.
+        setTimeout(replaySequenz, 500);
+    }
+}
+
+function replaySequenz() {
+    const z = spielstand.zustaende;
+    z.bild_kreise_replay_aktiv = true;
+    const seq = z.bild_kreise_sequenz.slice();
+    const tempo = 280;  // ms zwischen den Tönen im Replay
+    seq.forEach((farbe, i) => {
+        setTimeout(() => spieleTon(KREIS_FREQ[farbe]), i * tempo);
+    });
+    setTimeout(() => {
+        const richtig = seq.length === 3 && seq.every((f, i) => f === KREIS_SEQUENZ_KORREKT[i]);
+        z.bild_kreise_sequenz = [];
+        z.bild_kreise_replay_aktiv = false;
+        if (richtig) {
+            zeigeAufgabe("chain_5_kreise");
+        }
+    }, seq.length * tempo + 250);
+}
+window.kreisGedrueckt = kreisGedrueckt;
+
+// Skelett-Lach-Animation: 2 s lang die schnellere/grössere CSS-Animation einblenden,
+// danach zurück zur ruhigen SMIL-Schaukel im Asset.
+function skelettLachen() {
+    const els = document.querySelectorAll(`[id="skelett_3"], image[href$="skeleton_3.svg"]`);
+    els.forEach(el => el.classList.add("skelett-lacht"));
+    setTimeout(() => {
+        els.forEach(el => el.classList.remove("skelett-lacht"));
+    }, 2000);
+}
+window.skelettLachen = skelettLachen;
+
 window.aktualisiereChain3 = aktualisiereChain3;
+
+// ---------- Chain 7 — Grab in Gartenmitte (Schaufel + Pickel → Loch + Truhe → Schlüssel → Sieg) ----------
+// Toggle-Sichtbarkeit der Loch+Truhe-Gruppe (#chain_7_grab) im Garten.
+// Selektor matcht Original UND Front-Layer-Klone (v_<idx>_chain_7_grab) wie aktualisiereSanitaer.
+function aktualisiereChain7() {
+    const z = spielstand.zustaende;
+    const setSichtbar = (id, sichtbar) => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
+    };
+    setSichtbar("chain_7_grab", !!z.chain_7_loch_offen);
+}
+window.aktualisiereChain7 = aktualisiereChain7;
+
+// Hindernis für die offene Grube (Boden-Polygon, das die Figur nicht betreten darf).
+// Wird beim Öffnen des Lochs genau einmal in HINDERNISSE.garten gepusht und beim Reset
+// (Spiel neu starten via Reload) automatisch verworfen — Module-State ist frisch.
+const CHAIN_7_HINDERNIS = {
+    spline: [
+        { fu: 0.42, fv: 0.45 },
+        { fu: 0.58, fv: 0.45 },
+        { fu: 0.58, fv: 0.65 },
+        { fu: 0.42, fv: 0.65 },
+    ],
+};
+let chain_7_hindernis_aktiv = false;
+
+// Drop-Callback für gartenmitte_grab (Chain 7). Gemeinsam für schaufel und pickel —
+// verbraucht das gedroppte Werkzeug, setzt das passende Flag, und öffnet das Loch
+// sobald BEIDE Werkzeuge gedroppt wurden. Reihenfolge egal.
+function oeffneGrab(werkzeug) {
+    const z = spielstand.zustaende;
+    if (z.chain_7_loch_offen) return;
+    verbrauche(werkzeug);
+    if (werkzeug === "schaufel") z.chain_7_schaufel_gedroppt = true;
+    if (werkzeug === "pickel")   z.chain_7_pickel_gedroppt   = true;
+    aktualisiereInventar();
+    if (z.chain_7_schaufel_gedroppt && z.chain_7_pickel_gedroppt) {
+        // Beides da → Loch öffnen, Truhe sichtbar machen, Boden-Hindernis aktivieren.
+        z.chain_7_loch_offen = true;
+        if (!chain_7_hindernis_aktiv) {
+            HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
+            chain_7_hindernis_aktiv = true;
+        }
+        aktualisiereChain7();
+        draw();
+        zeigeOverlayText("You break through the soil and uncover a wooden chest in the hole.");
+        automatischSchliessen(4000);
+    } else {
+        // Erstes Werkzeug — kurze Bestätigung, damit der User sieht, dass etwas passiert.
+        const fehlt = z.chain_7_schaufel_gedroppt ? "pickaxe" : "trowel";
+        zeigeOverlayText(`You start breaking up the soil — but you also need a ${fehlt}.`);
+        automatischSchliessen(4000);
+    }
+}
+window.oeffneGrab = oeffneGrab;
+
+// Sieg-Overlay öffnen — Vollbild-Endscreen mit Feuerwerk-Animation, Schatz-Illustration
+// und 2 Buttons (Play again / End game). Wird vom chest_1-akzeptiert-Callback aufgerufen.
+function zeigeSiegOverlay() {
+    const siegEl = document.getElementById("sieg-overlay");
+    if (!siegEl) return;
+    // Inventare ausblenden, damit das Inventar nicht neben der Krone steht.
+    if (inventarEl) inventarEl.hidden = true;
+    const linksEl = document.getElementById("inventar-links");
+    if (linksEl) linksEl.hidden = true;
+    // Falls das normale Aufgaben-Overlay noch offen ist (sollte nicht passieren, da der Drop
+    // direkt aus dem Drag-Flow kommt), schliessen.
+    if (typeof schliesseOverlay === "function") schliesseOverlay();
+    // Feuerwerk-Bursts dynamisch befüllen — pro Burst 12 Partikel, gestaffelte Delays.
+    spawneFireworks();
+    siegEl.hidden = false;
+}
+window.zeigeSiegOverlay = zeigeSiegOverlay;
+
+// Erzeugt 6 Feuerwerk-Bursts an verschiedenen Positionen mit gestaffelten Delays,
+// jeweils 12 Partikel à 30°. CSS-Animation läuft endlos, daher reicht einmaliges
+// Erzeugen pro Overlay-Öffnung (Wiederholung kommt aus der CSS-Animation).
+const FIREWORK_BURSTS = [
+    { left: "18%", top: "22%", color: "#ffd24a", delay: 0.0 },
+    { left: "78%", top: "18%", color: "#ff6b6b", delay: 0.3 },
+    { left: "32%", top: "70%", color: "#7cdcff", delay: 0.6 },
+    { left: "62%", top: "75%", color: "#a8ff7c", delay: 0.9 },
+    { left: "50%", top: "12%", color: "#ff9eff", delay: 1.2 },
+    { left: "12%", top: "55%", color: "#ffe680", delay: 1.5 },
+];
+function spawneFireworks() {
+    const fwEl = document.getElementById("sieg-fireworks");
+    if (!fwEl) return;
+    fwEl.innerHTML = "";
+    for (const cfg of FIREWORK_BURSTS) {
+        const burst = document.createElement("div");
+        burst.className = "firework";
+        burst.style.left = cfg.left;
+        burst.style.top = cfg.top;
+        for (let i = 0; i < 12; i++) {
+            const p = document.createElement("div");
+            p.className = "particle";
+            p.style.setProperty("--angle", `${i * 30}deg`);
+            p.style.setProperty("--color", cfg.color);
+            p.style.setProperty("--delay", `${cfg.delay}s`);
+            burst.appendChild(p);
+        }
+        fwEl.appendChild(burst);
+    }
+}
+
+// Button-Handler für Sieg-Overlay. Werden beim DOMContentLoaded gebunden (siehe Block ganz unten).
+function siegPlayAgain() {
+    location.reload();
+}
+function siegEndGame() {
+    // Inhalt des Sieg-Overlays durch "Thanks for playing"-Screen ersetzen.
+    const fw = document.getElementById("sieg-fireworks");
+    if (fw) fw.innerHTML = "";
+    const box = document.getElementById("sieg-box");
+    if (box) {
+        box.innerHTML = "<h2 id=\"sieg-headline\">Thanks for playing!</h2>";
+    }
+}
+window.siegPlayAgain = siegPlayAgain;
+window.siegEndGame = siegEndGame;
+
+// ---------- Dev-Helpers: chainN()-Funktionen für die Konsole ----------
+// Versetzt den Spielstand in den Zustand „Chain N erledigt" — nützlich zum Testen
+// einzelner Spätspielszenen, ohne alle Vorbedingungen manuell zu spielen. Verändert
+// nur Flags + Inventar; visuelle Zustände werden über die aktualisiere*-Helper
+// nachgezogen. KEINE Aufgaben-Overlays/Auto-Close-Effekte werden ausgelöst.
+function chain1() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_1_step = 5;
+    z.cupboard_1_offen = true;
+    spielstand.geloesteAufgaben.add("chain_1_kuchen");
+    spielstand.geloesteAufgaben.add("chain_1_schloss");
+    spielstand.geloesteAufgaben.add("chain_1_pi");
+    spielstand.gegenstaende.add("code_geheimtuer");
+    spielstand.inventar.keller_code = 355113;
+    aktualisiereInventar();
+    aktualisiereCupboard1();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 1 ✓ — Formelbuch, Schrank offen, Code-Tag im Inventar.");
+}
+function chain2() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_2_step = 4;
+    z.toilette_2 = 2;
+    z.toilette_2_voll = true;
+    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
+    spielstand.geloesteAufgaben.add("chain_2_octopus");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 2 ✓ — Octopus-Mood +1.");
+}
+function chain3() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.wolke_zentral_weg = true;
+    z.vogel_da = false;
+    z.schlauch_genommen = true;
+    z.flower_1_gegossen = true;
+    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
+    spielstand.geloesteAufgaben.add("chain_3_schlauch");
+    spielstand.geloesteAufgaben.add("chain_3_pizza");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 3 ✓ — Octopus-Mood +1.");
+}
+function bridge() {
+    const z = spielstand.zustaende;
+    z.octopus_zustand = 3;
+    z.octopus_da = false;
+    z.toilette_1 = 2;
+    z.binoculars_genommen = true;
+    z.keller_freigeschaltet = true;
+    if (typeof deaktiviereNachtsicht === "function") deaktiviereNachtsicht();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Bridge ✓ — Keller freigeschaltet.");
+}
+function chain4() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.duck_im_keller = true;
+    z.duck_gefuettert = true;
+    z.teppich_gemessen = true;
+    spielstand.geloesteAufgaben.add("chain_4_teppich");
+    spielstand.gegenstaende.add("schaufel");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 4 ✓ — Schaufel im Inventar.");
+}
+function chain5() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.bild_kreise_geloest = true;
+    z.bild_kreise_im_keller = true;
+    z.chain_5_step = 4;
+    spielstand.geloesteAufgaben.add("chain_5_kreise");
+    spielstand.gegenstaende.add("pickel");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 5 ✓ — Pickel im Inventar.");
+}
+function chain6() {
+    spielstand.zustaende.formelbuch_gefunden = true;
+    spielstand.geloesteAufgaben.add("chain_6_sektor");
+    spielstand.geloesteAufgaben.add("chain_6_bogen");
+    spielstand.geloesteAufgaben.add("chain_6_umfang");
+    spielstand.geloesteAufgaben.add("chain_6_flaeche");
+    spielstand.linkesInventar.clear();
+    spielstand.gegenstaende.add("vereinter_schluessel");
+    aktualisiereInventar();
+    if (typeof aktualisiereLinkesInventar === "function") aktualisiereLinkesInventar();
+    draw();
+    console.log("Chain 6 ✓ — vereinter Schlüssel im Inventar.");
+}
+function chain7() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_7_schaufel_gedroppt = true;
+    z.chain_7_pickel_gedroppt = true;
+    z.chain_7_loch_offen = true;
+    if (!chain_7_hindernis_aktiv) {
+        HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
+        chain_7_hindernis_aktiv = true;
+    }
+    spielstand.gegenstaende.add("vereinter_schluessel");
+    aktualisiereInventar();
+    aktualisiereChain7();
+    draw();
+    console.log("Chain 7 ✓ — Loch offen, Schlüssel im Inventar. Drop ihn auf die Truhe für den Sieg.");
+}
+window.chain1 = chain1;
+window.chain2 = chain2;
+window.chain3 = chain3;
+window.bridge = bridge;
+window.chain4 = chain4;
+window.chain5 = chain5;
+window.chain6 = chain6;
+window.chain7 = chain7;
+
+// ---------- Kombinations-Helper: chain12(), chain134(), chain143(), chain1234567(), … ----------
+// Beliebige Subsets der Chains 1..7 in beliebiger Ziffernreihenfolge im Funktionsnamen.
+// Ausführung läuft IMMER in numerisch sortierter Reihenfolge (Reihenfolge zwischen den
+// chainN-Helpern ist ohnehin egal, das Endresultat ist gleich). Generiert ~13 700
+// Permutationen — JS-Objekt-Lookup ist O(1), kein Performance-Problem.
+(function generateChainKombis() {
+    const ziffern = ["1", "2", "3", "4", "5", "6", "7"];
+    const alleSubsets = [];
+    // Alle nichtleeren Subsets via Bitmask
+    for (let mask = 1; mask < 128; mask++) {
+        const subset = [];
+        for (let i = 0; i < 7; i++) if (mask & (1 << i)) subset.push(ziffern[i]);
+        if (subset.length >= 2) alleSubsets.push(subset);
+    }
+    function permutationen(arr) {
+        if (arr.length <= 1) return [arr.slice()];
+        const result = [];
+        for (let i = 0; i < arr.length; i++) {
+            const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+            for (const p of permutationen(rest)) {
+                result.push([arr[i], ...p]);
+            }
+        }
+        return result;
+    }
+    for (const subset of alleSubsets) {
+        // Ausführung in numerisch sortierter Reihenfolge — eine geteilte Closure für alle
+        // Permutationen desselben Subsets, damit nicht ~14 k Closures im Speicher sitzen.
+        const sorted = subset.slice().sort();
+        const fn = () => {
+            for (const d of sorted) {
+                const helper = window[`chain${d}`];
+                if (typeof helper === "function") helper();
+            }
+            // Auto-Bridge: Chains 1+2+3 zusammen bedeuten Keller freigeschaltet
+            if (sorted.includes("1") && sorted.includes("2") && sorted.includes("3")) {
+                if (typeof bridge === "function") bridge();
+            }
+        };
+        // Alle Permutationen des Subsets als Funktionsname registrieren
+        for (const perm of permutationen(subset)) {
+            window[`chain${perm.join("")}`] = fn;
+        }
+    }
+    console.log("chainNNN()-Helper bereit. Beispiele: chain134(), chain143(), chain12(), chain1234567().");
+})();
 
 // ---------- Chain 3 / Bridge: Nachtsicht ----------
 // Aktiviert/deaktiviert die Body-Klasse `nachtsicht`. Per CSS sitzt darüber ein
@@ -621,6 +1009,29 @@ function spieleBurp() {
     src.stop(now + dauer);
 }
 window.spieleBurp = spieleBurp;
+
+// Sinuston (Chain 5): kurzer reiner Ton mit weicher Hüllkurve. Wird für die drei Kreise
+// im Bürobild verwendet (gelb=C4, rot=E4, violett=G4). dauer in Sekunden.
+function spieleTon(freq, dauer = 0.4) {
+    if (!soundAn) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const gain = audioCtx.createGain();
+    const now = audioCtx.currentTime;
+    // Hüllkurve: Attack 0.02 s → Sustain ~ (dauer - 0.15) → Release 0.13 s
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+    gain.gain.setValueAtTime(0.25, now + Math.max(0.05, dauer - 0.13));
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dauer);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + dauer + 0.02);
+}
+window.spieleTon = spieleTon;
 
 // Konsolen-Helfer: Sound an/aus
 window.soundAnAus = (an) => { soundAn = !!an; console.log("Sound:", soundAn ? "an" : "aus"); };
@@ -820,6 +1231,31 @@ const AUFGABEN = {
     // Der Teppich besteht aus 12 konzentrischen Kreisen mit gleichem Abstand.
     // Gegeben: U = 6,28 m (Aussen-Umfang) und d = 10 cm (Abstand zwischen den Ringen).
     // Lösungsweg: R = U/(2π) = 1 m = 100 cm; r = R − d = 90 cm; A = π·(R²−r²) = 3,14·1900 = 5966 cm².
+    // Chain 5 — Bürobild-Sequenz (gelb-rot-violett) öffnet diese MC-Aufgabe.
+    // Zwei Kreise mit Radius r haben gemeinsam dieselbe Fläche wie ein Kreis mit Radius R:
+    //   2·π·r² = π·R²  →  R² = 2·r²  →  R = r·√2.
+    // Distraktoren: 2 (verdoppelt-r-Falle), 4 (r² statt r), 1/√2 (inverse Falle).
+    // π kürzt sich → kein π-Hinweis nötig.
+    chain_5_kreise: {
+        typ: "multiple_choice",
+        frage: "Two circles with radius r have the same combined area as one circle with radius R. How many times larger is R than r?",
+        formel: "2\\pi r^2 = \\pi R^2",
+        optionen: [
+            { katex: "\\sqrt{2}",                korrekt: true },
+            { katex: "2" },
+            { katex: "4" },
+            { katex: "\\dfrac{1}{\\sqrt{2}}" },
+        ],
+        bei_richtig: {
+            gegenstand: "drei_kreise",
+            belohnung_text: "Correct! R = r·√2 — the area scales with the square of the radius. The three circles peel off the painting.",
+            callback: (s) => {
+                s.zustaende.bild_kreise_geloest = true;
+                s.zustaende.chain_5_step = Math.max(s.zustaende.chain_5_step ?? 0, 1);
+                aktualisiereChain5();
+            },
+        },
+    },
     chain_4_teppich: {
         typ: "multiple_choice",
         frage: "The measuring device shows the rug's outer circumference U = 6.28 m and the spacing between the concentric circles d = 10 cm. What is the area of the OUTERMOST ring?",
@@ -832,25 +1268,153 @@ const AUFGABEN = {
             { katex: "6\\,280\\ \\mathrm{cm}^2" },
         ],
         bei_richtig: {
-            // Schaufel-Fund kommt als ZWEITES Overlay (siehe callback) — der erste Text
-            // bestätigt nur die Mathe-Lösung, dann nach Schliessen des ersten Overlays
-            // erscheint der Story-Text. So merkt der Spieler den Schaufel-Fund klar.
             gegenstand: "schaufel",
-            belohnung_text: "Correct! The area of the outermost ring is 5966 cm².",
+            // Mathe-Lösung + Schaufel-Fund-Story in einem einzigen Overlay (kein zweites
+            // Pop-up mehr nach Schliessen). Der Auto-Close in gewaehrenBelohnung ist
+            // bewusst lang genug, damit der zusätzliche Story-Satz lesbar bleibt.
+            belohnung_text: "Correct! The area of the outermost ring is 5966 cm². Lifting a corner of the rug, you find a flat trowel hidden underneath.",
             callback: (s) => {
                 verbrauche("messgeraet");
                 s.zustaende.teppich_gemessen = true;
                 aktualisiereInventar();
-                // Nach Schliessen des Aufgaben-Overlays (3 s automatischSchliessen in
-                // gewaehrenBelohnung) ein zweites Overlay mit dem Story-Text öffnen.
-                setTimeout(() => {
-                    zeigeOverlayText("Lifting a corner of the rug, you find\na flat trowel hidden underneath.");
-                    automatischSchliessen(3500);
-                }, 3300);
             },
         },
     },
+    // ---------- Chain 6 — vier Formel-Erkennungs-Aufgaben ----------
+    // Jede der 4 Pickup-Stellen (animal_1, bookshelf_2-Bücher, plant_tulpe, desk_4-Schublade)
+    // öffnet eine MC-Aufgabe, die die richtige Kreis-Formel abfragt. Bei Erfolg: ein Schlüssel-
+    // teil bzw. der Leim wandert ins LINKE Inventar. Sobald alle 4 zusammen sind, verschmelzen
+    // sie zu einem vereinten Schlüssel im rechten Inventar (siehe sammleSchluesselteil/kombiniereSchluessel).
+    chain_6_sektor: {
+        typ: "multiple_choice",
+        frage: "Which formula gives the area of a circular SECTOR with central angle α?",
+        optionen: [
+            { katex: "A = \\dfrac{\\alpha}{360^\\circ} \\cdot \\pi r^2", korrekt: true },
+            { katex: "A = \\dfrac{\\alpha}{360^\\circ} \\cdot 2\\pi r" },
+            { katex: "A = \\pi r^2" },
+            { katex: "A = \\alpha \\cdot \\pi r^2" },
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! Behind the creature you spot a key fragment — it joins your collection on the left.",
+            callback: () => sammleSchluesselteil("schluesselteil_1"),
+        },
+    },
+    chain_6_bogen: {
+        typ: "multiple_choice",
+        frage: "Which formula gives the ARC LENGTH of a circle with central angle α?",
+        optionen: [
+            { katex: "b = \\dfrac{\\alpha}{360^\\circ} \\cdot 2\\pi r", korrekt: true },
+            { katex: "b = \\dfrac{\\alpha}{360^\\circ} \\cdot \\pi r^2" },
+            { katex: "b = 2\\pi r" },
+            { katex: "b = \\alpha \\cdot 2\\pi r" },
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! Tucked behind the books you find another key fragment.",
+            callback: () => sammleSchluesselteil("schluesselteil_2"),
+        },
+    },
+    chain_6_umfang: {
+        typ: "multiple_choice",
+        frage: "Which formula gives the CIRCUMFERENCE of a circle?",
+        optionen: [
+            { katex: "U = 2\\pi r", korrekt: true },
+            { katex: "U = \\pi r^2" },
+            { katex: "U = \\pi r" },
+            { katex: "U = 2 r^2" },
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! Among the tulip's petals you discover a key fragment.",
+            callback: () => sammleSchluesselteil("schluesselteil_3"),
+        },
+    },
+    chain_6_flaeche: {
+        typ: "multiple_choice",
+        frage: "Which formula gives the AREA of a circle?",
+        optionen: [
+            { katex: "A = \\pi r^2", korrekt: true },
+            { katex: "A = 2\\pi r" },
+            { katex: "A = \\pi d" },
+            { katex: "A = \\pi r" },
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! Inside the middle drawer you find a small tube of glue.",
+            callback: () => sammleSchluesselteil("leim"),
+        },
+    },
+    // Chain 1, Schritt 1.5 — Schloss am cupboard_1: Drop des Schlüssels öffnet diese
+    // Aufgabe; bei richtiger Antwort wird der Schrank geöffnet (siehe akzeptiert-Callback
+    // in OBJEKTE.buero.cupboard_1_drop). Thema: Umrechnung Grad → Bogenmaß (90° = π/2).
+    chain_1_schloss: {
+        typ: "multiple_choice",
+        frage: "The key sits in the lock. To open the cabinet, you need to turn it by 90°. What is 90° in radians?",
+        pi_hinweis: false,
+        tipp: "Convert degrees → radians via rad = deg · π / 180.",
+        optionen: [
+            { katex: "\\dfrac{\\pi}{2}", korrekt: true },
+            { katex: "\\pi" },
+            { katex: "\\dfrac{\\pi}{4}" },
+            { katex: "2\\pi" },
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! 90° = π/2 rad. Click — the key fits. The left cabinet door creaks open.",
+            callback: () => {
+                // Schrank wird hier geöffnet (statt direkt im Drop-Callback) — der
+                // Schlüssel wurde bereits beim Drop verbraucht.
+                oeffneCupboard1();
+            },
+        },
+    },
+    // Bonus-Aufgabe (Chain-frei) — Klick auf die Sonne im Garten. Nicht spielentscheidend,
+    // dient nur dem Spass und der Veranschaulichung von U=2πr im grossen Massstab.
+    bonus_sonne: {
+        typ: "multiple_choice",
+        frage: "You admire the sun. Its radius is r = 696 000 km. What is its circumference?",
+        formel: "U = 2 \\pi r",
+        pi_hinweis: true,
+        optionen: [
+            { katex: "U = 4\\,370\\,880\\ \\mathrm{km}", korrekt: true },   // 2 · 3.14 · 696 000
+            { katex: "U = 2\\,185\\,440\\ \\mathrm{km}" },                  // πr (Faktor 2 vergessen)
+            { katex: "U = 1\\,392\\,000\\ \\mathrm{km}" },                  // 2r (π vergessen)
+            { katex: "U = 6\\,556\\,320\\ \\mathrm{km}" },                  // 3πr (Faktor falsch)
+        ],
+        bei_richtig: {
+            belohnung_text: "Correct! But this doesn't help you in the game — you solved this just for fun 😊",
+        },
+        // Beim Wieder-Klick (Aufgabe schon gelöst) wird statt "You've already solved this task."
+        // dieser raumspezifische Text gezeigt — passt zum "for fun"-Spirit der Sonnen-Aufgabe.
+        geloest_text: "You have just solved this for fun 😊",
+    },
 };
+
+// Chain 6 — Sammel-Helper: legt einen Schlüsselteil bzw. den Leim ins LINKE Inventar.
+// Wenn nach diesem Add alle vier Teile da sind, startet 5 s nach Auto-Close des
+// Belohnungs-Overlays die Combine-Animation (kombiniereSchluessel). Der Delay gibt dem
+// Spieler Zeit, die Belohnungs-Antwort zu lesen, bevor die Animation einsetzt.
+function sammleSchluesselteil(id) {
+    spielstand.linkesInventar.add(id);
+    aktualisiereLinkesInventar();
+    if (spielstand.linkesInventar.size === 4) {
+        setTimeout(() => kombiniereSchluessel(), 5000);
+    }
+}
+
+// Chain 6 — Combine-Animation: alle 4 Slots im linken Inventar bekommen .kombiniert
+// (CSS-Glow + Pulse, ~2.8 s). Nach Animation: Set leeren, vereinter_schluessel ins rechte
+// Inventar, Bestätigungs-Overlay.
+function kombiniereSchluessel() {
+    if (!inventarLinksEl) return;
+    const slots = inventarLinksEl.querySelectorAll(".inventar-slot");
+    slots.forEach(s => s.classList.add("kombiniert"));
+    setTimeout(() => {
+        spielstand.linkesInventar.clear();
+        spielstand.gegenstaende.add("vereinter_schluessel");
+        aktualisiereLinkesInventar();
+        aktualisiereInventar();
+        zeigeOverlayText("The three key fragments and the glue fuse into one complete key.\nIt's now in your inventory.");
+        automatischSchliessen(4000);
+    }, 2800);
+}
+window.kombiniereSchluessel = kombiniereSchluessel;
 
 // Klickbare Objekte pro Raum. Polygon in Stage-Koordinaten (1600×900).
 // Mögliche Felder:
@@ -900,6 +1464,18 @@ const OBJEKTE = {
                        && !s.gegenstaende.has("muffin_1")
                        && !s.zustaende.duck_gefuettert,
         },
+        // Chain 6: plant_tulpe (vorne-links, fu=0.15, fv=0.12) — Klick öffnet Formel-Erkennungs-
+        // Aufgabe (Umfang). Polygon deckt den sichtbaren Tulpen-Footprint (transform anchor 95.2,884
+        // mit scale 0.30 → 154 × 154 px nach oben). laufziel knapp daneben, ausserhalb des
+        // tulpe-Hindernisses (HINDERNISSE.haupt[2]: fu=-0.01..0.08, fv=0.02..0.18).
+        {
+            id: "chain_6_tulpe",
+            polygon: [[20, 720], [175, 720], [175, 880], [20, 880]],
+            laufziel: { fu: 0.13, fv: 0.04 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.linkesInventar.has("schluesselteil_3"),
+            aufgabe: "chain_6_umfang",
+        },
         // Chain 4, finaler Drop: Messgerät auf den Teppich (HAUPT_TEPPICH, runder Teppich
         // in Boden-Mitte). Polygon = perspektivisches Trapez aus den Eck-Boden-Punkten der
         // Teppich-Bbox (cu±rMax, cv±rMax) mit cu=0.5, cv=0.683, rMax=0.20:
@@ -929,10 +1505,13 @@ const OBJEKTE = {
             aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.cupboard_1_offen,
             akzeptiert: {
                 schluessel_buero: (s) => {
+                    // Schlüssel verbrauchen UND Aufgabe chain_1_schloss öffnen.
+                    // Das Öffnen des Schranks (oeffneCupboard1) erfolgt erst in der
+                    // bei_richtig.callback der Aufgabe — so kann der Schrank nicht
+                    // ohne richtige Antwort aufgehen.
                     verbrauche("schluessel_buero");
-                    oeffneCupboard1();
-                    zeigeOverlayText("Click — the key fits. The left cabinet door creaks open.");
-                    automatischSchliessen(3000);
+                    aktualisiereInventar();
+                    zeigeAufgabe("chain_1_schloss");
                 },
             },
         },
@@ -951,7 +1530,7 @@ const OBJEKTE = {
                 aktualisiereCupboard1();
                 draw();
                 zeigeOverlayText("You take a crumpled note. It's barely legible.");
-                automatischSchliessen(3000);
+                automatischSchliessen(4000);
             },
         },
         // Chain 1, Schritt 4: Lichtkegel der handgemalten Tischlampe auf Tisch 2 — Drop-Target
@@ -971,6 +1550,48 @@ const OBJEKTE = {
                 },
             },
         },
+        // Chain 6: oberstes Regal-Tablar im bookshelf_2, links — die 5 stehenden Bücher dort.
+        // bookshelf_2 sitzt bei x=530 y=125 width=550 height=550 (viewBox 0..500). Skala-x=1.1,
+        // Skala-y=1.1. Asset-Bücher in Tablar 1 stehen bei viewBox y≈62..117, links bei x≈110..189.
+        // → Screen-Bbox ca. (651, 193) bis (738, 254). Polygon mit Klick-Reserve drumherum.
+        // laufziel vor der hinteren Wand, ausserhalb des bookshelf_2-Hindernisses (fv 0.90..1.00).
+        {
+            id: "chain_6_buecher",
+            polygon: [[640, 188], [745, 188], [745, 260], [640, 260]],
+            laufziel: { fu: 0.42, fv: 0.65 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.linkesInventar.has("schluesselteil_2"),
+            aufgabe: "chain_6_bogen",
+        },
+        // Chain 5: 3 klickbare Kreise im Bürobild (gelb, rot, violett) an der linken Wand.
+        // Polygone werden in initChain5Polygone() nach Definition von BUERO_BILD gesetzt
+        // (BUERO_BILD steht in der Datei NACH OBJEKTE — daher kein Inline-Lookup hier).
+        // aktiv-Predikat: Formelbuch gefunden, Aufgabe noch nicht gelöst, kein Replay aktiv.
+        // Kein laufziel → Klick togglet sofort, Figur bleibt stehen (analog Toiletten-Klick).
+        {
+            id: "bild_kreis_yellow_klick",
+            polygon: [[0,0], [0,0], [0,0], [0,0]],   // Wird in initChain5Polygone() befüllt.
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.zustaende.bild_kreise_geloest
+                       && !s.zustaende.bild_kreise_replay_aktiv,
+            aktion: () => kreisGedrueckt("yellow"),
+        },
+        {
+            id: "bild_kreis_red_klick",
+            polygon: [[0,0], [0,0], [0,0], [0,0]],
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.zustaende.bild_kreise_geloest
+                       && !s.zustaende.bild_kreise_replay_aktiv,
+            aktion: () => kreisGedrueckt("red"),
+        },
+        {
+            id: "bild_kreis_violet_klick",
+            polygon: [[0,0], [0,0], [0,0], [0,0]],
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.zustaende.bild_kreise_geloest
+                       && !s.zustaende.bild_kreise_replay_aktiv,
+            aktion: () => kreisGedrueckt("violet"),
+        },
     ],
     badezimmer: [
         // animal_3_1 (Aquarium-Glas mit Goldfisch) auf desk_4 — kann ins Inventar genommen werden.
@@ -985,6 +1606,19 @@ const OBJEKTE = {
             laufziel: { fu: 0.86, fv: 0.10 },
             aufnehmen: "animal_3_1",
             aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
+        },
+        // Chain 6: mittlere Schublade von desk_4 — Klick öffnet Formel-Erkennungs-Aufgabe
+        // (Kreisfläche). desk_4 sitzt x=1200 y=520 width=310 height=360 (viewBox 0..369.06,441).
+        // Schublade-Front-Reihe Mitte liegt im viewBox y≈151..246 → Screen y ≈ 643..721,
+        // x in viewBox 53..266 → Screen x ≈ 1245..1423. laufziel synchron mit animal_3_1 (vor desk_4).
+        // Hindernis [4] desk_4 reicht von fv 0.30..0.99 → laufziel fv=0.10 ist davor frei.
+        {
+            id: "chain_6_schublade",
+            polygon: [[1245, 645], [1423, 645], [1423, 720], [1245, 720]],
+            laufziel: { fu: 0.86, fv: 0.10 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.linkesInventar.has("leim"),
+            aufgabe: "chain_6_flaeche",
         },
         // Chain 4, Schritt 1a: duck_1 in der Wanne — aufnehmbar.
         // SVG-Bbox aus index.html: x=420 y=480 40×44 → Polygon mit Klick-Reserve drumherum.
@@ -1065,7 +1699,7 @@ const OBJEKTE = {
                     setzeToilette2Voll(true);
                     aktualisiereInventar();
                     zeigeOverlayText("You tip the fish into the toilet.\nThe glass is now empty.");
-                    automatischSchliessen(2800);
+                    automatischSchliessen(4000);
                 },
             },
         },
@@ -1084,7 +1718,7 @@ const OBJEKTE = {
                     spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 3);
                     aktualisiereInventar();
                     zeigeOverlayText("You fill the glass with water from the bathtub.");
-                    automatischSchliessen(2500);
+                    automatischSchliessen(4000);
                 },
             },
         },
@@ -1113,6 +1747,16 @@ const OBJEKTE = {
         },
     ],
     garten: [
+        // Bonus-Aufgabe: Klick auf die Sonne (gemalt auf Canvas: cx=1200 cy=200 r=42,
+        // Strahlen bis r+44=86). Polygon-Bbox grob (1114..1286, 114..286). Nicht spiel-
+        // entscheidend — bei richtiger Antwort kommt nur ein "for fun"-Belohnungstext.
+        {
+            id: "sonne_klick",
+            polygon: [[1114, 114], [1286, 114], [1286, 286], [1114, 286]],
+            laufziel: { fu: 0.85, fv: 0.30 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden,
+            aufgabe: "bonus_sonne",
+        },
         // Chain 3a: zentrale Wolke (WOLKEN[1] cx=470, cy=140) anklicken → Vogel erscheint.
         // Polygon deckt grob die Wolkenhülle ab und zugleich die spätere Vogel-Bbox
         // (bird_1 SVG x=380 y=95 w=180 h=90 → 380..560, 95..185).
@@ -1128,7 +1772,7 @@ const OBJEKTE = {
                 aktualisiereChain3();
                 draw();
                 zeigeOverlayText("As the cloud drifts apart, a bird becomes visible behind it.");
-                automatischSchliessen(3000);
+                automatischSchliessen(4000);
             },
         },
         // Chain 3c: Vogel als Drop-Target für seed_1 → goldene_muenzen.
@@ -1149,7 +1793,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain3();
                     zeigeOverlayText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
-                    automatischSchliessen(3000);
+                    automatischSchliessen(4000);
                 },
             },
         },
@@ -1183,12 +1827,68 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain3();
                     zeigeOverlayText("You water the flower. It grows in a flash and offers you a seed.");
-                    automatischSchliessen(3000);
+                    automatischSchliessen(4000);
+                },
+            },
+        },
+        // Chain 7: Drop-Target in der Gartenmitte für Schaufel + Pickel.
+        // Reihenfolge egal — beim ersten Drop wird das Werkzeug verbraucht und ein
+        // kurzer Hinweis gezeigt; beim zweiten Drop öffnet sich das Loch (chain_7_grab
+        // wird via aktualisiereChain7 sichtbar). Polygon grosszügig (480×140) deckt den
+        // ganzen späteren Erdwall + Komfortzone ab — keine Kollision mit anderen
+        // Garten-OBJEKTen (Wolke/Vogel oben, Schlauch rechts, flower_1 vorne-links).
+        // laufziel vor dem Loch (fv niedrig = nahe Kamera) — sonst würde die Figur
+        // beim Drop direkt im Loch-Bereich landen, der nach Aktivierung Hindernis wird.
+        {
+            id: "gartenmitte_grab",
+            polygon: [[560, 660], [1040, 660], [1040, 800], [560, 800]],
+            laufziel: { fu: 0.50, fv: 0.30 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && (s.gegenstaende.has("schaufel") || s.gegenstaende.has("pickel"))
+                       && !s.zustaende.chain_7_loch_offen,
+            akzeptiert: {
+                schaufel: (s) => oeffneGrab("schaufel"),
+                pickel:   (s) => oeffneGrab("pickel"),
+            },
+        },
+        // Chain 7: Schatztruhe im offenen Loch — Drop-Target für vereinter_schluessel.
+        // Polygon grosszügig (280×130) um den sichtbaren Truhen-Bereich (chest_1 image
+        // x=700 y=690 200×89) — leichter zu treffen beim Drag.
+        // laufziel davor (gleicher Bereich wie gartenmitte_grab — Hindernis blockiert
+        // nicht die Annäherung, nur das Reinlaufen ins Loch).
+        {
+            id: "chest_1",
+            polygon: [[660, 670], [940, 670], [940, 800], [660, 800]],
+            laufziel: { fu: 0.50, fv: 0.30 },
+            aktiv: (s) => s.zustaende.chain_7_loch_offen
+                       && !s.zustaende.chain_7_geoeffnet
+                       && s.gegenstaende.has("vereinter_schluessel"),
+            akzeptiert: {
+                vereinter_schluessel: (s) => {
+                    if (s.zustaende.chain_7_geoeffnet) return;
+                    verbrauche("vereinter_schluessel");
+                    s.zustaende.chain_7_geoeffnet = true;
+                    aktualisiereInventar();
+                    // Sicherheitshalber laufenden Drag aufräumen, falls noch aktiv.
+                    if (typeof dragAbbrechen === "function") dragAbbrechen();
+                    zeigeSiegOverlay();
                 },
             },
         },
     ],
     keller: [
+        // Chain 6: animal_1 an der hinteren Wand — Klick auf das Tier öffnet Formel-Erkennungs-
+        // Aufgabe (Kreissektor). animal_1 sitzt bei x=474 y=215 width=140 height=175 → Polygon
+        // (474, 215) bis (614, 390). laufziel davor auf dem Boden, ausserhalb von chain_1
+        // (HINDERNISSE.keller[2]: fu 0.10..0.49, fv 0.05..0.44).
+        {
+            id: "chain_6_animal_1",
+            polygon: [[474, 215], [614, 215], [614, 390], [474, 390]],
+            laufziel: { fu: 0.30, fv: 0.55 },
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.linkesInventar.has("schluesselteil_1"),
+            aufgabe: "chain_6_sektor",
+        },
         // Chain 4, Schritt 2: Drop-Target für duck_1 — beide Ketten + die Lücke dazwischen.
         // chain_2 (x=280..560) + chain_1 (x=540..740), beide y=770..880. Polygon umschliesst beide.
         // Nach dem Drop wird duck_1_keller (DOM-VOR den Ketten in index.html) sichtbar — Ketten
@@ -1210,7 +1910,32 @@ const OBJEKTE = {
                     aktualisiereChain4();
                     draw();
                     zeigeOverlayText("You lay the rubber duck between the two chains.\nIt seems trapped.");
-                    automatischSchliessen(3000);
+                    automatischSchliessen(4000);
+                },
+            },
+        },
+        // Chain 5: painting_2 (an der hinteren Wand, zwischen Kamin-Top und Wand-Top) ist
+        // Drop-Target für drei_kreise. Polygon = bbox des <image href="painting_2.png">
+        // (x=950 y=300 130×194). Nach Drop: Overlay sichtbar, Skelett lacht 2 s, dann
+        // 2 s später spawnt der Pickel. Kein Klick-Hinweis ohne Item — Klick ohne Item fällt durch.
+        {
+            id: "painting_2",
+            polygon: [[950, 300], [1080, 300], [1080, 494], [950, 494]],
+            laufziel: { fu: 0.50, fv: 0.55 },
+            // Cursor:pointer nur, wenn drei_kreise zum Drop bereit sind.
+            aktiv: (s) => s.gegenstaende.has("drei_kreise") && !s.zustaende.bild_kreise_im_keller,
+            akzeptiert: {
+                drei_kreise: (s) => {
+                    if (s.zustaende.bild_kreise_im_keller) return;
+                    verbrauche("drei_kreise");
+                    s.zustaende.bild_kreise_im_keller = true;
+                    s.zustaende.chain_5_step = 4;   // direkt auf "Pickel im Inventar" — kein extra Aufnehm-Schritt mehr
+                    s.gegenstaende.add("pickel");
+                    aktualisiereInventar();
+                    aktualisiereChain5();
+                    skelettLachen();
+                    zeigeOverlayText("The three circles slip onto the painting and complete it.\nThe skeleton bursts into laughter and gives you a pickaxe as thanks.");
+                    automatischSchliessen(4000);
                 },
             },
         },
@@ -1219,9 +1944,9 @@ const OBJEKTE = {
         // Bei Drop: Ente skaliert auf 2× via CSS-Klasse + Burp-Sound + Messgerät ins Inventar.
         {
             id: "duck_1_keller",
-            // Polygon = aktuelle Bbox der duck_1_keller-SVG (x=370 y=750 width=120 height=132)
-            // — initial 3× so gross wie in der Wanne, sitzt zwischen chain_2 und chain_1.
-            polygon: [[370, 750], [490, 750], [490, 882], [370, 882]],
+            // Polygon = aktuelle Bbox der duck_1_keller-SVG (x=400 y=750 width=100 height=110)
+            // — initial 2.5× so gross wie in der Wanne, sitzt zwischen chain_2 und chain_1.
+            polygon: [[400, 750], [500, 750], [500, 860], [400, 860]],
             // laufziel synchron mit ketten_drop hinter den Ketten (siehe Kommentar dort).
             laufziel: { fu: 0.55, fv: 0.55 },
             aktiv: (s) => s.zustaende.duck_im_keller && !s.zustaende.duck_gefuettert,
@@ -1234,7 +1959,7 @@ const OBJEKTE = {
                     aktualisiereChain4();
                     spieleBurp();
                     zeigeOverlayText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
-                    automatischSchliessen(3500);
+                    automatischSchliessen(4000);
                 },
             },
         },
@@ -1299,7 +2024,8 @@ function zeigeAufgabe(id) {
     if (geloest) {
         const info = document.createElement("p");
         info.className = "feedback richtig";
-        info.textContent = "You've already solved this task.";
+        // Pro-Aufgabe individueller Text via `geloest_text` (sonst Standard).
+        info.textContent = a.geloest_text || "You've already solved this task.";
         overlayInhaltEl.appendChild(info);
         overlayEl.hidden = false;
         return;
@@ -1352,11 +2078,20 @@ function baueMultipleChoice(id, a) {
     const feedback = document.createElement("p");
     feedback.className = "feedback";
 
-    a.optionen.forEach((opt, idx) => {
+    // Optionen pro Aufgaben-Öffnung neu mischen (Fisher–Yates auf einer flachen
+    // Kopie). So steht die richtige Antwort nicht immer an derselben Stelle. Der
+    // Klick-Handler bekommt das Option-Objekt direkt, nicht mehr den Index — die
+    // ursprüngliche Reihenfolge in AUFGABEN[id].optionen bleibt unverändert.
+    const gemischt = a.optionen.slice();
+    for (let i = gemischt.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gemischt[i], gemischt[j]] = [gemischt[j], gemischt[i]];
+    }
+
+    gemischt.forEach((opt) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "aufgabe-mc-option";
-        btn.dataset.index = String(idx);
 
         if (opt.katex && typeof katex !== "undefined") {
             const span = document.createElement("span");
@@ -1366,16 +2101,14 @@ function baueMultipleChoice(id, a) {
             btn.textContent = opt.label || opt.katex || "";
         }
 
-        btn.addEventListener("click", () => pruefeMultipleChoice(id, idx, btn, liste, feedback));
+        btn.addEventListener("click", () => pruefeMultipleChoice(id, opt, btn, liste, feedback));
         liste.appendChild(btn);
     });
 
     overlayInhaltEl.append(liste, feedback);
 }
 
-function pruefeMultipleChoice(id, idx, btnGedrueckt, liste, feedbackEl) {
-    const a = AUFGABEN[id];
-    const opt = a.optionen[idx];
+function pruefeMultipleChoice(id, opt, btnGedrueckt, liste, feedbackEl) {
     if (!opt.korrekt) {
         btnGedrueckt.classList.add("falsch");
         btnGedrueckt.disabled = true;
@@ -1433,7 +2166,7 @@ function gewaehrenBelohnung(id, feedbackEl) {
     feedbackEl.className = "feedback richtig";
 
     draw();
-    automatischSchliessen(3000);
+    automatischSchliessen(4000);
 }
 
 // Richtung, in die die Figur beim Eintritt schaut — "in den Raum hinein",
@@ -1480,64 +2213,340 @@ function wechsleRaum(zielId) {
 //                                                     Möbel mit gerader Kante (Schrank, Truhe).
 // Konvex bedeutet: alle Innenwinkel < 180°. 4 Punkte sind üblich, 3+ funktionieren.
 // Werte lassen sich live in der Konsole ändern:  HINDERNISSE.haupt[0].r = 0.08
+// Alle Hindernisse als Splines — interaktiv editierbar per hindernisDebug(true).
+// Kreise/Ellipsen wurden als 6-Eck-Approximation konvertiert, Vierecke 1:1 übernommen.
+// Vertices können per Drag justiert, per Doppelklick auf Kurve eingefügt,
+// per Rechtsklick gelöscht werden. Handles: Doppelklick → Reset (gerade Kante),
+// Rechtsklick → löschen.
 const HINDERNISSE = {
     haupt: [
-        // Pflanzen am Boden — rotierte Ellipsen am Topfabdruck (interaktiv eingestellt, Manuel).
-        { fu: 0.0309, fv: 0.8087, rx: 0.03, ry: 0.0497, rot: 0.2737 },                            // [0] yucca
-        { fu: 0.9653, fv: 0.1798, rx: 0.0404, ry: 0.0919, rot: -0.1559 },                         // [1] blume
-        { fu: 0.0368, fv: 0.0982, rx: 0.0456, ry: 0.0793, rot: 0.1521 },                          // [2] tulpe
-        // (geranie auf desk_5, setzling auf desk_3 — keine Boden-Hindernisse mehr)
-        // Möbel-Vierecke (interaktiv eingestellt, Manuel):
-        { punkte: [[0.0001, 0.9056], [0.1627, 0.8996], [0.1648, 0.9979], [0.001, 0.9988]] },     // [3] Tisch 1
-        { punkte: [[0.3717, 0.789], [0.4954, 0.681], [0.574, 0.7561], [0.483, 0.8227]] },        // [4] desk_3 — User-justiert: Vorderkante nach innen gezogen, damit Bad→Garten-Pfad durchkommt
-        { punkte: [[0.8869, 0.6244], [1, 0.6575], [0.9994, 0.8034], [0.8634, 0.7758]] },         // [5] desk_5
-        { punkte: [[0.8223, 0.9241], [0.9999, 0.9274], [0.9979, 0.9982], [0.8381, 0.9993]] },    // [6] cupboard_3
+        { spline: [                                   // [0] yucca
+            { fu: 0.0598, fv: 0.8006 },
+            { fu: 0.0569, fv: 0.8460 },
+            { fu: 0.0281, fv: 0.8542 },
+            { fu: 0.0020, fv: 0.8168 },
+            { fu: 0.0049, fv: 0.7714 },
+            { fu: 0.0337, fv: 0.7632 },
+        ] },
+        { spline: [                                   // [1] blume
+            { fu: 1.0000, fv: 0.1861 },
+            { fu: 0.9729, fv: 0.2615 },
+            { fu: 0.9329, fv: 0.2553 },
+            { fu: 0.9254, fv: 0.1735 },
+            { fu: 0.9577, fv: 0.0981 },
+            { fu: 0.9977, fv: 0.1043 },
+        ] },
+        { spline: [                                   // [2] tulpe
+            { fu: 0.0819, fv: 0.0913 },
+            { fu: 0.0697, fv: 0.1625 },
+            { fu: 0.0247, fv: 0.1695 },
+            { fu: 0.0000, fv: 0.1051 },
+            { fu: 0.0039, fv: 0.0339 },
+            { fu: 0.0489, fv: 0.0269 },
+        ] },
+        { spline: [                                   // [3] Tisch 1
+            { fu: 0.0001, fv: 0.9056 },
+            { fu: 0.1627, fv: 0.8996 },
+            { fu: 0.1648, fv: 0.9979 },
+            { fu: 0.0010, fv: 0.9988 },
+        ] },
+        { spline: [                                   // [4] desk_3
+            { fu: 0.3717, fv: 0.7890 },
+            { fu: 0.4954, fv: 0.6810 },
+            { fu: 0.5740, fv: 0.7561 },
+            { fu: 0.4830, fv: 0.8227 },
+        ] },
+        { spline: [                                   // [5] desk_5
+            { fu: 0.8869, fv: 0.6244 },
+            { fu: 1.0000, fv: 0.6575 },
+            { fu: 0.9994, fv: 0.8034 },
+            { fu: 0.8634, fv: 0.7758 },
+        ] },
+        { spline: [                                   // [6] cupboard_3
+            { fu: 0.8223, fv: 0.9241 },
+            { fu: 0.9999, fv: 0.9274 },
+            { fu: 0.9979, fv: 0.9982 },
+            { fu: 0.8381, fv: 0.9993 },
+        ] },
     ],
     buero: [
-        // Tisch 2 (vorderlinks): 2 Kreise + 1 rotierte Ellipse decken den L-förmigen
-        // Schreibtisch-Footprint ab. Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
-        { fu: 0.0975, fv: 0.8172, r: 0.1 },                                                   // [0] vorne
-        { fu: 0.1745, fv: 0.7503, r: 0.1 },                                                   // [1] mitte
-        { fu: 0.2709, fv: 0.8383, rx: 0.1416, ry: 0.1, rot: 1.296 },                          // [2] hinten (schräg)
-        // cupboard_1 (rechts an Wand): Viereck am tatsächlichen Boden-Footprint des Schranks.
-        // Schrank hat KEIN data-fv → immer in Rück-Ebene, Figur überdeckt korrekt.
-        { punkte: [[0.7268, 0.9031], [0.9424, 0.808], [0.9991, 0.9295], [0.7411, 0.9996]] },  // [3]
-        // bookshelf_2 (hinten an Wand bei x=700..1300): Viereck am tatsächlichen Boden-Footprint.
-        { punkte: [[0.3339, 0.9058], [0.6748, 0.9009], [0.68, 0.9999], [0.3286, 0.9998]] },   // [4]
-        // lamp_1 (Pixar-Lampe vorne-links): leicht rotierte Ellipse am Lampenfuß.
-        { fu: 0.0508, fv: 0.2055, rx: 0.0542, ry: 0.1241, rot: 0.1197 },                      // [5]
+        { spline: [                                   // [0] Tisch 2 vorne
+            { fu: 0.1975, fv: 0.8172 },
+            { fu: 0.1475, fv: 0.9038 },
+            { fu: 0.0475, fv: 0.9038 },
+            { fu: 0.0000, fv: 0.8172 },
+            { fu: 0.0475, fv: 0.7306 },
+            { fu: 0.1475, fv: 0.7306 },
+        ] },
+        { spline: [                                   // [1] Tisch 2 mitte
+            { fu: 0.2745, fv: 0.7503 },
+            { fu: 0.2245, fv: 0.8369 },
+            { fu: 0.1245, fv: 0.8369 },
+            { fu: 0.0745, fv: 0.7503 },
+            { fu: 0.1245, fv: 0.6637 },
+            { fu: 0.2245, fv: 0.6637 },
+        ] },
+        { spline: [                                   // [2] Tisch 2 hinten (schräg, aus Ellipse rot=1.296)
+            { fu: 0.3089, fv: 0.7019 },
+            { fu: 0.3733, fv: 0.7934 },
+            { fu: 0.3353, fv: 0.9298 },
+            { fu: 0.2329, fv: 0.9747 },
+            { fu: 0.1685, fv: 0.8832 },
+            { fu: 0.2065, fv: 0.7468 },
+        ] },
+        { spline: [                                   // [3] cupboard_1
+            { fu: 0.7268, fv: 0.9031 },
+            { fu: 0.9424, fv: 0.8080 },
+            { fu: 0.9991, fv: 0.9295 },
+            { fu: 0.7411, fv: 0.9996 },
+        ] },
+        { spline: [                                   // [4] bookshelf_2
+            { fu: 0.3339, fv: 0.9058 },
+            { fu: 0.6748, fv: 0.9009 },
+            { fu: 0.6800, fv: 0.9999 },
+            { fu: 0.3286, fv: 0.9998 },
+        ] },
+        { spline: [                                   // [5] lamp_1
+            { fu: 0.1046, fv: 0.1990 },
+            { fu: 0.0905, fv: 0.3090 },
+            { fu: 0.0367, fv: 0.3154 },
+            { fu: 0.0000, fv: 0.2120 },
+            { fu: 0.0111, fv: 0.1020 },
+            { fu: 0.0649, fv: 0.0956 },
+        ] },
     ],
     badezimmer: [
-        // Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
-        { fu: 0.1354, fv: 0.9505, rx: 0.1798, ry: 0.1623, rot: -0.0215 },                         // [0]
-        { fu: 0.7552, fv: 0.8073, rx: 0.1, ry: 0.1922 },                                          // [1]
-        { fu: 0.4047, fv: 0.9243, rx: 0.0548, ry: 0.1104 },                                       // [2]
-        { punkte: [[0.4898, 0.8668], [0.7479, 0.8667], [0.7638, 0.9995], [0.5, 0.9993]] },        // [3]
-        // [4] desk_4 hinterer Teil — Front-Kante runtergezogen auf fv 0.30, damit die Lücke
-        // zur Front-Hindernis [5] (fv 0.03..0.45) zugeht und die Figur sich nicht mehr in
-        // dem schmalen Streifen fv 0.45..0.56 zwischen [4] und [5] einklemmen kann.
-        // (Original-Werte vor Fix: [[0.7954, 0.5619], [0.9932, 0.7535], [0.9985, 0.9943], [0.7566, 0.9999]])
-        { punkte: [[0.7954, 0.30], [0.9985, 0.30], [0.9985, 0.9943], [0.7566, 0.9999]] },         // [4]
-        { punkte: [[0.7712, 0.1016], [0.9165, 0.0331], [0.9999, 0.2984], [0.8558, 0.448]] },      // [5]
+        { spline: [                                   // [0] bathtub
+            { fu: 0.3152, fv: 0.9544 },
+            { fu: 0.2223, fv: 1.0930 },
+            { fu: 0.0425, fv: 1.0892 },
+            { fu: 0.0000, fv: 0.9466 },
+            { fu: 0.0485, fv: 0.8080 },
+            { fu: 0.2283, fv: 0.8118 },
+        ] },
+        { spline: [                                   // [1] toilet_1 (octopus-Seite)
+            { fu: 0.8552, fv: 0.8073 },
+            { fu: 0.8052, fv: 0.9737 },
+            { fu: 0.7052, fv: 0.9737 },
+            { fu: 0.6552, fv: 0.8073 },
+            { fu: 0.7052, fv: 0.6409 },
+            { fu: 0.8052, fv: 0.6409 },
+        ] },
+        { spline: [                                   // [2] toilet_2
+            { fu: 0.4595, fv: 0.8800 },
+            { fu: 0.4321, fv: 0.9756 },
+            { fu: 0.3773, fv: 0.9756 },
+            { fu: 0.3499, fv: 0.8800 },
+            { fu: 0.3773, fv: 0.7844 },
+            { fu: 0.4321, fv: 0.7844 },
+        ] },
+        { spline: [                                   // [3] cupboard_2-Bereich
+            { fu: 0.4898, fv: 0.8668 },
+            { fu: 0.7479, fv: 0.8667 },
+            { fu: 0.7638, fv: 0.9995 },
+            { fu: 0.5000, fv: 0.9993 },
+        ] },
+        { spline: [                                   // [4] desk_4 hinterer Teil (fv-Front 0.30)
+            { fu: 0.7954, fv: 0.3000 },
+            { fu: 0.9985, fv: 0.3000 },
+            { fu: 0.9985, fv: 0.9943 },
+            { fu: 0.7566, fv: 0.9999 },
+        ] },
+        { spline: [                                   // [5] desk_4 front
+            { fu: 0.7712, fv: 0.1016 },
+            { fu: 0.9165, fv: 0.0331 },
+            { fu: 0.9999, fv: 0.2984 },
+            { fu: 0.8558, fv: 0.4480 },
+        ] },
     ],
     garten: [
-        // flower_1 (Inline-SVG vorne-links, überlappt mit flower_3) — interaktiv eingestellt (Manuel).
-        { fu: 0.0524, fv: 0.9972, rx: 0.0605, ry: 0.0795, rot: -0.2473 },                         // [0] flower_1
+        { spline: [                                   // [0] flower_1
+            { fu: 0.1111, fv: 1.0120 },
+            { fu: 0.0648, fv: 1.0713 },
+            { fu: 0.0000, fv: 1.0565 },
+            { fu: 0.0000, fv: 0.9824 },
+            { fu: 0.0400, fv: 0.9231 },
+            { fu: 0.0986, fv: 0.9379 },
+        ] },
     ],
     keller: [
-        // Werte interaktiv per Drag-and-Drop eingestellt (Manuel).
-        { punkte: [[0.1616, 0.8226], [0.5289, 0.8242], [0.51, 0.99], [0.1486, 0.9978]] },     // [0] Kamin (fireplace_1)
-        { punkte: [[0.7376, 0.0731], [1, 0.1028], [0.9982, 0.3324], [0.776, 0.3108]] },       // [1] Schatztruhe (chest_1)
-        { fu: 0.8673, fv: 0.8258, rx: 0.1521, ry: 0.2861, rot: -0.2141 },                     // [2] Kerzen-Cluster A
-        { punkte: [[0.0958, 0.3492], [0.2752, 0.0456], [0.4894, 0.0835], [0.4201, 0.4351]] }, // [3] chain_1 (Boden, mit Kugel)
-        { fu: 0.6905, fv: 0.8474, rx: 0.096, ry: 0.2469, rot: -0.4399 },                      // [4] Kerzen-Cluster B
+        { spline: [                                   // [0] Kamin (fireplace_1)
+            { fu: 0.1616, fv: 0.8226 },
+            { fu: 0.5289, fv: 0.8242 },
+            { fu: 0.5100, fv: 0.9900 },
+            { fu: 0.1486, fv: 0.9978 },
+        ] },
+        { spline: [                                   // [1] Kerzen-Cluster A
+            { fu: 0.99, fv: 0.65,                                hOut: { du: -0.02, dv: 0.06 } },
+            { fu: 0.97, fv: 0.85, hIn: { du: 0.01, dv: -0.04 }, hOut: { du: -0.02, dv: 0.06 } },
+            { fu: 0.93, fv: 0.99, hIn: { du: 0.03, dv: -0.04 } },
+            { fu: 0.78, fv: 0.99 },
+            { fu: 0.71, fv: 0.85 },
+            { fu: 0.78, fv: 0.65 },
+        ] },
+        { spline: [                                   // [2] Ketten (chain_1/chain_2 Boden)
+            { fu: 0.0958, fv: 0.3492 },
+            { fu: 0.2752, fv: 0.0456 },
+            { fu: 0.4894, fv: 0.0835 },
+            { fu: 0.4201, fv: 0.4351 },
+        ] },
+        { spline: [                                   // [3] Kerzen-Cluster B
+            { fu: 0.7774, fv: 0.8882 },
+            { fu: 0.6430, fv: 1.0613 },
+            { fu: 0.5562, fv: 1.0205 },
+            { fu: 0.6036, fv: 0.8066 },
+            { fu: 0.7380, fv: 0.6335 },
+            { fu: 0.8248, fv: 0.6743 },
+        ] },
     ],
 };
 window.HINDERNISSE = HINDERNISSE;
 
 // ---------- Form-Helper: Type-Dispatch zwischen Kreis/Ellipse/Viereck ----------
+// ---------- Spline-Hindernisse: kubische Bezier-Kette entlang Vertex-Liste ----------
+// Datenformat: { spline: [{ fu, fv, hIn?: {du, dv}, hOut?: {du, dv} }, ...] }
+// Edge i geht von vertex[i] zu vertex[(i+1) % n], mit Kontrollpunkten:
+//   p0 = vertex[i],  p1 = vertex[i] + (hOut ?? 0),
+//   p2 = vertex[i+1] + (hIn ?? 0),  p3 = vertex[i+1].
+// Fehlende Handles ⇒ degenerierter Cubic = effektiv gerade Linie. Handles sind nicht
+// symmetrisch (zwei unabhängige Tangenten — Knicke an Vertices erlaubt).
+//
+// Für Kollisions-Tests wird der Spline mit N=16 Samples pro Edge in eine Polyline
+// subdiviert (`splinePoly(h)`, gecached auf `h._cachedPoly`). Punkt-in-Polygon nutzt
+// Ray-Casting (allgemein, auch nicht-konvex), Slide-Closest-Edge projiziert auf die
+// Polyline-Segmente — analog zu Vierecken.
+const SPLINE_N = 16;
+
+function splineEdgeKontrollen(h, i) {
+    const v0 = h.spline[i];
+    const v1 = h.spline[(i + 1) % h.spline.length];
+    const out = v0.hOut || { du: 0, dv: 0 };
+    const inn = v1.hIn  || { du: 0, dv: 0 };
+    return {
+        p0fu: v0.fu, p0fv: v0.fv,
+        p1fu: v0.fu + out.du, p1fv: v0.fv + out.dv,
+        p2fu: v1.fu + inn.du, p2fv: v1.fv + inn.dv,
+        p3fu: v1.fu, p3fv: v1.fv,
+    };
+}
+
+function cubicBezier(t, p0fu, p0fv, p1fu, p1fv, p2fu, p2fv, p3fu, p3fv) {
+    const u = 1 - t;
+    const w0 = u * u * u, w1 = 3 * u * u * t, w2 = 3 * u * t * t, w3 = t * t * t;
+    return [
+        w0 * p0fu + w1 * p1fu + w2 * p2fu + w3 * p3fu,
+        w0 * p0fv + w1 * p1fv + w2 * p2fv + w3 * p3fv,
+    ];
+}
+
+function splinePoly(h) {
+    if (h._cachedPoly) return h._cachedPoly;
+    const poly = [];
+    for (let i = 0; i < h.spline.length; i++) {
+        const c = splineEdgeKontrollen(h, i);
+        for (let s = 0; s < SPLINE_N; s++) {
+            const t = s / SPLINE_N;
+            poly.push(cubicBezier(t, c.p0fu, c.p0fv, c.p1fu, c.p1fv, c.p2fu, c.p2fv, c.p3fu, c.p3fv));
+        }
+    }
+    h._cachedPoly = poly;
+    return poly;
+}
+
+function invalidateSplineCache(h) {
+    delete h._cachedPoly;
+}
+
+// Default-Position für ein Handle, wenn hIn/hOut unset ist — gibt dem User einen
+// sichtbaren Anfasser entlang der Sehne zum Nachbar-Vertex (sonst überlappt der
+// Handle-Marker mit dem Vertex-Marker). Drag setzt hIn/hOut auf den realen Offset.
+function splineHandleDefault(h, vIdx, hand) {
+    const n = h.spline.length;
+    const v = h.spline[vIdx];
+    const neighbor = (hand === "hIn")
+        ? h.spline[(vIdx - 1 + n) % n]
+        : h.spline[(vIdx + 1) % n];
+    const dx = neighbor.fu - v.fu;
+    const dy = neighbor.fv - v.fv;
+    const len = Math.hypot(dx, dy) || 1;
+    const k = Math.min(0.05, len * 0.3);
+    return { du: (dx / len) * k, dv: (dy / len) * k };
+}
+
+// Welt-Position des Handles. Wenn hIn/hOut gesetzt: Vertex + offset.
+// Wenn nicht gesetzt: Vertex + Default-Offset (für sichtbaren, greifbaren Anfasser).
+function splineHandleWelt(h, vIdx, hand) {
+    const v = h.spline[vIdx];
+    const off = v[hand] || splineHandleDefault(h, vIdx, hand);
+    return { fu: v.fu + off.du, fv: v.fv + off.dv };
+}
+
+// De-Casteljau-Split einer Cubic Bezier bei Parameter t. Liefert die Zwischenpunkte
+// für beide Halb-Cubics (kurvenform-erhaltend). Wird beim Vertex-Einfügen via
+// Doppelklick auf die Kurve genutzt.
+function teilenCubic(t, P0, P1, P2, P3) {
+    const lerp = (a, b) => [a[0] * (1 - t) + b[0] * t, a[1] * (1 - t) + b[1] * t];
+    const Q0 = lerp(P0, P1);
+    const Q1 = lerp(P1, P2);
+    const Q2 = lerp(P2, P3);
+    const R0 = [Q0[0] * (1 - t) + Q1[0] * t, Q0[1] * (1 - t) + Q1[1] * t];
+    const R1 = [Q1[0] * (1 - t) + Q2[0] * t, Q1[1] * (1 - t) + Q2[1] * t];
+    const S  = [R0[0] * (1 - t) + R1[0] * t, R0[1] * (1 - t) + R1[1] * t];
+    return { Q0, Q2, R0, R1, S };
+}
+
+function splineEinfuegen(h, edge, t) {
+    const c = splineEdgeKontrollen(h, edge);
+    const P0 = [c.p0fu, c.p0fv];
+    const P1 = [c.p1fu, c.p1fv];
+    const P2 = [c.p2fu, c.p2fv];
+    const P3 = [c.p3fu, c.p3fv];
+    const sp = teilenCubic(t, P0, P1, P2, P3);
+    const r4 = (n) => +n.toFixed(4);
+    const v0 = h.spline[edge];
+    const v1 = h.spline[(edge + 1) % h.spline.length];
+    // Vertex v0's hOut: war P1, ist jetzt Q0 (links vom Split)
+    v0.hOut = { du: r4(sp.Q0[0] - v0.fu), dv: r4(sp.Q0[1] - v0.fv) };
+    // Vertex v1's hIn: war P2, ist jetzt Q2 (rechts vom Split)
+    v1.hIn  = { du: r4(sp.Q2[0] - v1.fu), dv: r4(sp.Q2[1] - v1.fv) };
+    // Neuer Vertex S, mit hIn=R0-S, hOut=R1-S
+    const newV = {
+        fu: r4(sp.S[0]),
+        fv: r4(sp.S[1]),
+        hIn:  { du: r4(sp.R0[0] - sp.S[0]), dv: r4(sp.R0[1] - sp.S[1]) },
+        hOut: { du: r4(sp.R1[0] - sp.S[0]), dv: r4(sp.R1[1] - sp.S[1]) },
+    };
+    h.spline.splice(edge + 1, 0, newV);
+    invalidateSplineCache(h);
+}
+
+function splineLoescheVertex(h, vIdx) {
+    if (h.spline.length <= 3) {
+        console.warn("Spline braucht ≥3 Vertices — Löschen abgewiesen.");
+        return false;
+    }
+    h.spline.splice(vIdx, 1);
+    invalidateSplineCache(h);
+    return true;
+}
+
+function splineLoescheHandle(h, vIdx, hand) {
+    const v = h.spline[vIdx];
+    if (v[hand]) {
+        delete v[hand];
+        invalidateSplineCache(h);
+    }
+}
+
+// ---------- Form-Helper: Type-Dispatch zwischen Kreis/Ellipse/Viereck/Spline ----------
 // Center (Schwerpunkt) eines Hindernisses — für Slide-Algorithmus (Distanz-Suche).
 function hindernisCenter(h) {
+    if (h.spline) {
+        const poly = splinePoly(h);
+        let fu = 0, fv = 0;
+        for (const p of poly) { fu += p[0]; fv += p[1]; }
+        return { fu: fu / poly.length, fv: fv / poly.length };
+    }
     if (h.punkte) {
         let fu = 0, fv = 0;
         for (const p of h.punkte) { fu += p[0]; fv += p[1]; }
@@ -1548,6 +2557,16 @@ function hindernisCenter(h) {
 
 // Konservativer Maximal-Radius (vom Center) — für Pre-Filter im Slide-Algorithmus.
 function hindernisMaxRadius(h) {
+    if (h.spline) {
+        const poly = splinePoly(h);
+        const c = hindernisCenter(h);
+        let max = 0;
+        for (const p of poly) {
+            const d = Math.hypot(p[0] - c.fu, p[1] - c.fv);
+            if (d > max) max = d;
+        }
+        return max;
+    }
     if (h.punkte) {
         const c = hindernisCenter(h);
         let max = 0;
@@ -1575,8 +2594,24 @@ function pktInKonvexPolygon(fu, fv, punkte) {
     return pos === 0 || neg === 0;
 }
 
+// Allgemeiner Punkt-in-Polygon-Test (Ray-Casting). Funktioniert auch für nicht-konvexe
+// Polygone (Spline-Polylines können konkav sein), im Gegensatz zu pktInKonvexPolygon.
+function pktInPolygonAllgemein(fu, fv, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        if (((yi > fv) !== (yj > fv)) &&
+            (fu < (xj - xi) * (fv - yi) / (yj - yi) + xi)) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
 // Test: Liegt (fu, fv) IM Hindernis (innerhalb der Form, nicht auf der Grenze)?
 function istInForm(h, fu, fv) {
+    if (h.spline) return pktInPolygonAllgemein(fu, fv, splinePoly(h));
     if (h.punkte) return pktInKonvexPolygon(fu, fv, h.punkte);
     const rx = h.rx ?? h.r, ry = h.ry ?? h.r;
     const rot = h.rot ?? 0;
@@ -1603,6 +2638,28 @@ function projektionAufKante(fu, fv, p1, p2) {
 // Nächster Punkt am Hindernis-Rand zur Position (fu, fv). Plus Normale (nach aussen).
 // Genutzt von slide, setzeFigurZiel und Safety-Net.
 function naechsterRandUndNormale(h, fu, fv) {
+    if (h.spline) {
+        // Polyline-Subdivision suchen: closest segment via projektionAufKante.
+        const poly = splinePoly(h);
+        let bestPkt = null, bestKante = -1, bestDist = Infinity;
+        for (let i = 0; i < poly.length; i++) {
+            const j = (i + 1) % poly.length;
+            const p = projektionAufKante(fu, fv, poly[i], poly[j]);
+            const ddu = p.fu - fu, ddv = p.fv - fv;
+            const d = ddu * ddu + ddv * ddv;
+            if (d < bestDist) { bestDist = d; bestPkt = p; bestKante = i; }
+        }
+        const k1 = poly[bestKante];
+        const k2 = poly[(bestKante + 1) % poly.length];
+        const ex = k2[0] - k1[0], ey = k2[1] - k1[1];
+        const elen = Math.sqrt(ex * ex + ey * ey) || 1;
+        // Außen-Normale via Centroid-Richtung — bei nicht-konvexen Splines an
+        // konkaven Stellen leicht ungenau, für Slide-Manöver praktisch ausreichend.
+        const c = hindernisCenter(h);
+        let nx = -ey / elen, ny = ex / elen;
+        if ((bestPkt.fu - c.fu) * nx + (bestPkt.fv - c.fv) * ny < 0) { nx = -nx; ny = -ny; }
+        return { fu: bestPkt.fu, fv: bestPkt.fv, nx, ny, kante: bestKante };
+    }
     if (h.punkte) {
         // Nächste Kante finden, auf sie projizieren.
         let bestPkt = null, bestKante = -1, bestDist = Infinity;
@@ -2336,7 +3393,68 @@ function zeichneHindernisseDebug() {
         ctx.fillStyle = farbe;
         ctx.strokeStyle = linie;
         ctx.lineWidth = 2;
-        if (h.punkte) {
+        if (h.spline) {
+            // Spline-Polyline rendern (matches Kollision exakt — beides nutzt splinePoly).
+            const poly = splinePoly(h);
+            ctx.beginPath();
+            for (let i = 0; i < poly.length; i++) {
+                const [x, y] = bodenPunkt(poly[i][0], poly[i][1]);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // Handle-Verbindungslinien (Vertex → Handle), gestrichelt.
+            ctx.save();
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = punktBg;
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < h.spline.length; i++) {
+                const v = h.spline[i];
+                const [vx, vy] = bodenPunkt(v.fu, v.fv);
+                for (const hand of ["hIn", "hOut"]) {
+                    const w = splineHandleWelt(h, i, hand);
+                    const [hx, hy] = bodenPunkt(w.fu, w.fv);
+                    ctx.beginPath();
+                    ctx.moveTo(vx, vy);
+                    ctx.lineTo(hx, hy);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+            // Handle-Marker (Quadrate). Gefüllt = hIn/hOut gesetzt; hohl = Default-Position.
+            const HSIZE = 7;
+            for (let i = 0; i < h.spline.length; i++) {
+                const v = h.spline[i];
+                for (const hand of ["hIn", "hOut"]) {
+                    const w = splineHandleWelt(h, i, hand);
+                    const [hx, hy] = bodenPunkt(w.fu, w.fv);
+                    const stored = !!v[hand];
+                    ctx.fillStyle = stored ? punktBg : "rgba(255,255,255,0.85)";
+                    ctx.strokeStyle = punktBg;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.rect(hx - HSIZE, hy - HSIZE, HSIZE * 2, HSIZE * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+            // Vertex-Marker (zuletzt → liegen oben), inkl. "<hidx>.<vIdx>"-Label.
+            for (let i = 0; i < h.spline.length; i++) {
+                const v = h.spline[i];
+                const [vx, vy] = bodenPunkt(v.fu, v.fv);
+                ctx.fillStyle = punktBg;
+                ctx.beginPath();
+                ctx.arc(vx, vy, 11, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 13px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(`${idx}.${i}`, vx, vy);
+            }
+        } else if (h.punkte) {
             // Polygon füllen
             ctx.beginPath();
             h.punkte.forEach((p, i) => {
@@ -2683,14 +3801,34 @@ const BUERO_BILD = {
     leinwandFarbe: "#f3e6c8",
     kreise: [
         // (cu, cv) und r um den Faktor 1.5 von der neuen Mitte (0.365, 0.595) skaliert.
-        { cu: 0.2225, cv: 0.5245, r: 0.075, farbe: "#E63946" },  // rot, vorne unten
-        { cu: 0.2975, cv: 0.6445, r: 0.075, farbe: "#1D9BF0" },  // blau, vorne oben
-        { cu: 0.4175, cv: 0.5845, r: 0.090, farbe: "#FFD43B" },  // gelb, mitte (gross)
-        { cu: 0.5075, cv: 0.6595, r: 0.057, farbe: "#06D6A0" },  // grün, hinten oben
-        { cu: 0.5375, cv: 0.5245, r: 0.060, farbe: "#9B5DE5" },  // violett, hinten unten
-        { cu: 0.3575, cv: 0.5095, r: 0.045, farbe: "#FF8A00" },  // orange, klein vorne
+        // 3 davon (yellow/red/violet) sind in Chain 5 klickbar — IDs unten gesetzt;
+        // violett wurde gegen das grosse Gelb verschoben, damit die Kreise sich nicht überlappen.
+        { cu: 0.2225, cv: 0.5245, r: 0.075, farbe: "#E63946", id: "bild_kreis_red"    },  // rot, vorne unten — Chain 5
+        { cu: 0.2975, cv: 0.6445, r: 0.075, farbe: "#1D9BF0" },                            // blau, vorne oben
+        { cu: 0.4175, cv: 0.5845, r: 0.090, farbe: "#FFD43B", id: "bild_kreis_yellow" },  // gelb, mitte (gross) — Chain 5
+        { cu: 0.5075, cv: 0.6595, r: 0.057, farbe: "#06D6A0" },                            // grün, hinten oben
+        { cu: 0.5675, cv: 0.4825, r: 0.055, farbe: "#9B5DE5", id: "bild_kreis_violet" },  // violett, hinten oben — Chain 5 (verschoben gegen gelb)
+        { cu: 0.3575, cv: 0.5095, r: 0.045, farbe: "#FF8A00" },                            // orange, klein vorne
     ],
 };
+
+// Chain 5 — die 3 OBJEKTE.buero-Klickpolygone für die farbigen Bürobild-Kreise befüllen.
+// Polygon = wand-uv-Bbox (cu±r, cv±r) → linkeWandPunkt projiziert (perspektivisch korrekt).
+// Wird einmalig nach Definition von BUERO_BILD aufgerufen, da OBJEKTE in der Datei weiter
+// oben steht und BUERO_BILD beim OBJEKTE-Literal noch undefined wäre.
+function initChain5Polygone() {
+    ["yellow", "red", "violet"].forEach(farbe => {
+        const k = BUERO_BILD.kreise.find(c => c.id === `bild_kreis_${farbe}`);
+        const obj = OBJEKTE.buero.find(o => o.id === `bild_kreis_${farbe}_klick`);
+        if (!k || !obj) return;
+        obj.polygon = [
+            linkeWandPunkt(k.cu - k.r, k.cv - k.r),
+            linkeWandPunkt(k.cu + k.r, k.cv - k.r),
+            linkeWandPunkt(k.cu + k.r, k.cv + k.r),
+            linkeWandPunkt(k.cu - k.r, k.cv + k.r),
+        ];
+    });
+}
 
 function wandQuadPunkte(uMin, uMax, vMin, vMax) {
     return [[uMin, vMin], [uMax, vMin], [uMax, vMax], [uMin, vMax]]
@@ -2739,11 +3877,13 @@ function baueBueroBild() {
     }));
     const kreiseG = makeSVG("g", { "clip-path": "url(#bueroBildClip)" });
     BUERO_BILD.kreise.forEach(k => {
-        kreiseG.appendChild(makeSVG("path", {
+        const attrs = {
             d: wandKreisPfad(k.cu, k.cv, k.r),
             fill: k.farbe,
             opacity: "0.92",
-        }));
+        };
+        if (k.id) attrs.id = k.id;
+        kreiseG.appendChild(makeSVG("path", attrs));
     });
     wrapper.appendChild(kreiseG);
 
@@ -2998,6 +4138,7 @@ function baueRaumDeko() {
     baueBueroBild();
     baueKellerKerzen();
     baueHauptTeppich();
+    initChain5Polygone();   // Klickpolygone der 3 Bürobild-Kreise nachträglich aus BUERO_BILD befüllen.
     klonePflanzenVorne();
 }
 
@@ -3102,6 +4243,7 @@ requestAnimationFrame(() => {
     baueRaumDeko();
     aktualisiereSanitaer();
     aktualisiereCupboard1();
+    aktualisiereChain5();   // Sichtbarkeit von Bürobild-Kreisen / painting_2-Overlay / Pickel initial setzen (ruft auch aktualisiereChain7).
     resizeCanvas();
     if (!loopGestartet) {
         loopGestartet = true;
@@ -3243,16 +4385,44 @@ function findeHindernisGriffBei(x, y) {
     if (!window.HINDERNIS_DEBUG) return null;
     const hs = HINDERNISSE[aktuellerRaum] || [];
     const TREFFER = 14;
+    const HANDLE_TREFFER = 10;
     const ROT_OFFSET = 0.025;
-    // Erst Vierecks-Eckpunkte und Ellipsen-Handles (rx, ry, rot) prüfen — kleinere Targets,
-    // höhere Prio (sonst kann der Center-Marker einen Handle dicht daneben verdecken).
+    // 1) Spline-Vertices (höchste Prio — größere Marker, aber oft mehrere dicht beieinander).
     for (let hidx = 0; hidx < hs.length; hidx++) {
         const h = hs[hidx];
+        if (!h.spline) continue;
+        for (let i = 0; i < h.spline.length; i++) {
+            const v = h.spline[i];
+            const [vx, vy] = bodenPunkt(v.fu, v.fv);
+            if (Math.hypot(x - vx, y - vy) <= TREFFER) {
+                return { hidx, splineKind: "vertex", splineVIdx: i, eckIdx: null, achse: null };
+            }
+        }
+    }
+    // 2) Spline-Handles (kleinere Marker, niedrigere Prio).
+    for (let hidx = 0; hidx < hs.length; hidx++) {
+        const h = hs[hidx];
+        if (!h.spline) continue;
+        for (let i = 0; i < h.spline.length; i++) {
+            for (const hand of ["hIn", "hOut"]) {
+                const w = splineHandleWelt(h, i, hand);
+                const [hx, hy] = bodenPunkt(w.fu, w.fv);
+                if (Math.hypot(x - hx, y - hy) <= HANDLE_TREFFER) {
+                    return { hidx, splineKind: hand, splineVIdx: i, eckIdx: null, achse: null };
+                }
+            }
+        }
+    }
+    // 3) Vierecks-Eckpunkte und Ellipsen-Handles (rx, ry, rot) prüfen — kleinere Targets,
+    // höhere Prio als der Center-Marker (sonst kann der Center einen Handle daneben verdecken).
+    for (let hidx = 0; hidx < hs.length; hidx++) {
+        const h = hs[hidx];
+        if (h.spline) continue;
         if (h.punkte) {
             for (let i = 0; i < h.punkte.length; i++) {
                 const [px, py] = bodenPunkt(h.punkte[i][0], h.punkte[i][1]);
                 if (Math.hypot(x - px, y - py) <= TREFFER) {
-                    return { hidx, eckIdx: i, achse: null };
+                    return { hidx, eckIdx: i, achse: null, splineKind: null, splineVIdx: null };
                 }
             }
         } else {
@@ -3262,28 +4432,28 @@ function findeHindernisGriffBei(x, y) {
             const cR = Math.cos(rot), sR = Math.sin(rot);
             const [rxX, rxY] = bodenPunkt(h.fu + rxVal * cR, h.fv + rxVal * sR);
             if (Math.hypot(x - rxX, y - rxY) <= TREFFER) {
-                return { hidx, eckIdx: null, achse: "rx" };
+                return { hidx, eckIdx: null, achse: "rx", splineKind: null, splineVIdx: null };
             }
             const [ryX, ryY] = bodenPunkt(h.fu - ryVal * sR, h.fv + ryVal * cR);
             if (Math.hypot(x - ryX, y - ryY) <= TREFFER) {
-                return { hidx, eckIdx: null, achse: "ry" };
+                return { hidx, eckIdx: null, achse: "ry", splineKind: null, splineVIdx: null };
             }
             const [rotX, rotY] = bodenPunkt(
                 h.fu + (rxVal + ROT_OFFSET) * cR,
                 h.fv + (rxVal + ROT_OFFSET) * sR,
             );
             if (Math.hypot(x - rotX, y - rotY) <= TREFFER) {
-                return { hidx, eckIdx: null, achse: "rot" };
+                return { hidx, eckIdx: null, achse: "rot", splineKind: null, splineVIdx: null };
             }
         }
     }
-    // Dann Ellipsen-Center (Fallback).
+    // 4) Ellipsen-Center (Fallback).
     for (let hidx = 0; hidx < hs.length; hidx++) {
         const h = hs[hidx];
-        if (h.punkte) continue;
+        if (h.spline || h.punkte) continue;
         const [cx, cy] = bodenPunkt(h.fu, h.fv);
         if (Math.hypot(x - cx, y - cy) <= TREFFER) {
-            return { hidx, eckIdx: null, achse: null };
+            return { hidx, eckIdx: null, achse: null, splineKind: null, splineVIdx: null };
         }
     }
     return null;
@@ -3295,7 +4465,20 @@ function aktualisiereHindernisDrag(clientX, clientY) {
     const fuFv = screenZuBoden(x, y);
     if (!fuFv) return;
     const h = HINDERNISSE[aktuellerRaum][hindernisDrag.hidx];
-    if (hindernisDrag.eckIdx !== null) {
+    if (hindernisDrag.splineKind === "vertex") {
+        const v = h.spline[hindernisDrag.splineVIdx];
+        v.fu = +fuFv[0].toFixed(4);
+        v.fv = +fuFv[1].toFixed(4);
+        invalidateSplineCache(h);
+    } else if (hindernisDrag.splineKind === "hIn" || hindernisDrag.splineKind === "hOut") {
+        const v = h.spline[hindernisDrag.splineVIdx];
+        const hand = hindernisDrag.splineKind;
+        v[hand] = {
+            du: +(fuFv[0] - v.fu).toFixed(4),
+            dv: +(fuFv[1] - v.fv).toFixed(4),
+        };
+        invalidateSplineCache(h);
+    } else if (hindernisDrag.eckIdx !== null) {
         h.punkte[hindernisDrag.eckIdx] = [+fuFv[0].toFixed(4), +fuFv[1].toFixed(4)];
     } else if (hindernisDrag.achse) {
         // Drag eines Ellipsen-Handles: aus Kreis (h.r) wird Ellipse, sobald eine Achse separat
@@ -3331,9 +4514,16 @@ function beendeHindernisDrag() {
     if (!hindernisDrag) return;
     // Nur kompakte 1-Zeilen-Bestätigung beim Loslassen — den vollen Code holst du dir jederzeit
     // mit dumpHindernisse() (siehe Konsolen-Helfer unten).
-    const { hidx, eckIdx, achse } = hindernisDrag;
+    const { hidx, eckIdx, achse, splineKind, splineVIdx } = hindernisDrag;
     const h = HINDERNISSE[aktuellerRaum][hidx];
-    if (eckIdx !== null) {
+    if (splineKind === "vertex") {
+        const v = h.spline[splineVIdx];
+        console.log(`✓ ${aktuellerRaum}[${hidx}].spline[${splineVIdx}] = { fu: ${v.fu}, fv: ${v.fv} }`);
+    } else if (splineKind === "hIn" || splineKind === "hOut") {
+        const v = h.spline[splineVIdx];
+        const off = v[splineKind];
+        console.log(`✓ ${aktuellerRaum}[${hidx}].spline[${splineVIdx}].${splineKind} = { du: ${off.du}, dv: ${off.dv} }`);
+    } else if (eckIdx !== null) {
         const p = h.punkte[eckIdx];
         console.log(`✓ ${aktuellerRaum}[${hidx}].punkte[${eckIdx}] = [${p[0]}, ${p[1]}]`);
     } else if (achse) {
@@ -3350,6 +4540,15 @@ function beendeHindernisDrag() {
 window.dumpHindernisse = (raum = aktuellerRaum) => {
     const hs = HINDERNISSE[raum] || [];
     const lines = hs.map((h, i) => {
+        if (h.spline) {
+            const verts = h.spline.map((v) => {
+                const parts = [`fu: ${v.fu}`, `fv: ${v.fv}`];
+                if (v.hIn  && (v.hIn.du  || v.hIn.dv))  parts.push(`hIn: { du: ${v.hIn.du}, dv: ${v.hIn.dv} }`);
+                if (v.hOut && (v.hOut.du || v.hOut.dv)) parts.push(`hOut: { du: ${v.hOut.du}, dv: ${v.hOut.dv} }`);
+                return `        { ${parts.join(", ")} }`;
+            });
+            return `    { spline: [\n${verts.join(",\n")}\n    ] },   // [${i}]`;
+        }
         if (h.punkte) {
             const repr = h.punkte.map(p => `[${p[0]}, ${p[1]}]`).join(", ");
             return `    { punkte: [${repr}] },   // [${i}]`;
@@ -3367,6 +4566,9 @@ window.dumpHindernisse = (raum = aktuellerRaum) => {
 
 canvas.addEventListener("pointerdown", (e) => {
     if (wechselInGang) return;   // Während Fade nichts annehmen
+    // Rechtsklick (button=2) und Mittelklick (1) → keine Drag-/Spielaktion. Rechtsklick wird
+    // im contextmenu-Handler verarbeitet (Spline-Vertex/Handle löschen).
+    if (e.button !== 0) return;
 
     ensureAudio();               // Audio-Kontext beim ersten Klick initialisieren
 
@@ -3398,7 +4600,7 @@ canvas.addEventListener("pointerdown", (e) => {
             if (tuer.secret && !spielstand.zustaende.keller_freigeschaltet) {
                 if (!spielstand.gegenstaende.has("code_geheimtuer")) {
                     zeigeOverlayText("A keypad sits next to the door.\nYou need to find a code first.");
-                    automatischSchliessen(3500);
+                    automatischSchliessen(4000);
                 }
                 return;
             }
@@ -3461,6 +4663,95 @@ canvas.addEventListener("pointercancel", (e) => {
     }
 });
 
+// ---------- Spline-Editor: Vertex einfügen (Doppelklick) + löschen (Rechtsklick) ----------
+// Findet die Spline-Edge eines Hindernisses, die einem Klick (in screen-Koords) am
+// nächsten ist. Liefert { edge, t, dist } — dist in screen-Pixeln. Suche basiert auf
+// der bereits gecachten Polyline (SPLINE_N=16 Samples pro Edge): jedes Polyline-Segment
+// gehört zu einer bestimmten Edge und einem Sub-Range von t. Projektion auf das
+// Segment liefert ein präzises t für die Cubic.
+function findeSplineEdgeBei(x, y, h) {
+    const poly = splinePoly(h);
+    const N = SPLINE_N;
+    const n = h.spline.length;
+    let best = { edge: 0, t: 0, dist: Infinity };
+    for (let edge = 0; edge < n; edge++) {
+        for (let s = 0; s < N; s++) {
+            const idx0 = edge * N + s;
+            const idx1 = (idx0 + 1) % poly.length;
+            const p0 = poly[idx0];
+            const p1 = poly[idx1];
+            const [sx0, sy0] = bodenPunkt(p0[0], p0[1]);
+            const [sx1, sy1] = bodenPunkt(p1[0], p1[1]);
+            const dx = sx1 - sx0, dy = sy1 - sy0;
+            const lsq = dx * dx + dy * dy;
+            let t = lsq > 1e-9 ? ((x - sx0) * dx + (y - sy0) * dy) / lsq : 0;
+            t = Math.max(0, Math.min(1, t));
+            const px = sx0 + t * dx, py = sy0 + t * dy;
+            const d = Math.hypot(x - px, y - py);
+            if (d < best.dist) {
+                best = { edge, t: (s + t) / N, dist: d };
+            }
+        }
+    }
+    return best;
+}
+
+// Doppelklick auf eine Spline-Kurve → neuen Vertex einfügen (kurvenform-erhaltend
+// per De-Casteljau-Split). Doppelklick auf Vertex/Handle (oder weiter weg) → ignoriert.
+canvas.addEventListener("dblclick", (e) => {
+    if (!window.HINDERNIS_DEBUG) return;
+    const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
+    const griff = findeHindernisGriffBei(x, y);
+    if (griff) {
+        // Doppelklick auf Handle-Marker → Handle zurücksetzen (gerade Kante)
+        if (griff.splineKind === "hIn" || griff.splineKind === "hOut") {
+            const h = HINDERNISSE[aktuellerRaum][griff.hidx];
+            splineLoescheHandle(h, griff.splineVIdx, griff.splineKind);
+            draw();
+            console.log(`✓ ${aktuellerRaum}[${griff.hidx}].spline[${griff.splineVIdx}].${griff.splineKind} → Reset (gerade Kante)`);
+        }
+        return;  // kein Vertex-Insert bei Klick auf irgendeinen Marker
+    }
+    const hs = HINDERNISSE[aktuellerRaum] || [];
+    let bestH = null, bestEdge = 0, bestT = 0, bestDist = Infinity, bestHidx = -1;
+    for (let hidx = 0; hidx < hs.length; hidx++) {
+        const h = hs[hidx];
+        if (!h.spline) continue;
+        const r = findeSplineEdgeBei(x, y, h);
+        if (r.dist < bestDist) {
+            bestDist = r.dist; bestH = h; bestEdge = r.edge; bestT = r.t; bestHidx = hidx;
+        }
+    }
+    if (bestH && bestDist < 14) {
+        splineEinfuegen(bestH, bestEdge, bestT);
+        draw();
+        console.log(`✓ ${aktuellerRaum}[${bestHidx}].spline neuer Vertex bei edge=${bestEdge}, t=${bestT.toFixed(3)}`);
+    }
+});
+
+// Rechtsklick im Debug-Modus:
+//   • auf Spline-Vertex → Vertex löschen (≥3 Vertices nötig).
+//   • auf Spline-Handle (hIn/hOut) → Handle entfernen (gerade Kante an dem Ende).
+//   • sonst → Default-Browser-Menü zulassen (e.preventDefault wird nicht aufgerufen).
+canvas.addEventListener("contextmenu", (e) => {
+    if (!window.HINDERNIS_DEBUG) return;
+    const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
+    const griff = findeHindernisGriffBei(x, y);
+    if (!griff) return;
+    if (!griff.splineKind) return;
+    e.preventDefault();
+    const h = HINDERNISSE[aktuellerRaum][griff.hidx];
+    if (griff.splineKind === "vertex") {
+        if (splineLoescheVertex(h, griff.splineVIdx)) {
+            console.log(`✓ ${aktuellerRaum}[${griff.hidx}].spline Vertex ${griff.splineVIdx} gelöscht`);
+        }
+    } else {
+        splineLoescheHandle(h, griff.splineVIdx, griff.splineKind);
+        console.log(`✓ ${aktuellerRaum}[${griff.hidx}].spline[${griff.splineVIdx}].${griff.splineKind} → Default (gerade Kante)`);
+    }
+    draw();
+});
+
 // ---------- Overlay (Phase 2 Info-Text + Phase 3 Aufgaben-UI) ----------
 
 const overlayEl = document.getElementById("overlay");
@@ -3477,7 +4768,7 @@ function clearSchliessenTimer() {
         schliessenTimeoutId = null;
     }
 }
-function automatischSchliessen(ms = 3000) {
+function automatischSchliessen(ms = 4000) {
     clearSchliessenTimer();
     schliessenTimeoutId = setTimeout(() => {
         schliessenTimeoutId = null;
@@ -3545,6 +4836,13 @@ document.addEventListener("keydown", (e) => {
         else if (!overlayEl.hidden) schliesseOverlay();
     }
 });
+
+// Sieg-Overlay (Chain 7): Buttons binden — Replay = Reload, End = "Thanks for playing"-Screen.
+// Backdrop-Klick + Esc bewusst NICHT geschlossen — der Spieler muss explizit wählen.
+const siegReplayBtn = document.getElementById("sieg-replay");
+const siegEndBtn    = document.getElementById("sieg-end");
+if (siegReplayBtn) siegReplayBtn.addEventListener("click", siegPlayAgain);
+if (siegEndBtn)    siegEndBtn.addEventListener("click", siegEndGame);
 
 // ---------- Formelbuch ----------
 // Wird aus dem Hauptregal heraus geöffnet (Klick auf die 5 Bücher rechts in regal-4 → siehe
@@ -3656,18 +4954,27 @@ window.pruefeFormelbuch = pruefeFormelbuch;
 
 // Registry aller möglichen Gegenstände. Icon ist Inline-SVG (viewBox 0..48).
 const GEGENSTAENDE = {
-    // Chain 1: Schlüssel für cupboard_1 (Büro). Klassischer Schlüssel mit rundem Bart links,
-    // Schaft nach rechts, zwei Zähne am Ende.
+    // Chain 1: Schlüssel für cupboard_1 (Büro). Silberner "moderner" Schlüssel —
+    // sechseckiger Reide-Kopf links, Schaft nach rechts, gestufter L-Bart am Ende.
+    // Bewusst anders gestaltet als der goldene `vereinter_schluessel` (Chain 6 → Chain 7,
+    // ovaler Reide-Kopf vertikal, einfache Zähne, gold). Randlos.
     schluessel_buero: {
-        name: "Key",
+        name: "Silver key",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <g fill="#e8b840" stroke="#7c5f1e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
-                   <circle cx="13" cy="24" r="9"/>
-                   <rect x="22" y="22" width="22" height="4"/>
-                   <rect x="34" y="26" width="3" height="6"/>
-                   <rect x="40" y="26" width="3" height="6"/>
-                 </g>
-                 <circle cx="13" cy="24" r="3.5" fill="#fff8e1" stroke="#7c5f1e" stroke-width="0.8"/>
+                 <!-- Sechseckiger Reide-Kopf (silber) -->
+                 <polygon points="4,24 9,16 19,16 24,24 19,32 9,32" fill="#b8b8b8"/>
+                 <!-- Highlight oben-links -->
+                 <polygon points="4,24 9,16 11,18.5 7,25" fill="#dcdcdc"/>
+                 <!-- Loch in der Mitte -->
+                 <circle cx="14" cy="24" r="3.5" fill="#4a4a4a"/>
+                 <!-- Schaft (horizontal) -->
+                 <rect x="22" y="22" width="20" height="4" fill="#b8b8b8"/>
+                 <!-- Highlight am Schaft (oben) -->
+                 <rect x="22" y="22" width="20" height="1.2" fill="#dcdcdc"/>
+                 <!-- Gestufter L-Bart am Ende (unten) -->
+                 <path d="M34 22 L42 22 L42 30 L46 30 L46 26 L34 26 Z" fill="#b8b8b8"/>
+                 <!-- Schatten-Akzent unten am Bart -->
+                 <rect x="34" y="25" width="12" height="1" fill="#9a9a9a"/>
                </svg>`,
     },
     // Chain 1: Zerknitterter Zettel mit Schrift drauf. Eckige Form mit Falt-Ecke + Linien.
@@ -3777,19 +5084,19 @@ const GEGENSTAENDE = {
                  <path d="M127.79,55.211 C127.79,63.758 134.72,70.734 143.274,70.734 C151.821,70.734 158.743,63.758 158.743,55.211 C158.743,46.679 151.821,39.742 143.274,39.742 C134.72,39.742 127.79,46.679 127.79,55.211" fill="#3D1212"/>
                </svg>`,
     },
-    // Chain 4: muffin_1 — kleines Cupcake-Icon im Cartoon-Stil.
+    // Chain 4: muffin_1 — kleines Cupcake-Icon im Cartoon-Stil. Randlos.
     muffin_1: {
         name: "Muffin",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <!-- Wachspapier (geriffelt) -->
-                 <path d="M11 24 L14 42 Q14 44 16 44 L32 44 Q34 44 34 42 L37 24 Z" fill="#f0bf20" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                 <path d="M11 24 L14 42 Q14 44 16 44 L32 44 Q34 44 34 42 L37 24 Z" fill="#f0bf20"/>
                  <line x1="16" y1="26" x2="16" y2="42" stroke="#bf931a" stroke-width="1"/>
                  <line x1="20" y1="26" x2="20" y2="42" stroke="#bf931a" stroke-width="1"/>
                  <line x1="24" y1="26" x2="24" y2="42" stroke="#bf931a" stroke-width="1"/>
                  <line x1="28" y1="26" x2="28" y2="42" stroke="#bf931a" stroke-width="1"/>
                  <line x1="32" y1="26" x2="32" y2="42" stroke="#bf931a" stroke-width="1"/>
                  <!-- Cupcake-Top (Schoko) -->
-                 <path d="M9 24 Q9 14 24 12 Q39 14 39 24 Z" fill="#5a3a1a" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                 <path d="M9 24 Q9 14 24 12 Q39 14 39 24 Z" fill="#5a3a1a"/>
                  <!-- Streusel -->
                  <circle cx="16" cy="20" r="1.5" fill="#ff5a5a"/>
                  <circle cx="22" cy="17" r="1.5" fill="#ffd84a"/>
@@ -3798,39 +5105,84 @@ const GEGENSTAENDE = {
                </svg>`,
     },
     // Chain 4: Messgerät — Cartoon-Bandmaß. Gelbes Gehäuse + ausgezogenes Maßband mit Tics.
+    // Randlos; Skala-Tics behalten (das ist Skala-Detail, nicht Outline).
     messgeraet: {
         name: "Tape measure",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <!-- Maßband-Streifen, schräg ausgezogen -->
-                 <path d="M30 24 L44 36 L40 42 L26 30 Z" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
-                 <!-- Skala-Tics auf dem Streifen -->
-                 <line x1="30" y1="27" x2="32" y2="29" stroke="#1a1a1a" stroke-width="1.2"/>
-                 <line x1="33" y1="30" x2="35" y2="32" stroke="#1a1a1a" stroke-width="1.2"/>
-                 <line x1="36" y1="33" x2="38" y2="35" stroke="#1a1a1a" stroke-width="1.2"/>
-                 <line x1="39" y1="36" x2="41" y2="38" stroke="#1a1a1a" stroke-width="1.2"/>
+                 <path d="M30 24 L44 36 L40 42 L26 30 Z" fill="#f5f5f5"/>
+                 <!-- Skala-Tics auf dem Streifen (gehören zum Maßband, dunkler Grauton statt schwarz) -->
+                 <line x1="30" y1="27" x2="32" y2="29" stroke="#5a5a5a" stroke-width="1.2"/>
+                 <line x1="33" y1="30" x2="35" y2="32" stroke="#5a5a5a" stroke-width="1.2"/>
+                 <line x1="36" y1="33" x2="38" y2="35" stroke="#5a5a5a" stroke-width="1.2"/>
+                 <line x1="39" y1="36" x2="41" y2="38" stroke="#5a5a5a" stroke-width="1.2"/>
                  <!-- Gehäuse (Kreis) -->
-                 <circle cx="18" cy="22" r="14" fill="#ff9933" stroke="#1a1a1a" stroke-width="2"/>
+                 <circle cx="18" cy="22" r="14" fill="#ff9933"/>
                  <!-- Innen-Wickel mit Achse -->
-                 <circle cx="18" cy="22" r="6" fill="#1a1a1a"/>
+                 <circle cx="18" cy="22" r="6" fill="#5a3a10"/>
                  <circle cx="18" cy="22" r="2.5" fill="#ffd84a"/>
                  <!-- kleines Höhepunkt-Highlight -->
                  <circle cx="14" cy="18" r="2.5" fill="#ffd084" opacity="0.7"/>
                </svg>`,
     },
-    // Chain 4: Schaufel (kleine Garten-Kelle, 30° rotiert).
+    // Chain 5: Drei farbige Kreise (gelb/rot/violett) — leicht überlappend angeordnet.
+    // Farben + Anordnung wie auf dem Bürobild, randlos.
+    drei_kreise: {
+        name: "Three colored circles",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <circle cx="20" cy="29" r="11" fill="#FFD43B"/>
+                 <circle cx="14" cy="18" r="9"  fill="#E63946"/>
+                 <circle cx="32" cy="16" r="8"  fill="#9B5DE5"/>
+               </svg>`,
+    },
+    // Chain 5: Pickel (klassische Spitzhacke). Brauner Holzgriff (45° rotiert) + grauer
+    // Doppelspitzen-Metallkopf. Randlos.
+    pickel: {
+        name: "Pickaxe",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g transform="rotate(-30 24 24)">
+                   <!-- Holzgriff -->
+                   <rect x="22" y="6" width="6" height="34" fill="#8b5a2b" rx="1.5"/>
+                   <!-- Bänder am Griff -->
+                   <rect x="22" y="12" width="6" height="2" fill="#5a3a1a"/>
+                   <rect x="22" y="32" width="6" height="2" fill="#5a3a1a"/>
+                   <!-- Metallkopf: Doppelspitze quer -->
+                   <path d="M4 13 Q12 11 22 12 L26 12 Q36 11 44 13 Q40 14 36 14 L26 16 L22 16 L12 14 Q8 14 4 13 Z"
+                         fill="#9aa3aa" stroke-linejoin="round"/>
+                   <!-- Highlight -->
+                   <path d="M8 13 Q14 12.2 20 12.6" fill="none" stroke="#d8dde0" stroke-width="1.2" stroke-linecap="round"/>
+                 </g>
+               </svg>`,
+    },
+    // Chain 6: Vereinter Schlüssel (drei Schlüsselteile + Leim → ein kompletter Schlüssel).
+    // Klassischer goldener Schlüssel mit ovaler Reide oben, Schaft, Bart mit zwei Zähnen.
+    // Visuell deutlich grösser/auffälliger als schluessel_buero (anderer Stil + viewBox-Ausnutzung).
+    vereinter_schluessel: {
+        name: "Complete key",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g fill="#e8b840" stroke="#7c5f1e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+                   <ellipse cx="24" cy="11" rx="8" ry="7"/>
+                   <rect x="22" y="16" width="4" height="22"/>
+                   <rect x="26" y="30" width="9" height="3"/>
+                   <rect x="26" y="36" width="6" height="3"/>
+                 </g>
+                 <ellipse cx="24" cy="11" rx="3.2" ry="2.6" fill="#fff8e1" stroke="#7c5f1e" stroke-width="0.8"/>
+               </svg>`,
+    },
+    // Chain 4: Schaufel (kleine Garten-Kelle, 30° rotiert). Randlos.
     schaufel: {
         name: "Trowel",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <g transform="rotate(-30 24 24)">
                    <!-- Holzgriff -->
-                   <rect x="20" y="4" width="8" height="20" fill="#8b5a2b" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+                   <rect x="20" y="4" width="8" height="20" fill="#8b5a2b" rx="2"/>
                    <!-- Bänder am Griff -->
                    <rect x="20" y="9" width="8" height="2" fill="#5a3a1a"/>
                    <rect x="20" y="18" width="8" height="2" fill="#5a3a1a"/>
                    <!-- Kellen-Hals (Verbindung Holz → Blatt) -->
-                   <rect x="22" y="22" width="4" height="6" fill="#888888" stroke="#1a1a1a" stroke-width="1"/>
+                   <rect x="22" y="22" width="4" height="6" fill="#888888"/>
                    <!-- Kellen-Blatt (zulaufend, leicht gebogen) -->
-                   <path d="M16 28 Q14 36 18 42 Q24 46 30 42 Q34 36 32 28 Z" fill="#c0c0c0" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                   <path d="M16 28 Q14 36 18 42 Q24 46 30 42 Q34 36 32 28 Z" fill="#c0c0c0" stroke-linejoin="round"/>
                    <!-- Highlight auf Blatt -->
                    <path d="M19 31 Q19 37 22 41" fill="none" stroke="#ececec" stroke-width="1.5" stroke-linecap="round"/>
                  </g>
@@ -3872,6 +5224,11 @@ function nimmAufGegenstand(obj) {
         // Nachtsicht-Filter aktivieren + binoculars_1_visual aus toilet_1 ausblenden.
         spielstand.zustaende.binoculars_genommen = true;
         aktiviereNachtsicht();
+    }
+    if (obj.aufnehmen === "duck_1") {
+        // Chain 4 — Story-Hinweis: Ente sieht unheimlich aus, soll man bald wieder los werden.
+        zeigeOverlayText("You take the rubber duck.\nIt looks strangely menacing — you'd rather get rid of it soon.");
+        automatischSchliessen(4000);
     }
     // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.
     // animal_3_1-Image auf desk_4 verschwinden lassen, sobald es im Inventar liegt).
@@ -4003,3 +5360,109 @@ function versucheDrop(clientX, clientY, gegenstandId) {
 
 // Initial: leeres Inventar rendern (versteckt, bis erster Gegenstand aufgenommen wird).
 aktualisiereInventar();
+
+// ---------- Linkes Sammel-Inventar (Chain 6) ----------
+// Sammlung der drei Schlüsselteile + Leim, parallel zum rechten Inventar. Items darin sind
+// NICHT interaktiv — Klick zeigt nur einen Hinweis, kein Drag-Start. Sobald alle 4 drin sind,
+// triggert sammleSchluesselteil() die kombiniereSchluessel-Animation (siehe oben).
+const LINKES_INVENTAR = {
+    // Reide-Teil (oberer Schlüsselkopf mit Loch). Bruchkante unten zeigt, dass es ein Teilstück ist.
+    // Goldfarbtöne (analog vereinter_schluessel) statt grau, randlos.
+    schluesselteil_1: {
+        name: "Key fragment (top)",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g fill="#e8b840">
+                   <ellipse cx="24" cy="16" rx="9" ry="8"/>
+                   <rect x="22" y="22" width="4" height="14"/>
+                 </g>
+                 <ellipse cx="24" cy="16" rx="3.6" ry="3" fill="#fff8e1"/>
+                 <!-- Highlights für Plastizität -->
+                 <ellipse cx="20" cy="13" rx="3" ry="1.6" fill="#f5d068" opacity="0.85"/>
+                 <!-- Bruchkante unten (zackig, dunkleres Gold) -->
+                 <path d="M19 36 L21 40 L23 37 L26 41 L28 37 L29 40 L26 43 L22 43 Z" fill="#b89540"/>
+               </svg>`,
+    },
+    // Mittel-Schaft (zylindrischer Stab, Bruchkante oben + unten).
+    schluesselteil_2: {
+        name: "Key fragment (shaft)",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <rect x="22" y="10" width="4" height="28" fill="#e8b840"/>
+                 <!-- Highlight (heller Streifen entlang Stab) -->
+                 <rect x="22" y="10" width="1.5" height="28" fill="#f5d068"/>
+                 <!-- Bruchkante oben -->
+                 <path d="M19 5 L21 9 L23 6 L26 10 L28 6 L29 9 L26 12 L22 12 Z" fill="#b89540"/>
+                 <!-- Bruchkante unten -->
+                 <path d="M19 43 L21 39 L23 42 L26 38 L28 42 L29 39 L26 36 L22 36 Z" fill="#b89540"/>
+               </svg>`,
+    },
+    // Bart-Teil (unterer Schlüsselbart mit zwei Zähnen, Bruchkante oben).
+    schluesselteil_3: {
+        name: "Key fragment (bit)",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g fill="#e8b840">
+                   <rect x="22" y="13" width="4" height="26"/>
+                   <rect x="26" y="26" width="11" height="3"/>
+                   <rect x="26" y="33" width="7" height="3"/>
+                 </g>
+                 <!-- Highlight (heller Streifen) -->
+                 <rect x="22" y="13" width="1.5" height="26" fill="#f5d068"/>
+                 <!-- Bruchkante oben -->
+                 <path d="M19 9 L21 13 L23 10 L26 14 L28 10 L29 13 L26 16 L22 16 Z" fill="#b89540"/>
+               </svg>`,
+    },
+    // Leim — Tube mit Cap und Label, randlos. Gelbe Tube mit hellem Highlight.
+    leim: {
+        name: "Tube of glue",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <!-- Cap (Schraubdeckel) -->
+                 <rect x="18" y="3" width="12" height="8" rx="1.2" fill="#9a9a9a"/>
+                 <rect x="18" y="3" width="12" height="2" rx="1.2" fill="#bababa"/>
+                 <!-- Schulter -->
+                 <path d="M16 11 L32 11 L34 16 L14 16 Z" fill="#ffe45a"/>
+                 <!-- Tube-Körper -->
+                 <rect x="14" y="16" width="20" height="26" rx="1.5" fill="#ffe45a"/>
+                 <!-- Highlight links -->
+                 <rect x="14" y="16" width="3" height="26" rx="1.5" fill="#fff39a"/>
+                 <!-- Label -->
+                 <rect x="16" y="22" width="16" height="14" fill="#ffffff"/>
+                 <text x="24" y="32" text-anchor="middle"
+                       font-family="ui-sans-serif, system-ui, sans-serif"
+                       font-size="8" font-weight="700" fill="#a07020">GLUE</text>
+                 <!-- Crimp am Boden (typische Tuben-Naht, dunkleres Gelb statt schwarz) -->
+                 <line x1="14" y1="42" x2="34" y2="42" stroke="#bf931a" stroke-width="2"/>
+               </svg>`,
+    },
+};
+
+const inventarLinksEl = document.getElementById("inventar-links");
+
+function aktualisiereLinkesInventar() {
+    if (!inventarLinksEl) return;
+    inventarLinksEl.innerHTML = "";
+    if (spielstand.linkesInventar.size === 0) {
+        inventarLinksEl.hidden = true;
+        return;
+    }
+    inventarLinksEl.hidden = false;
+    for (const id of spielstand.linkesInventar) {
+        const def = LINKES_INVENTAR[id];
+        if (!def) continue;
+        const slot = document.createElement("div");
+        slot.className = "inventar-slot sammlung-slot";
+        slot.dataset.gegenstand = id;
+        slot.title = def.name;
+        slot.innerHTML = def.icon;
+        // Kein Drag — Klick zeigt einen Hinweis. e.preventDefault() verhindert Cursor-Wechsel.
+        slot.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            zeigeOverlayText("Collection items on the left can't be used for interactions — only inventory items on the right can.");
+            automatischSchliessen(4000);
+        });
+        inventarLinksEl.appendChild(slot);
+    }
+}
+window.LINKES_INVENTAR = LINKES_INVENTAR;
+window.aktualisiereLinkesInventar = aktualisiereLinkesInventar;
+
+// Initial: leeres Sammel-Inventar rendern (versteckt).
+aktualisiereLinkesInventar();

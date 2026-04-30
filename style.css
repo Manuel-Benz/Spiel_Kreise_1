@@ -147,6 +147,59 @@ h1 {
     display: none;
 }
 
+/* Chain 6: linkes Sammel-Inventar — Schlüsselteile + Leim. Spiegelung des rechten Panels,
+   visuell etwas gedämpfter (geringere Opacity, gepunktete Border) → signalisiert "nicht
+   interaktiv". Klick auf Slot zeigt nur einen Hinweis. */
+#inventar-links {
+    position: absolute;
+    top: 2%;
+    left: 2%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.55rem;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px dashed rgba(255, 255, 255, 0.20);
+    border-radius: 0.5rem;
+    z-index: 5;
+    pointer-events: none;
+}
+
+#inventar-links[hidden] {
+    display: none;
+}
+
+.sammlung-slot {
+    /* Etwas blasser als interaktive Slots — keine Hover-Aufhellung. */
+    cursor: help;
+    opacity: 0.85;
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.30);
+}
+
+.sammlung-slot:hover {
+    /* Subtiles Highlight, aber nicht "klickbar"-Stil wie interaktive Slots. */
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.45);
+    opacity: 1;
+}
+
+/* Combine-Animation: alle 4 Slots glühen 2.8 s lang gold-grün, pulsieren leicht.
+   Wird in kombiniereSchluessel() per Klassen-Add ausgelöst, danach Slots geleert. */
+@keyframes sammlung-kombi {
+    0%   { box-shadow: 0 0 0 rgba(255, 220, 80, 0); transform: scale(1); }
+    20%  { box-shadow: 0 0 18px rgba(255, 220, 80, 0.85); transform: scale(1.08); }
+    45%  { box-shadow: 0 0 32px rgba(255, 220, 80, 1); transform: scale(1.13); }
+    70%  { box-shadow: 0 0 24px rgba(255, 220, 80, 0.95); transform: scale(1.10); }
+    100% { box-shadow: 0 0 8px rgba(255, 220, 80, 0.35); transform: scale(1); opacity: 0.4; }
+}
+
+.sammlung-slot.kombiniert {
+    animation: sammlung-kombi 2.8s ease-in-out forwards;
+    border-color: rgba(255, 220, 80, 0.9);
+    border-style: solid;
+}
+
 .inventar-slot {
     width: 56px;
     height: 56px;
@@ -539,7 +592,7 @@ h1 {
     transform-origin: 50% 100%;
 }
 .duck-keller-inner.duck-gross {
-    transform: scale(3);
+    transform: scale(2.5);
 }
 
 /* Chain 3 / Bridge: Nachtsicht-Filter — Spieler hat binoculars_1 aufgenommen.
@@ -562,4 +615,163 @@ body.nachtsicht #object-layer-vorne {
 #object-layer,
 #object-layer-vorne {
     transition: filter 0.6s ease-in;
+}
+
+/* Chain 5: Skelett lacht 2 s lang nach drei_kreise-Drop auf painting_2. CSS-Klasse
+   `skelett-lacht` aktiviert eine schnellere Wackel-+Scale-Pulse-Animation als Override
+   der ruhigen SMIL-Schaukel im Asset. Origin via inline style="transform-box:fill-box;
+   transform-origin:50% 100%" auf #skelett_3 (Bottom-Center → Füsse stehen, Körper wackelt). */
+@keyframes skelett-lach-wackel {
+    0%   { transform: rotate(0deg)   scale(1); }
+    25%  { transform: rotate(-12deg) scale(1.05); }
+    50%  { transform: rotate(0deg)   scale(1.08); }
+    75%  { transform: rotate(12deg)  scale(1.05); }
+    100% { transform: rotate(0deg)   scale(1); }
+}
+#skelett_3.skelett-lacht {
+    animation: skelett-lach-wackel 0.45s ease-in-out infinite;
+    /* Pivot nur während der Lach-Animation auf Bottom-Center stellen — sonst würde der
+       Inline-Style die SMIL-Schaukel (rotate(angle 1236 645) mit explizitem Pivot) in
+       manchen Browsern verschieben (CSS-transform-origin überlagert SVG-rotate-Pivot). */
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+}
+
+/* ---------- Chain 7: Sieg-Overlay (Endscreen mit Feuerwerk + Schatz) ---------- */
+/* Vollbild-Overlay (z-index > #overlay), tieferer Hintergrund (näher an schwarz),
+   damit Feuerwerk-Partikel maximal kontrastieren. Backdrop bewusst NICHT klick-
+   schliessbar — der Spieler muss explizit "Play again" oder "End game" wählen. */
+#sieg-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 80%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    overflow: hidden;
+}
+#sieg-overlay[hidden] { display: none; }
+
+#sieg-fireworks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* Ein Burst = ein Punkt mit 12 Partikel-Kindern, jedes auf einem anderen Winkel.
+   `--angle` (CSS-Variable) bestimmt die Richtung, animation läuft endlos. */
+.firework {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+.firework .particle {
+    position: absolute;
+    left: -5px;
+    top: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color, #ffd24a);
+    box-shadow: 0 0 8px var(--color, #ffd24a);
+    transform: rotate(var(--angle)) translateX(0);
+    animation: firework-burst 1.6s ease-out infinite;
+    animation-delay: var(--delay, 0s);
+    opacity: 0;
+}
+@keyframes firework-burst {
+    0%   { transform: rotate(var(--angle)) translateX(0);     opacity: 0; }
+    8%   { transform: rotate(var(--angle)) translateX(0);     opacity: 1; }
+    100% { transform: rotate(var(--angle)) translateX(110px); opacity: 0; }
+}
+
+/* Sieg-Box mit Schatz-SVG, Headline und Buttons. Etwas grösser als das normale
+   Aufgaben-Overlay, weil hier mehr Inhalt + Wirkung gefragt ist. */
+#sieg-box {
+    position: relative;
+    z-index: 1;
+    background: linear-gradient(180deg, #fff 0%, #fff8e1 100%);
+    color: #2a1a0c;
+    padding: 2rem 3rem 2.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 0 60px rgba(255, 215, 100, 0.5), 0 20px 80px rgba(0, 0, 0, 0.7);
+    text-align: center;
+    max-width: 80%;
+    border: 3px solid #e8b840;
+}
+
+#sieg-treasure {
+    width: 320px;
+    max-width: 80vw;
+    height: auto;
+    display: block;
+    margin: 0 auto 1rem;
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.4));
+}
+
+/* Krone leichter "Atem"-Pulse, damit der Schatz lebendig wirkt. */
+#sieg-treasure .krone {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: krone-pulse 2.4s ease-in-out infinite;
+}
+@keyframes krone-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.04); }
+}
+
+/* Funkel-Sterne — opacity + scale Pulse, gestaffelt für Twinkling. */
+#sieg-treasure .sparkle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sparkle-twinkle 1.4s ease-in-out infinite;
+}
+#sieg-treasure .sparkle.s1 { animation-delay: 0.0s; }
+#sieg-treasure .sparkle.s2 { animation-delay: 0.4s; }
+#sieg-treasure .sparkle.s3 { animation-delay: 0.8s; }
+#sieg-treasure .sparkle.s4 { animation-delay: 1.1s; }
+@keyframes sparkle-twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.7); }
+    50%      { opacity: 1;   transform: scale(1.2); }
+}
+
+#sieg-headline {
+    font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+    font-weight: 700;
+    margin: 0 0 1.5rem 0;
+    color: #5a3f0c;
+    text-shadow: 0 1px 0 #fff, 0 2px 6px rgba(232, 184, 64, 0.5);
+}
+
+.sieg-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.sieg-buttons button {
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+    background: #e8b840;
+    border: 2px solid #5a3f0c;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.sieg-buttons button:hover {
+    background: #f0c850;
+}
+.sieg-buttons button:active {
+    transform: scale(0.97);
+}
+#sieg-end {
+    background: #6b6157;
+}
+#sieg-end:hover {
+    background: #7d7368;
 }

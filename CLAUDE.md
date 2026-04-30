@@ -21,20 +21,23 @@ CLAUDE.md         ← diese Datei
 | Asset | Verwendung | Einbindung |
 |---|---|---|
 | `plant_*.svg` (9×) | Pflanzen im Hauptraum + Sträucher im Garten | Inline-SVG |
-| `painting_1.png`, `painting_2.png` | 2 Bilder an der hinteren Wand des Hauptraums | `<image href>` (PNG via `magick` aus den `.svg`-Quellen konvertiert; Original-SVGs zu groß für direkten Browser-Render: 1.8 MB / 14 MB) |
+| `painting_1.png`, `painting_2.png` | painting_1 im Hauptraum, painting_2 im Keller (über dem Kamin) | `<image href>` (PNG via `magick` aus den `.svg`-Quellen konvertiert; Original-SVGs zu groß für direkten Browser-Render: 1.8 MB / 14 MB) |
+| `painting_2_kreise` *(virtuell)* | 3 Cartoon-Kreise (gelb/rot/violett) als Inline-SVG-Overlay über painting_2 (Keller). Initial `class="sanitar-aus"`, sichtbar nach `drei_kreise`-Drop in Chain 5. Positionen perspektivisch entzerrt aus den BUERO_BILD-uv-Koords. | Inline-SVG (3 `<circle>`-Elemente) |
 | `bush_1..4.svg` | Detail-Büsche im Garten | `drawImage` (Canvas, damit Zaun verdecken kann) |
 | `table_1.svg`, `table_2.svg` | Holztisch Hauptraum / Schreibtisch Büro | Inline-SVG |
 | `lamp_lava_1.svg`, `bookshelf_1.svg` | Originale; Inline-Varianten im Hauptraum | nicht direkt |
 | `bookshelf_2.svg`, `chair_1.svg` | Bücherregal + Bürostuhl im Büro | Inline-SVG (kopiert) |
 | `octopus_1_1.svg`, `octopus_1_2.svg`, `octopus_1_3.svg`, `duck_1.svg` | Tintenfisch (3 Stimmungs-States, Switch-Triplet für Chain 2) + Quietscheente | Inline-SVG (alle drei Octopus-Varianten deckungsgleich, `class="octopus"`, IDs der Asset-Pfade NICHT geprefixed → bewusste Duplikate; CSS `:not(#path4647)` matcht alle drei) |
 | `bathtub_1_1/1_2.svg`, `toilet_2_1/2.svg` | Wanne + WC, je 2 Switch-States | Inline-SVG |
-| `skeleton_3.svg` | Tanzendes Skelett im Keller | `<image href>` |
+| `skeleton_3.svg` | Tanzendes Skelett im Keller (id `skelett_3`); Chain 5 togglet CSS-Klasse `skelett-lacht` für 2 s (schnellere Wackel-+Scale-Pulse-Animation, überlagert die SMIL-Schaukel) | `<image href>` |
 | `fireplace_1.svg` | Steinkamin im Keller | Inline-SVG |
 | `cake_1.svg` | Torte auf Tisch 1 im Hauptraum | Inline-SVG |
 | `cake_2.svg` | Torte auf desk_5 im Hauptraum | `<image href>` (war inline; wegen Gradient-Klon-Bug umgestellt — siehe Stolpersteine) |
 | `candle_2.svg`, `candle_3.svg` | Templates für die ~50 Keller-Kerzen — Pfad-Inhalt in `KERZE_TEMPLATE_2/_3` (script.js) eingebettet, pro Kerze geklont mit ersetzten Wachs-Farben | als String-Templates in script.js |
 | `chain_1.svg`, `chain_2.svg` | Ketten im Keller (Wand + Boden) | Inline-SVG |
-| `chest_1.svg` | Schatztruhe im Keller | Inline-SVG |
+| Pickel *(virtuell)* | Spitzhacke (brauner Holzgriff + grauer Doppelspitzen-Metallkopf). **Seit Vereinfachung von Chain 5 nicht mehr als Bühnen-Element** — landet direkt nach `drei_kreise`-Drop ins Inventar. Story-Text im Drop-Callback erwähnt das Geschenk vom Skelett. | nur als Inventar-Icon (Inline-SVG, randlos) |
+| `chest_1.svg` | Schatztruhe (Chain 7) — vergraben in der Gartenmitte, sichtbar nach Schaufel + Pickel-Drop auf gartenmitte_grab | `<image href>` (war historisch inline im Keller; mit Chain 7 in den Garten verschoben + auf Black-Box-`<image>` umgestellt → kein Gradient-Klon-Risiko) |
+| Loch *(virtuell)* | Ausgehobenes Grab in der Gartenmitte (`<g id="chain_7_grab">`) — Erdwall + perspektivisches Trapez-Loch + dunkler Tiefen-Indikator + 2 Erdklumpen am Rand. Eckpunkte aus `bodenPunkt(fu, fv)` berechnet (echtes Boden-Trapez im Fluchtpunkt-Schema). data-y-fuss=786. Sichtbar nach `chain_7_loch_offen=true`. Truhe sitzt drin. | Inline-SVG-Gruppe |
 | `flower_1.svg`, `flower_3.svg` | Innen-Blumen vorne-links im Garten (überlappen, flower_3 DOM-vor flower_1) | Inline-SVG |
 | `flower_2.svg` | Vorne-rechts im Garten | Inline-SVG (mit `f2_`-Prefix) |
 | `flower_4.svg`, `flower_6.svg` | Wiesen-Detailblumen im Garten (Canvas) — flower_4 vorne-links, flower_6 hinter dem Zaun | `drawImage` via `BUESCHE.flower4`/`flower6`, gerastert. Beide enthalten den ehemals inline-SVG-Inhalt mit `f4_`/`f6_`-Prefix-IDs. flower_6.svg hat zusätzlich einen `<g transform="matrix(-1 0 0 1 744.09 0)">`-Wrapper (an y-Achse gespiegelt). |
@@ -57,7 +60,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=30`, `script.js?v=194`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=35`, `script.js?v=204`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -313,11 +316,12 @@ Alle Inline-Imports im Keller (Kamin, Ketten, Truhe, animals) haben prefixierte 
 
 ## Hindernis-System (Kollision)
 
-`HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist eine von drei Formen:
+`HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist eine von vier Formen:
 
 - **Kreis**: `{ fu, fv, r }` — runde/kompakte Objekte (Pflanzen, Octopus).
 - **Ellipse**: `{ fu, fv, rx, ry, rot? }` — flache/breite Objekte (Tisch1, Kamin, Truhe). `rot` ist optional in Radian (Default 0): Rotation der rx-Achse ggü. der fu-Achse, im Uhrzeigersinn auf dem Boden-(fu,fv)-System (atan2-Konvention). Im Debug-Editor per ↻-Handle interaktiv setzbar.
 - **Viereck (konvex, polygon)**: `{ punkte: [[fu1,fv1], [fu2,fv2], [fu3,fv3], [fu4,fv4]] }` — rechteckige Möbel mit gerader Kante (Schrank, ggf. später Truhe/Schreibtisch). Konvex bedeutet: alle Innenwinkel < 180°. 3+ Punkte erlaubt, beliebige Reihenfolge (Cross-Product-Test).
+- **Spline (kubische Bezier-Kette)**: `{ spline: [{ fu, fv, hIn?: {du,dv}, hOut?: {du,dv} }, ...] }` — geschlossene Kette von kubischen Bezier-Edges für unregelmäßige/weiche Konturen (z.B. Kerzen-Cluster). Edge i geht von vertex[i] zu vertex[(i+1)%n]; Kontrollpunkte = vertex + (hOut bzw. hIn) als Offset-Vektoren. Fehlende Handles ⇒ degenerierter Cubic = effektiv gerade Kante. Handles sind nicht symmetrisch (zwei unabhängige Tangenten — Knicke an Vertices erlaubt). Für Kollision wird der Spline pro Edge mit `SPLINE_N=16` Samples in eine Polyline subdiviert (`splinePoly(h)`, gecached auf `h._cachedPoly`, invalidiert bei jedem Vertex-/Handle-Drag) und mit Ray-Casting (`pktInPolygonAllgemein`) getestet — funktioniert auch für nicht-konvexe Splines. Slide-Manöver projizieren auf das nächste Polyline-Segment; Außen-Normale via Centroid-Richtung (an konkaven Stellen leicht ungenau, für Level-Design ausreichend). **Alle HINDERNISSE-Einträge sind Splines** — Kreise/Ellipsen als 6-Eck-Näherung konvertiert, Vierecke 1:1 übernommen. Kreis/Ellipse/Viereck-Typen bleiben im Code für eventuelle spätere Nutzung.
 
 Form-Helper (alle in `script.js` direkt vor `istImHindernis`):
 - `istInForm(h, fu, fv)` — Type-Dispatch zwischen Ellipse-Gleichung und `pktInKonvexPolygon`.
@@ -344,10 +348,17 @@ Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk 
 1. `hindernisDebug(true)` in der Browser-Konsole → farbige Overlays + Handle-Marker. Handles je nach Form:
    - **Vierecke**: pro Eckpunkt ein runder Marker mit Label `<idx>.<eckIdx>` (z.B. `3.0`).
    - **Kreis/Ellipse**: runder Center-Marker mit `<idx>` + zwei quadratische `rx`/`ry`-Handles auf den Halbachsen + ein runder `↻`-Handle etwas außerhalb der rx-Achse (zum Drehen).
-2. Marker mit der Maus an die richtige Position ziehen (jeder Drag loggt eine kompakte Bestätigung). Achs-Drag (`rx`/`ry`) wandelt einen Kreis automatisch in eine Ellipse um (`r` weg, `rx`/`ry` neu). Rotations-Drag setzt `h.rot` in Radian; Werte unter 0.001 werden gelöscht (saubere 0-Default-Ausgabe).
-3. `dumpHindernisse()` (oder `dumpHindernisse("haupt")` etc.) → fertiges Code-Snippet für den ganzen Raum (`rot` wird nur ausgegeben, wenn ≠ 0).
-4. Snippet 1:1 in `HINDERNISSE.<raum>` in `script.js` einfügen.
-5. `hindernisDebug(false)` ausschalten.
+   - **Spline**: pro Vertex ein runder Marker mit Label `<idx>.<vIdx>` und zwei kleine quadratische Handle-Marker (hIn + hOut) mit gestrichelten Verbindungslinien zum Vertex. Gefülltes Quadrat = hIn/hOut gesetzt (gespeichert), hohles Quadrat = Default-Position (kein Eintrag in den Daten, Edge an dem Ende gerade).
+2. Marker mit der Maus an die richtige Position ziehen (jeder Drag loggt eine kompakte Bestätigung). Achs-Drag (`rx`/`ry`) wandelt einen Kreis automatisch in eine Ellipse um (`r` weg, `rx`/`ry` neu). Rotations-Drag setzt `h.rot` in Radian; Werte unter 0.001 werden gelöscht (saubere 0-Default-Ausgabe). Spline-Handle-Drag setzt `hIn`/`hOut` auf den realen Offset (Quadrat wird gefüllt).
+3. **Spline-spezifische Editor-Aktionen** (nur im Debug-Modus):
+   - **Doppelklick auf eine Spline-Kurve** (nicht auf einen Marker, in 14 px Toleranz) → kurvenform-erhaltender De-Casteljau-Split: neuer Vertex am Klick-Punkt, Handles der beiden Halb-Cubics werden korrekt berechnet, Kurvenshape bleibt unverändert.
+   - **Rechtsklick auf einen Spline-Vertex** → Vertex löschen (Mindest-Anzahl 3, sonst Warnung in der Konsole).
+   - **Rechtsklick auf einen Spline-Handle** → Handle entfernen (`hIn`/`hOut` aus den Daten gelöscht; Edge an dem Ende wird gerade; Marker springt zur Default-Position zurück, kann erneut gedragt werden).
+   - **Doppelklick auf einen Spline-Handle** → Handle zurücksetzen (identisch mit Rechtsklick-Löschen, aber per Doppelklick leichter erreichbar wenn die Maus schon auf dem Marker ist).
+   - Pointerdown filtert `e.button !== 0` raus → Rechtsklick startet keinen Drag.
+4. `dumpHindernisse()` (oder `dumpHindernisse("haupt")` etc.) → fertiges Code-Snippet für den ganzen Raum (`rot` wird nur ausgegeben, wenn ≠ 0; bei Splines werden `hIn`/`hOut` nur ausgegeben, wenn ≠ 0).
+5. Snippet 1:1 in `HINDERNISSE.<raum>` in `script.js` einfügen.
+6. `hindernisDebug(false)` ausschalten.
 
 Erst sinnvoll, wenn die Möbel im Raum stehen — sonst muss neu gedragt werden, sobald sich Möbel-Positionen ändern. Code-Vorschläge zu Hindernis-Werten dienen nur als Diskussions-Platzhalter, nicht als Endwerte.
 
@@ -390,7 +401,26 @@ const spielstand = {
         duck_im_keller: false,                          // duck_1 in den Ketten platziert (DOM-Element duck_1_keller sichtbar)
         duck_gefuettert: false,                         // muffin_1 verfüttert → CSS-Klasse duck-gross + Messgerät spawnt
         teppich_gemessen: false,                        // chain_4_teppich-Aufgabe gelöst → Schaufel im Inventar
+        // Chain 5 — Bürobild-Sequenz (gelb-rot-violett) → MC R=r·√2 → drei_kreise → painting_2 → Skelett lacht → Pickel
+        chain_5_step: 0,                                // 0 = nichts, 1 = MC gelöst, 4 = drei_kreise gedroppt + Pickel direkt im Inventar (Schritte 2 und 3 entfallen seit Vereinfachung)
+        bild_kreise_sequenz: [],                        // aktuelle Klick-Sequenz, Array von "yellow"|"red"|"violet"
+        bild_kreise_replay_aktiv: false,                // sperrt Klicks während Replay
+        bild_kreise_geloest: false,                     // MC gelöst → drei_kreise im Inventar; 3 Bild-Kreise versteckt
+        bild_kreise_im_keller: false,                   // drei_kreise auf painting_2 gedroppt → Overlay sichtbar
+        // (`pickel_da` entfernt — Pickel landet seit Vereinfachung DIREKT ins Inventar beim
+        // drei_kreise-Drop; kein separater Aufnehm-Schritt im Keller mehr.)
+        // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte → Truhe
+        // ausheben → mit Schlüssel öffnen → Sieg-Overlay (Feuerwerk + Schatz). Reihenfolge
+        // Schaufel/Pickel egal; Loch öffnet sich nach beiden Drops.
+        chain_7_schaufel_gedroppt: false,               // Schaufel auf gartenmitte_grab gedroppt
+        chain_7_pickel_gedroppt: false,                 // Pickel auf gartenmitte_grab gedroppt
+        chain_7_loch_offen: false,                      // beide Werkzeuge gedroppt → chain_7_grab sichtbar + Boden-Hindernis aktiv
+        chain_7_geoeffnet: false,                       // vereinter_schluessel auf chest_1 gedroppt → Sieg-Overlay
     },
+    // Chain 6 — Sammelinventar (links). 4 Formel-Erkennungs-Aufgaben füllen es mit
+    // schluesselteil_1/_2/_3 + leim. Sobald size===4: Combine-Animation → vereinter_schluessel
+    // ins rechte gegenstaende-Set. Items im linkesInventar sind NICHT interaktiv.
+    linkesInventar: new Set(),
 };
 ```
 
@@ -460,15 +490,15 @@ Mehrere lineare Chains laufen parallel; gelöste Aufgaben dürfen voneinander ab
 
 | Step | Trigger | Effekt |
 |---|---|---|
-| 0→1 | Klick `cake_1` (Hauptraum) → MC-Aufgabe `chain_1_kuchen` (U + A bei d=20 cm, π=3.14 → U=62,8, A=314) | `gegenstaende += "schluessel_buero"` |
-| 1→2 | Schlüssel auf cupboard_1 (linke Hälfte, x=980..1180) gezogen | Schrank-Switch öffnet (`cupboard_1_offen=true`), Schlüssel verbraucht |
+| 0→1 | Klick `cake_1` (Hauptraum) → MC-Aufgabe `chain_1_kuchen` (U + A bei d=20 cm, π=3.14 → U=62,8, A=314) | `gegenstaende += "schluessel_buero"` (Silberner Schlüssel mit Hex-Reide + L-Bart, optisch klar anders als der goldene `vereinter_schluessel` aus Chain 6) |
+| 1→2a | Silber-Schlüssel auf cupboard_1 (linke Hälfte, x=980..1180) gezogen | Schlüssel verbraucht, **MC-Aufgabe `chain_1_schloss` öffnet sich** (90° → π/2 rad). Bei richtig: `oeffneCupboard1()` → Schrank-Switch öffnet. Bei falsch: Schrank zu, Spieler kann erneut versuchen (gleicher Aufgaben-Dialog bleibt offen). |
 | 2→3 | Klick auf Zettel im offenen Schrank → Overlay mit Button „Mitnehmen" | `gegenstaende += "zettel"`, Zettel verschwindet visuell aus dem Schrank |
 | 3→4 | Zettel auf Lichtkegel der **handgemalten Tischlampe auf table_2** (x=330..445, y=430..515) gezogen | Öffnet MC-Aufgabe `chain_1_pi` |
 | 4→5 | π-Aufgabe gelöst (richtig: 355/113) | `inventar.keller_code = 355113`, `gegenstaende += "code_geheimtuer"` (Tag-Icon mit "355113"), Zettel verbraucht |
 
 **Vorbedingungen:** cake_1 ist KOMPLETT inaktiv, solange `formelbuch_gefunden=false` — `aktiv: (s) => s.zustaende.formelbuch_gefunden`. Klick fällt einfach durch zur Boden-Logik, ohne Hinweis-Overlay. Die Tischlampe in der Drop-Mechanik ist die handgemalte Schreibtischlampe AUF table_2 (Lichtkegel-Pfad in [index.html](index.html) bei `<g class="tischlampe">`), nicht die Pixar-Stehlampe `lamp_1` vorne-links.
 
-**Auto-Close:** Erfolgs-Overlays (`gewaehrenBelohnung` nach gelöster Aufgabe, "Schlüssel passt", Zettel-Aufnahme) schliessen sich automatisch nach 3 s via `automatischSchliessen(3000)`. Manuell früher schliessbar mit ×, Esc oder Klick auf den dunklen Hintergrund — der Timer wird in `schliesseOverlay()` und bei jedem neuen `zeige…`-Aufruf zurückgesetzt, damit ein alter Timer nie ein frisches Overlay mitschliesst.
+**Auto-Close:** Erfolgs-Overlays (`gewaehrenBelohnung` nach gelöster Aufgabe, "Schlüssel passt", Zettel-Aufnahme) schliessen sich automatisch nach 4 s via `automatischSchliessen(4000)`. Manuell früher schliessbar mit ×, Esc oder Klick auf den dunklen Hintergrund — der Timer wird in `schliesseOverlay()` und bei jedem neuen `zeige…`-Aufruf zurückgesetzt, damit ein alter Timer nie ein frisches Overlay mitschliesst.
 
 `spielstand.inventar.keller_code = 355113` (Zahl) bleibt für die Bridge-Tür-Code-Prüfung; das `code_geheimtuer`-Item ist der sichtbare Inventar-Eintrag (Tag mit „355113"), der dann auf die Geheimtür gedroppt wird (siehe Bridge unten).
 
@@ -544,6 +574,110 @@ Läuft parallel zu Chain 1–3, kommt aber praktisch erst weiter, wenn der Kelle
 - `messgeraet` — Bandmaß: gelb-orange Gehäuse (#ff9933) + schwarzer Wickel + ausgezogenes weißes Maßband mit schwarzen Skala-Tics, schräg nach unten-rechts.
 - `schaufel` — Garten-Kelle 30° rotiert: brauner Holzgriff (#8b5a2b) mit zwei dunklen Bändern + grauer Hals + zulaufendes silbernes Kellen-Blatt + Highlight.
 
+### Chain 5 — Bürobild-Sequenz → drei_kreise → painting_2 → Skelett lacht → Pickel
+
+Läuft parallel zu Chains 1–4. Liefert den **Pickel** — das zweite Item für den späteren Spielabschluss neben der Schaufel aus Chain 4.
+
+**Vorbedingung:** alle 3 Kreis-Klicks im Bürobild verlangen `formelbuch_gefunden=true` (analog Chains 1–4). Klick davor fällt ohne Hinweis durch.
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 1a | Klick auf gelben Kreis (`bild_kreis_yellow`) im Bürobild | `spieleTon(C4=261.63 Hz)`, `bild_kreise_sequenz.push("yellow")` |
+| 1b | Klick auf roten Kreis (`bild_kreis_red`) | `spieleTon(E4=329.63 Hz)`, sequenz wächst |
+| 1c | Klick auf violetten Kreis (`bild_kreis_violet`) | `spieleTon(G4=392.00 Hz)`, sequenz hat 3 Einträge |
+| 2 | Nach 3 Klicks → `setTimeout(replaySequenz, 500)` | `bild_kreise_replay_aktiv=true`, alle 3 Töne nochmals im 280-ms-Tempo. Klicks gesperrt. |
+| 3 | Replay-Ende — Vergleich mit `["yellow","red","violet"]` | Bei richtig: `zeigeAufgabe("chain_5_kreise")`. Bei falsch: sequenz=[], replay-Sperre auf, weiter probierbar. |
+| 4 | Aufgabe `chain_5_kreise` (MC, R = r·√2 für 2π·r² = π·R²) | `gegenstaende += "drei_kreise"`, `bild_kreise_geloest=true`, `aktualisiereChain5()` versteckt die 3 Bürobild-Pfade. |
+| 5 | Drag `drei_kreise` auf painting_2 (Keller, Polygon (950..1080, 300..494)) | `verbrauche("drei_kreise")`, `bild_kreise_im_keller=true`, painting_2_kreise-Overlay sichtbar (3 Kreise, 20 % grösser als Bürobild-Original); `skelettLachen()` (2 s schnelle Wackel-+Scale-Pulse-Animation); **Pickel landet DIREKT ins Inventar** (kein separater Aufnehm-Schritt im Keller mehr); Story-Text „...the skeleton bursts into laughter and gives you a pickaxe as thanks." |
+
+**Frequenzen-Mapping** in `KREIS_FREQ`: yellow=C4 (261.63), red=E4 (329.63), violet=G4 (392.00) — Dur-Akkord, harmonisch. **`spieleTon(freq, dauer=0.4)`**: Sinus-Oszillator mit Hüllkurve (Attack 0.02 s → Sustain → Release 0.13 s, Peak gain 0.25). Im Block analog `spieleSpuelung`/`spieleBurp`.
+
+**Replay-Logik** in `replaySequenz()`: setzt `bild_kreise_replay_aktiv=true`, schedules je `spieleTon(KREIS_FREQ[farbe])` per `setTimeout(i*280)`, und nach `seq.length*280 + 250` ms: Korrektheit prüfen, sequenz leeren, Sperre lösen, ggf. Aufgabe öffnen. Replay läuft IMMER nach 3 Klicks (akustisches Feedback der Eingabe — auch bei falsch).
+
+**`chain_5_kreise`** — MC mit 4 Optionen (π kürzt sich → kein π-Hinweis):
+- ✓ √2 — R² = 2r², R = r·√2 (richtig)
+- ✗ 2 — verdoppelt-r-Falle
+- ✗ 4 — r² statt r
+- ✗ 1/√2 — inverse Falle
+
+**Bürobild-Klickpolygone:** in `BUERO_BILD.kreise` haben die 3 Chain-5-Kreise eine `id`-Property (`bild_kreis_yellow|red|violet`); `baueBueroBild()` setzt sie als Attribut auf den `<path>`. Die OBJEKTE.buero-Einträge `bild_kreis_*_klick` haben Platzhalter-Polygone `[[0,0]…]` — **`initChain5Polygone()`** befüllt sie nach `baueBueroBild()` aus den uv-Bbox-Ecken (cu±r, cv±r) per `linkeWandPunkt`. BUERO_BILD ist in der Datei NACH OBJEKTE definiert, daher kein Inline-Lookup im Array-Literal möglich. Die Polygone sind perspektivisch korrekte Quadrilaterals auf der schrägen Bürobild-Wand.
+
+**Violet-Kreis verschoben** ggü. der Original-6-Kreis-Komposition: ursprünglich (cu=0.5375, cv=0.5245, r=0.060), neu (cu=0.5675, cv=0.4825, r=0.055), damit er nicht mehr mit dem grossen Gelb (r=0.090) überlappt — Center-Distanz 0.184 > Summe-Radii 0.145. Bbox-Top liegt knapp ausserhalb der Leinwand-uv-Box, wird aber durch `clip-path="url(#bueroBildClip)"` sauber abgeschnitten.
+
+**painting_2_kreise-Overlay** (Keller, über painting_2 x=950 y=300 130×194): `<svg id="painting_2_kreise" class="sanitar-aus" pointer-events="none">` mit 3 `<circle>`-Elementen. Positionen perspektivisch entzerrt aus den BUERO_BILD-uv-Koords:
+- yellow at office (0.4175, 0.5845) r=0.090 → painting_2 (78.6, 104.3) r=23.4
+- red at office (0.2225, 0.5245) r=0.075 → painting_2 (28.0, 146.0) r=19.5
+- violet at office (0.5675, 0.4825) r=0.055 → painting_2 (117.5, 175.2) r=14.3
+
+Berechnung: `xFrac = (cu - leinwand.uMin) / (leinwand.uMax - leinwand.uMin)`, analog yFrac mit `vMax - cv` (v invers, da v aufwärts auf der schrägen Wand → y abwärts auf der frontalen Wand). r-Skala = r/leinwand-Breite × painting_2-Breite. Aspect-Ratio differiert (Bürobild 1.80 landscape, painting_2 0.67 portrait) → keine perfekte 1:1-Übersetzung, aber relative Anordnung erhalten.
+
+**Skelett-Lach-Animation** (`skelett-lacht` CSS-Klasse): Keyframes `skelett-lach-wackel` 0..100 % rotiert ±12° + skaliert 1..1.08 in 0.45 s, infinite. Auf `#skelett_3.skelett-lacht` angewendet — überlagert die SMIL-Schaukel im Asset (CSS-Transform schlägt SVG-`transform`-Attribut). `style="transform-box:fill-box;transform-origin:50% 100%"` auf dem `<image>` setzt den Drehpunkt auf Bottom-Center → Skelett wackelt um die Füsse, statt um die Bbox-Mitte. `skelettLachen()` JS: Klasse hinzufügen, `setTimeout(2000)` entfernt sie wieder.
+
+### Chain 6 — Vier Formel-Erkennungs-Aufgaben → 3 Schlüsselteile + Leim → vereinter Schlüssel
+
+Sammel-Chain mit eigenem **linkem Inventar** (`#inventar-links`, oben links). Items darin sind NICHT interaktiv (kein Drag, Klick zeigt nur einen Hinweis-Overlay) — sie sind Sammelstücke. Sobald alle 4 zusammen sind, verschmelzen sie zu einem `vereinter_schluessel` im rechten Inventar.
+
+Liefert den **vereinten Schlüssel** — der wird in einer späteren Chain (Chain 7, Schatztruhe im Garten) zusammen mit Schaufel (Chain 4) und Pickel (Chain 5) verwendet.
+
+**Vorbedingung:** alle 4 Klick-Stellen verlangen `formelbuch_gefunden=true` (analog Chains 1–5). Klick davor fällt durch zur Boden-Logik, ohne Hinweis.
+
+**Reihenfolge der 4 Pickups: egal.** Jeder Pickup ist eine eigenständige MC-Aufgabe (Multiple-Choice der richtigen Kreis-Formel — kein Rechnen, nur Formel-Erkennung).
+
+| Pickup-Stelle | Aufgabe | Korrekte Antwort | Item ins linke Inventar |
+|---|---|---|---|
+| `chain_6_animal_1` (Keller, animal_1 an hinterer Wand, Polygon (474,215)..(614,390), laufziel fu=0.30 fv=0.55) | `chain_6_sektor` — Kreissektorfläche | A = (α/360°)·π·r² | `schluesselteil_1` (Reide) |
+| `chain_6_buecher` (Büro, oberstes Regal-Tablar links in bookshelf_2, Polygon (640,188)..(745,260), laufziel fu=0.42 fv=0.65) | `chain_6_bogen` — Bogenlänge | b = (α/360°)·2π·r | `schluesselteil_2` (Schaft) |
+| `chain_6_tulpe` (Hauptraum, plant_tulpe vorne-links, Polygon (20,720)..(175,880), laufziel fu=0.13 fv=0.04) | `chain_6_umfang` — Umfang | U = 2π·r | `schluesselteil_3` (Bart) |
+| `chain_6_schublade` (Badezimmer, mittlere Schublade von desk_4, Polygon (1245,645)..(1423,720), laufziel fu=0.86 fv=0.10) | `chain_6_flaeche` — Kreisfläche | A = π·r² | `leim` |
+
+**Visuelles Feedback an der Quelle:** keines — die Pickup-Stellen bleiben optisch unverändert (animal_1, Bücher, Tulpe, Schublade behalten ihr Aussehen). Nur das Polygon wird durch `aktiv: !linkesInventar.has(...)` deaktiviert (Cursor zurück auf default, Klick fällt durch).
+
+**Combine-Animation** (`kombiniereSchluessel` in script.js):
+1. Beim 4ten erfolgreich gelösten Pickup ruft die Aufgabe `sammleSchluesselteil(id)` → `linkesInventar.add(id)` → `aktualisiereLinkesInventar()`. Bei Set-Size 4 → `setTimeout(kombiniereSchluessel, 3300)` (Delay = Auto-Close des Belohnungs-Overlays + 300 ms Puffer).
+2. `kombiniereSchluessel()` setzt CSS-Klasse `.kombiniert` auf alle 4 Slots → 1.5-s-Keyframe-Animation `sammlung-kombi` (gold-grünes Glow + Scale-Pulse + Fade-out auf Opacity 0.4).
+3. Nach 1.5 s: `linkesInventar.clear()`, `gegenstaende.add("vereinter_schluessel")`, beide Inventare aktualisieren, Story-Overlay "The three key fragments and the glue fuse into one complete key" (Auto-Close 3.5 s).
+
+**Linkes Inventar UI** (`#inventar-links` in index.html, CSS in style.css):
+- Position absolut oben links auf `#game-stage` (Spiegelung von `#inventar` rechts).
+- Visuell gedämpfter: `border: 1px dashed`, `opacity: 0.85`, `cursor: help` (statt `grab`). Signalisiert "nicht interaktiv".
+- Klick auf Slot → `pointerdown` mit `e.preventDefault()` → `zeigeOverlayText("Collection items on the left can't be used for interactions — only inventory items on the right can.")` (Auto-Close 3.5 s). Kein Drag-Start.
+- Initial `hidden` (display:none), wird sichtbar sobald das erste Teil gesammelt ist.
+
+**Sammelteil-Icons** in eigenem Map `LINKES_INVENTAR` (script.js, parallel zu `GEGENSTAENDE`):
+- `schluesselteil_1` (Reide): ovaler Kopf mit Loch + kurzer Schaftansatz + Bruchkante unten (zackig).
+- `schluesselteil_2` (Mittelstück): zylindrischer Stab + Bruchkanten oben + unten.
+- `schluesselteil_3` (Bart): Schaft + 2 Zähne + Bruchkante oben.
+- `leim`: Tube mit grauem Cap + gelber Körper + weisses "GLUE"-Label + Crimp-Naht unten.
+- `vereinter_schluessel` (im normalen GEGENSTAENDE-Map): kompletter goldener Schlüssel — visuell deutlich grösser/auffälliger als `schluessel_buero` (ovale Reide rx=8 ry=7, viewBox füllend statt links sitzend).
+
+**Spielstand-State:** nur `spielstand.linkesInventar: new Set()` neu — kein eigener `chain_6_step`-Counter, da Set-Size genügt. Reihenfolge zwischen Chains völlig unabhängig (keine Cross-Chain-Locks). Aufgaben-Set `geloesteAufgaben` markiert die 4 MC-Aufgaben nach erfolgreichem Lösen — bei einem etwaigen Re-Klick (sollte nicht passieren wegen `aktiv`-Predikat) zeigt das Overlay "You've already solved this task".
+
+### Chain 7 — Schaufel + Pickel + vereinter Schlüssel → Grab in Gartenmitte → Truhe öffnen → Sieg
+
+Finale Chain. Setzt **alle drei Endgame-Items** voraus: `schaufel` (Chain 4), `pickel` (Chain 5), `vereinter_schluessel` (Chain 6). Reihenfolge der Tools beim Drop egal.
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 1 | Drag `schaufel` ODER `pickel` auf `gartenmitte_grab` (Polygon (560..1040, 660..800), aktiv wenn formelbuch + (Schaufel ‖ Pickel im Inv) + !chain_7_loch_offen) | Werkzeug verbraucht, `chain_7_schaufel_gedroppt` bzw. `chain_7_pickel_gedroppt = true`. Hinweis-Overlay „You start breaking up the soil — but you also need a {pickaxe\|trowel}." |
+| 2 | Drag das andere Werkzeug auf gartenmitte_grab | Beide Flags true → `chain_7_loch_offen=true`, **`HINDERNISSE.garten.push(CHAIN_7_HINDERNIS)`** (Boden-Polygon fu 0.42..0.58, fv 0.45..0.65), `aktualisiereChain7()` zeigt `chain_7_grab` (Loch + Truhe). Story-Overlay „You break through the soil and uncover a wooden chest in the hole." |
+| 3 | Drag `vereinter_schluessel` auf `chest_1` (Polygon (660..940, 670..800), aktiv wenn loch_offen + Schlüssel im Inv + !geoeffnet) | Schlüssel verbraucht, `chain_7_geoeffnet=true`, `dragAbbrechen()` (Sicherheits-Cleanup), **`zeigeSiegOverlay()`** öffnet das Vollbild-Endscreen-Overlay. |
+
+**`chain_7_grab` (DOM):** `<g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">` enthält Erdwall-Polygon, Loch-Öffnung (perspektivisches Trapez auf Boden — Eckpunkte aus `bodenPunkt(fu, fv)` für fu 0.34..0.66, fv 0.38..0.72 → ~440 px breit vorne, ~374 px hinten), Tiefen-Indikator (kleines, fast schwarzes Trapez nach hinten versetzt), zwei Erdklumpen, Truhen-`<image href="assets/chest_1.svg">` 200×89. Initial via Klasse `sanitar-aus` versteckt; `aktualisiereChain7` togglet sie. Wird via `data-y-fuss` in den Front-Layer geklont (Tiefensortierung).
+
+**`CHAIN_7_HINDERNIS`:** dynamisch beim Loch-Öffnen in `HINDERNISSE.garten` gepushed — verhindert, dass die Figur ins Loch laufen kann. Modul-State `chain_7_hindernis_aktiv` (let-Variable) verhindert Doppel-Push. Wird beim Reload (Module-Init) automatisch zurückgesetzt.
+
+### Sieg-Overlay (Chain 7 Endscreen)
+
+Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overlay` z-index 10), wird via `zeigeSiegOverlay()` geöffnet. Backdrop-Klick + Esc bewusst NICHT schliessbar — Spieler muss explizit wählen.
+
+**Inhalt:**
+- **Feuerwerk-Layer** (`#sieg-fireworks`): 6 Bursts an verschiedenen Positionen (gold/rot/türkis/grün/pink/gelb), jeder mit 12 Partikeln à 30°, gestaffelte Delays. CSS-Keyframe-Animation `firework-burst` 1.6 s endlos. Pro Aufruf neu via `spawneFireworks()` befüllt.
+- **Schatz-SVG** (`#sieg-treasure`, viewBox 0 0 400 260): Münzhaufen (gestaffelte gold-Ellipsen + Einzelmünzen, randlos) + Krone (Trapez-Ring + 5 schmale Zacken (Basis je 14 px, central tallest), 5 Edelsteine an den Spitzen, zentraler Saphir, alle randlos). CSS-Animationen: `krone-pulse` (sanftes Atem-Pulse 2.4 s), `sparkle-twinkle` (4 Funkelsterne, gestaffelt).
+- **Headline** „You found the treasure!"
+- **2 Buttons:** „Play again" → `siegPlayAgain()` (`location.reload()`) · „End game" → `siegEndGame()` (Box-Inhalt durch „Thanks for playing!" ersetzt).
+
+**Side-Effects beim Öffnen:** Inventare (rechts + links) werden auf `hidden=true` gesetzt, damit Inventory-Slots nicht neben der Krone stehen.
+
 ### Bridge — Octopus weg → toilet_1 → Binoculars → Nachtsicht → Geheimtür → Keller
 
 | Step | Trigger | Effekt |
@@ -582,6 +716,12 @@ Statt eigener Tutorial-Hand-Grafiken steuert das Spiel den nativen Browser-Curso
 | `bird_1` (garten) | `vogel_da` |
 | `gartenschlauch` (garten) | `formelbuch_gefunden && !schlauch_genommen` |
 | `flower_1_drop` (garten) | `formelbuch_gefunden && gartenschlauch-im-Inv && !flower_1_gegossen` |
+| `bild_kreis_yellow/red/violet_klick` (buero) | `formelbuch_gefunden && !bild_kreise_geloest && !bild_kreise_replay_aktiv` |
+| `painting_2` (keller) | `drei_kreise-im-Inv && !bild_kreise_im_keller` |
+| `chain_6_animal_1` (keller) | `formelbuch_gefunden && !linkesInventar.has("schluesselteil_1")` |
+| `chain_6_buecher` (buero) | `formelbuch_gefunden && !linkesInventar.has("schluesselteil_2")` |
+| `chain_6_tulpe` (haupt) | `formelbuch_gefunden && !linkesInventar.has("schluesselteil_3")` |
+| `chain_6_schublade` (badezimmer) | `formelbuch_gefunden && !linkesInventar.has("leim")` |
 
 **Wichtig zu Drop-Targets mit "Item-im-Inventar"-Bedingung:** Während eines Drag bleibt das Item im `spielstand.gegenstaende`-Set (delete erst durch `verbrauche()` im Drop-Callback). Daher greift das Predikat sowohl beim Hover (Cursor) als auch beim Drop (`versucheDrop` filtert via `objektIstAktiv`). Nach dem Drop wird das Item entfernt und das Objekt automatisch inaktiv.
 
@@ -610,7 +750,20 @@ const AUFGABEN = {
 
 `zeigeOverlayText(text)` für einfachen Info-Text (z.B. „Tür verschlossen."). Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
 
-Aktuell definiert: `chain_1_kuchen` (MC, U+A bei d=20 cm), `chain_1_pi` (MC, π-Annäherung), `chain_2_octopus` (Zahleneingabe, A=31400 cm²), `chain_3_schlauch` (MC, 5 Windungen → 25 m), `chain_3_pizza` (Zahleneingabe, A=1 m²), `chain_4_teppich` (MC, äußerste Ringfläche bei U=6,28 m, d=10 cm → 5966 cm²).
+**13 Aufgaben aktuell definiert** (10× MC, 3× Zahleneingabe):
+- **Chain 1**: `chain_1_kuchen` (MC, U+A bei d=20 cm) · `chain_1_schloss` (MC, 90° → π/2 rad — wird beim schluessel_buero-Drop auf cupboard_1 geöffnet, bei richtig öffnet sich der Schrank) · `chain_1_pi` (MC, π-Annäherung 355/113)
+- **Chain 2**: `chain_2_octopus` (Zahleneingabe, C=2π·100 cm → A=31400 cm²)
+- **Chain 3**: `chain_3_schlauch` (MC, 5 Windungen → L=25 m) · `chain_3_pizza` (Zahleneingabe, A=1 m²)
+- **Chain 4**: `chain_4_teppich` (MC, äußerste Ringfläche bei U=6,28 m, d=10 cm → 5966 cm²)
+- **Chain 5**: `chain_5_kreise` (MC, 2π·r²=π·R² → R = r·√2)
+- **Chain 6**: `chain_6_sektor` / `chain_6_bogen` / `chain_6_umfang` / `chain_6_flaeche` (4× MC, reine Formel-Erkennung — kein Rechnen)
+- **Bonus** (Chain-frei): `bonus_sonne` (MC, Sonnen-Umfang U=4 370 880 km bei r=696 000 km, π=3.14) — Klick auf die Sonne im Garten, nicht spielentscheidend. Belohnungstext „Correct! But this doesn't help you in the game — you solved this just for fun 😊". Hat **`geloest_text`-Override** „You have just solved this for fun 😊" für Wieder-Klick (statt Standard-Text).
+
+**MC-Zufalls-Reihenfolge:** `baueMultipleChoice()` macht bei jedem Render einen Fisher–Yates-Shuffle einer flachen Kopie von `a.optionen`. Klick-Handler bekommt das Option-Objekt direkt (nicht Index), damit die Korrektheits-Prüfung unabhängig von der Render-Reihenfolge funktioniert. Original-`AUFGABEN[id].optionen` bleibt unverändert.
+
+**Per-Aufgabe `geloest_text`-Override:** Optional kann eine Aufgabe `geloest_text: "..."` definieren — dieser Text wird statt des Standard-„You've already solved this task." gezeigt, wenn die Aufgabe schon gelöst ist. Aktuell genutzt von `bonus_sonne`.
+
+**Auto-Close global 4 s:** `automatischSchliessen` Default-Argument ist 4000 ms; alle Call-Sites verwenden ebenfalls 4000 ms (vorher gemischt 2500–3500). Auto-Close in `gewaehrenBelohnung` ebenfalls 4000.
 
 ## Inventar + Drag & Drop
 
@@ -659,7 +812,9 @@ Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter z
 
 `spieleBurp()` (Chain 4): kurzer 0.55 s Rauschen mit Tiefpass-Sweep 320 Hz → 80 Hz, Q=6 (resonant), schnelle Pulse-Hüllkurve. Klingt nach Rülpsen — spielt nach Muffin-Drop auf duck_1_keller.
 
-Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`.
+`spieleTon(freq, dauer=0.4)` (Chain 5): reiner Sinuston mit weicher Hüllkurve (Attack 0.02 s → Sustain → Release 0.13 s, Peak gain 0.25). Wird für die 3 farbigen Bürobild-Kreise genutzt: yellow=C4 (261.63 Hz), red=E4 (329.63 Hz), violet=G4 (392.00 Hz) — Dur-Akkord, harmonisch.
+
+Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`, `spieleTon(freq)`.
 
 ## Input / Loop
 
@@ -721,24 +876,64 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **CSS-Composite-Filter sind teuer** (Nachtsicht-Stolperstein): Eine Filter-Kette wie `brightness(0.5) sepia(1) hue-rotate(50deg) saturate(3.5)` → 4 Pipeline-Stufen pro Pixel pro Frame. Bei grossen DOM-Layern (Hauptraum: viel Inhalt in `#object-layer`) merklich sluggish, auch mit `will-change: filter`. **Lösung:** in einen einzigen SVG-`<filter>` mit `feColorMatrix` falten → eine 4×5-Matrix-Multiplikation pro Pixel. Nicht-skalare Filter-Kombinationen lassen sich oft als Matrix nähern (siehe `<filter id="nachtsicht">`). Zusätzlich: Layer mit häufigen Updates (z.B. `#figure-canvas` 60×/s) am besten gar nicht filtern — der Filter müsste dort jeden Frame neu berechnet werden.
 - **SVG `<g>` mit CSS-`transform: scale` clippt am viewBox** (Chain 4 / duck_1_keller): Eine inner `<g>` mit `transform: scale(N)` skaliert die Pfade über die viewBox-Bbox des outer `<svg>` hinaus. Per Default ist `overflow="hidden"` (SVG-Standard) → der Inhalt wird abgeschnitten, optisch ein „gelbes Quadrat" oder Rumpf-Cut. **Lösung:** `overflow="visible"` als Attribut auf das outer `<svg>` setzen. CSS `overflow: visible` reicht hier NICHT, weil SVG den Attributwert priorisiert. Beispiel: `<svg id="duck_1_keller" overflow="visible" viewBox="…">`.
 - **Drop-laufziel im Hindernis-Polygon → Slide-Loop** (Chain 4): laufziele für Drop-Targets (z.B. ketten_drop) müssen AUSSERHALB aller Hindernisse liegen, sonst läuft die Figur ins Hindernis, der Slide-Algorithmus pendelt und die Aktion wird nie ausgelöst. Im Keller deckt das chain_1-Hindernis den ganzen vorderen Boden ab → laufziele wurden hinter die Ketten verlegt (fu, fv ≈ 0.55, 0.55). **Faustregel:** laufziel in einem freien Bereich, von dem aus die Figur das Polygon ohne Hindernis erreichen kann; bei Boden-Hindernissen heisst das oft „dahinter, nicht davor".
+- **Forward-Reference auf BUERO_BILD aus OBJEKTE-Literal** (Chain 5): die OBJEKTE.buero-Einträge `bild_kreis_*_klick` brauchen Klickpolygone aus den BUERO_BILD-uv-Koords; BUERO_BILD ist aber in der Datei NACH OBJEKTE definiert und wäre beim Auswerten des OBJEKTE-Literals `undefined`. **Fix:** Polygon-Platzhalter `[[0,0]…]` im Literal, nachträgliches Befüllen via `initChain5Polygone()` in `baueRaumDeko()` (zwischen `baueBueroBild()` und `klonePflanzenVorne()`). Funktionsdeklarationen wie `kreisGedrueckt` werden gehoistet, ihre Verwendung im OBJEKTE-Literal ist also OK (Aufruf erst zur Klick-Zeit).
+- **CSS-Animation überlagert SMIL-Transform** (Chain 5 / Skelett-Lachen): das `<image href="skeleton_3.svg">` hat eine SMIL `<animateTransform>`-Schaukel, die das `transform`-Attribut moduliert. Eine CSS-Klasse `.skelett-lacht` mit `animation: ... transform` schlägt die SMIL — CSS-Transforms haben Vorrang vor SVG-`transform`-Attributen. **Wichtig: `transform-box: fill-box` und `transform-origin: 50% 100%` NUR in der CSS-Klasse `.skelett-lacht` setzen, NICHT als Inline-Style aufs `<image>`.** Sonst rotiert die SMIL-Schaukel (rotate(angle 1236 645) mit explizitem Pivot) in manchen Browsern um den falschen Punkt — der CSS-`transform-origin` überlagert den SVG-`rotate`-Pivot. Im Default-Zustand (ohne `.skelett-lacht`) bleibt es bei der SMIL-Logik mit korrektem Pivot; nur während der 2 s Lach-Animation wird der CSS-Pivot aktiv.
+- **Front-Layer-Reihenfolge bei mehreren `data-y-fuss`-Elementen** (Chain 4 / Ente-vor-Ketten): Wenn nur ein einzelnes Element `data-y-fuss` hat (z.B. duck_1_keller=860), wandert es allein in den Front-Layer und erscheint ÜBER allen anderen Elementen (auch wenn die in Rück-Ebene visuell drüber sein sollten). **Symptom:** duck_1_keller (im Front-Layer) überdeckt chain_1 + chain_2 (nur in Rück-Ebene) → Ente vor den Ketten statt dahinter. **Lösung:** Auch chain_1 + chain_2 mit `data-y-fuss="860"` versehen. `klonePflanzenVorne()` klont in DOM-Reihenfolge → Front-Layer-Order: duck-Klon (DOM-zuerst), chain_1-Klon, chain_2-Klon → chain-Klone rendern auf duck-Klon (gewünscht). Voraussetzung: duck ist DOM-VOR den Ketten platziert.
+- **Per-Aufgabe `geloest_text`-Override:** Optional kann eine Aufgabe `geloest_text: "..."` definieren — `zeigeAufgabe` zeigt diesen Text statt des Standard-„You've already solved this task." bei Wieder-Klick auf eine schon gelöste Aufgabe. Aktuell: `bonus_sonne` mit „You have just solved this for fun 😊".
+- **MC-Optionen Zufalls-Reihenfolge:** `baueMultipleChoice` macht pro Render einen Fisher–Yates-Shuffle einer flachen Kopie von `a.optionen`. Klick-Handler bekommt das Option-Objekt direkt (nicht Index), damit Korrektheits-Prüfung unabhängig von der Render-Reihenfolge funktioniert. Original-`AUFGABEN[id].optionen` bleibt unverändert.
+- **`HINDERNISSE.<raum>` dynamisch erweitern (Chain 7):** Beim Öffnen des Lochs in der Gartenmitte wird `CHAIN_7_HINDERNIS` (vordefiniertes Boden-Polygon) per `HINDERNISSE.garten.push(...)` zur Laufzeit angehängt. Modul-State `chain_7_hindernis_aktiv` (let-Variable) verhindert Doppel-Push. Beim Reload wird das Modul frisch initialisiert → State und HINDERNISSE-Original-Liste sind sauber. Klärt sich also automatisch.
+- **`<svg>`-Klick-Polygone für Chain 7 mussten gross dimensioniert werden:** Die Drop-Targets `gartenmitte_grab` (560..1040, 660..800 = 480×140) und `chest_1` (660..940, 670..800 = 280×130) sind absichtlich grosszügig, weil die Figur beim Drop hinkommt und der User das mit dem Drag-Cursor präzise treffen muss. Kleinere Polygone (vorher 240×40) frustrierten beim Drop.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate (Hand-Icon erscheint nur an Stellen, wo gerade eine sinnvolle Aktion möglich ist), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, MC mit **Zufalls-Reihenfolge**, `belohnung_text` darf Funktion sein, optionaler `geloest_text`-Override), Inventar + Drag & Drop (rechts) **plus linkes Sammel-Inventar (Chain 6, NICHT interaktiv)**, Kollision (**alle Hindernisse als Splines** — Kreise/Ellipsen als 6-Eck-Näherung, Vierecke 1:1; kubische Bezier-Splines mit Live-Editor inkl. Doppelklick-Handle-Reset + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate, Hindernis-Drag-Editor. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**. **Auto-Close global 4 s.** **Inventar-Icons komplett randlos** (kein `stroke="#1a1a1a"` mehr). **Kombinations-Helper chain123() etc. rufen automatisch `bridge()` mit** wenn 1+2+3 enthalten.
 
-**Vier spielbare Chains + Bridge zum Keller:**
-- **Chain 1:** Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
-- **Chain 2:** animal_3_1 vom desk_4 → toilet_2 dumpen → animal_3_2 → Wanne → animal_3_3 → Octopus → Aufgabe `chain_2_octopus` (C=2π·100 → A=31400 cm²) → octopus_zustand +1.
-- **Chain 3:** zentrale Wolke klicken → Vogel sichtbar; parallel: Schlauch-MC-Aufgabe (5 Windungen d=5/π → 25 m) → gartenschlauch im Inventar → flower_1 giessen (skaliert 2×) → seed_1 → Vogel füttern → goldene_muenzen → Octopus → Aufgabe `chain_3_pizza` (60°, r=√(6/π) → A=1 m²) → octopus_zustand +1.
-- **Chain 4:** duck_1 (Wanne) + muffin_1 (desk_5) ins Inventar → duck auf Ketten dropen → muffin auf duck → Burp + duck wächst 2× + Messgerät → Messgerät auf Teppich → Aufgabe `chain_4_teppich` (U=6,28 m, d=10 cm → A_äußerster_Ring = 5966 cm²) → Schaufel ins Inventar.
-- **Bridge:** Beide Octopus-Aufgaben advancen state +1, bei state=3 startet Exit-Animation NACH Overlay-Schliessen → toilet_1 frei → Sitz oben togglen → Binoculars luggen heraus → aufnehmen aktiviert Nachtsicht-SVG-Filter (Phosphor-Grün auf die 3 statischen Render-Layer) → Hauptraum: Geheimtür mit Phosphor-Outline → code_geheimtuer aus Inventar auf Tür droppen → Code geprüft, Binoculars + Code verbraucht, Filter aus, Tür permanent in b80 → Keller offen.
+**Sieben spielbare Chains + Bridge zum Keller + Sieg-Endscreen:**
+- **Chain 1:** Formelbuch finden → cake_1 → Schlüssel (silbern) → cupboard_1 mit `chain_1_schloss`-Aufgabe (90° → π/2) → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
+- **Chain 2:** animal_3_1 → toilet_2 → Wanne → animal_3_3 → Octopus → `chain_2_octopus` → octopus_zustand +1.
+- **Chain 3:** Wolke → Vogel + Schlauch-MC → flower_1 → seed_1 → Vogel → goldene_muenzen → Octopus → `chain_3_pizza` → octopus_zustand +1.
+- **Chain 4:** duck_1 + muffin_1 → Ketten → Burp + Messgerät → Teppich-MC → Schaufel.
+- **Chain 5:** Bürobild-Sequenz (C4-E4-G4) → `chain_5_kreise` → drei_kreise → painting_2 → Skelett lacht → **Pickel landet direkt im Inventar**.
+- **Chain 6:** 4 Pickup-Aufgaben (Sektor / Bogen / Umfang / Fläche, reine Formel-Erkennung) → linkes Sammel-Inventar → 4 Stück → Combine-Animation → `vereinter_schluessel`.
+- **Chain 7 (NEU):** Schaufel + Pickel → gartenmitte_grab → Loch + Truhe sichtbar (chain_7_grab als perspektivisches Boden-Trapez, dynamisches HINDERNISS gepushed) → vereinter_schluessel auf chest_1 → **Sieg-Overlay** (Feuerwerk + Krone + Münzen, Play again / End game).
+- **Bridge:** Beide Octopus-Aufgaben → state=3 → Exit nach Overlay-Schliessen → toilet_1 → Binoculars → Nachtsicht → Geheimtür → code_geheimtuer-Drop → Keller offen.
 
-Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — beide Aufgaben können in beliebiger Reihenfolge gelöst werden, jede macht +1 am Octopus-State. Chain 3 ist effektiv erforderlich für die Bridge, da Chain 2 alleine nur eine Fütterung erlaubt.
+Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — beide Aufgaben können in beliebiger Reihenfolge gelöst werden, jede macht +1 am Octopus-State. Chain 3 ist effektiv erforderlich für die Bridge.
+
+**Konsolen-Dev-Helper (Chain-Schnellpässe):** Direkt in die Browser-Konsole eintippen, um den Spielstand auf „Chain N erledigt" zu versetzen — nützlich zum Testen einzelner Spätspielszenen ohne alle Vorbedingungen manuell zu spielen.
+
+```js
+chain1()      // Formelbuch + Schrank offen + Code-Tag im Inventar
+chain2()      // Octopus-Mood +1
+chain3()      // Octopus-Mood +1
+bridge()      // Octopus weg + Keller freigeschaltet (Binoculars + Code verbraucht)
+chain4()      // Schaufel im Inventar
+chain5()      // Pickel im Inventar (drei_kreise gedroppt, painting_2-Overlay sichtbar)
+chain6()      // vereinter_schluessel im Inventar
+chain7()      // Loch offen + Schlüssel im Inventar — bereit zum Sieg-Drop
+```
+
+**Kombinationen** für beliebige Subsets, in beliebiger Ziffernreihenfolge im Funktionsnamen:
+```js
+chain12()       // Chains 1 + 2
+chain134()      // Chains 1 + 3 + 4 (Items: Code-Tag + Octopus-Mood +1 + Schaufel)
+chain143()      // identisch zu chain134 (Reihenfolge der Ziffern egal)
+chain1234567()  // alle 7 Chains
+```
+
+Generiert werden **alle Permutationen** der nichtleeren Subsets von {1..7} (~13 700 Funktionsnamen). Ausführung läuft intern immer in numerisch sortierter Reihenfolge — der State-Endpunkt ist gleich. **Auto-Bridge:** Kombinationen, die Chains 1+2+3 alle enthalten (z.B. `chain123()`, `chain1234567()`), rufen automatisch `bridge()` mit → Keller wird freigeschaltet. `bridge()` kann weiterhin separat aufgerufen werden.
+
+Diese Funktionen verändern nur Flags + Inventar; visuelle Zustände werden über `aktualisiere*`-Helper nachgezogen. Keine Aufgaben-Overlays/Auto-Close-Effekte werden ausgelöst (kein Spam-Workflow in der Konsole).
+
+**Offen:**
+- Diagnose-`console.warn` in `slideUmHindernis` rausnehmen, sobald keine neuen Slide-Hänger mehr auftauchen.
+- Optionales `localStorage` für Fortschritt (erst nach komplettem Inhaltsfeedback sinnvoll).
 
 **Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Chain 4 Items:** Bandmaß-, Cupcake-, Schaufel- und Quietscheente-Inventar-Icons als Cartoon-SVGs handgezeichnet (`messgeraet`, `muffin_1`, `schaufel`, `duck_1` — alles in 48er-Slot). **Performance:** Nightvision von 4-fach-CSS-Composite-Filter auf Single-Pass-SVG-feColorMatrix umgestellt; figure-canvas aus dem Filter ausgenommen. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert.
 
 **Offen:**
-- 10–15 Kreis-Aufgaben (Umfang, Fläche, Durchmesser, Radius), linear I → IV mit Cross-Room-Lookups.
+- **Chain 7:** Schatztruhe (chest_1) wird in der Gartenmitte vergraben. Erst interaktiv, wenn Schaufel (Chain 4) + Pickel (Chain 5) + vereinter_schluessel (Chain 6) im Inventar liegen. Schaufel/Pickel zum Ausgraben, dann vereinter_schluessel zum Aufschliessen.
+- Weitere Kreis-Aufgaben falls gewünscht (aktuell 11 Aufgaben definiert: 7 Rechen-Aufgaben + 4 Formel-Erkennung in Chain 6).
 - Auslösende Handlungen für Sanitär-Switch (welche Aufgabe → `setzeBadewanne(2)` etc.).
 - Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar).
 - `localStorage` für Fortschritt (erst nach Inhalten sinnvoll).
