@@ -398,6 +398,8 @@ function aktualisiereCupboard1() {
     setSichtbar("cupboard_1_2", offen);
     // Zettel im Schrank verschwinden lassen, sobald er im Inventar liegt.
     setSichtbar("cupboard_1_zettel_visual", offen && !spielstand.gegenstaende.has("zettel"));
+    // Tutorial-Hand an cupboard_1 hängt am offen-State.
+    if (typeof aktualisiereHinweise === "function") aktualisiereHinweise();
 }
 
 function oeffneCupboard1() {
@@ -431,6 +433,44 @@ function aktualisiereChain3() {
     document.querySelectorAll(".flower-1").forEach(el => {
         el.classList.toggle("flower-1-gross", !!z.flower_1_gegossen);
     });
+    // Tutorial-Hinweis-Hände aktualisieren (formelbuch + per-Stelle-Logik).
+    aktualisiereHinweise();
+}
+
+// ---------- Tutorial-Hinweis-Hände ----------
+// Cartoon-Hand mit Pfeil pulsiert an interaktiven Stellen. Erscheint NUR, wenn
+// formelbuch_gefunden=true UND die nächste sinnvolle Aktion an der Stelle noch
+// zu tun ist (sonst pulsiert die Hand an Stellen, wo es nichts mehr zu klicken gibt).
+// Bedingungen pro data-hint:
+//   cupboard_1  — Schrank noch zu (Schlüssel-Drop), oder offen aber Zettel noch drin.
+//   lichtkegel  — Zettel im Inventar (Drop auf Tischlampe).
+//   bathtub     — animal_3_2 im Inventar (Glas mit Wasser füllen).
+//   toilet_2    — Sitz noch unten ODER animal_3_1 im Inventar zum Drop.
+//   toilet_1    — Octopus weg, Binoculars noch nicht genommen.
+//   octopus     — Octopus noch da UND animal_3_3 oder goldene_muenzen im Inventar.
+//   flower_1    — gartenschlauch im Inventar (giessen).
+function aktualisiereHinweise() {
+    const z = spielstand.zustaende;
+    const inv = spielstand.gegenstaende;
+    const fb = !!z.formelbuch_gefunden;
+    const setHint = (id, sichtbar) => {
+        document.querySelectorAll(`.hint-hand[data-hint="${id}"]`).forEach(el => {
+            el.classList.toggle("hint-aus", !(fb && sichtbar));
+        });
+    };
+    setHint("cupboard_1",
+        !z.cupboard_1_offen
+        || (z.cupboard_1_offen && !inv.has("zettel") && (z.chain_1_step ?? 0) < 3));
+    setHint("lichtkegel", inv.has("zettel"));
+    setHint("bathtub", inv.has("animal_3_2"));
+    setHint("toilet_2",
+        z.toilette_2 !== 2
+        || inv.has("animal_3_1"));
+    setHint("toilet_1", !z.octopus_da && !z.binoculars_genommen);
+    setHint("octopus",
+        z.octopus_da
+        && (inv.has("animal_3_3") || inv.has("goldene_muenzen")));
+    setHint("flower_1", inv.has("gartenschlauch"));
 }
 window.aktualisiereChain3 = aktualisiereChain3;
 
@@ -862,7 +902,7 @@ const OBJEKTE = {
         // laufziel etwas vor toilet_1 (analog zu animal_3_1 in Chain 2).
         {
             id: "binoculars_1",
-            polygon: [[1085, 480], [1195, 480], [1195, 576], [1085, 576]],
+            polygon: [[1102, 495], [1179, 495], [1179, 562], [1102, 562]],
             laufziel: { fu: 0.74, fv: 0.20 },
             aufnehmen: "binoculars_1",
             aktiv: (s) => !s.zustaende.octopus_da && s.zustaende.toilette_1 === 2 && !s.zustaende.binoculars_genommen,
@@ -894,6 +934,7 @@ const OBJEKTE = {
             id: "toilet_2",
             polygon: [[590, 420], [750, 420], [750, 670], [590, 670]],
             aktion: (s) => {
+                if (!s.zustaende.formelbuch_gefunden) return;  // Sitz-Toggle erst nach Formelbuch-Fund.
                 if (s.zustaende.toilette_2_voll) {
                     spieleSpuelung();
                     setzeToilette2Voll(false);
@@ -3378,6 +3419,7 @@ function rendereInlineMath(text, ziel) {
 
 function zeigeFormelbuch() {
     spielstand.zustaende.formelbuch_gefunden = true;
+    aktualisiereHinweise();  // Tutorial-Hände erscheinen jetzt an interaktiven Stellen.
     clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
 
@@ -3553,7 +3595,7 @@ const GEGENSTAENDE = {
     binoculars_1: {
         name: "Night vision device",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <image href="assets/binoculars_1.svg?v=1" x="2" y="2" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>
+                 <image href="assets/binoculars_1.svg?v=1" x="8.5" y="8.5" width="31" height="31" preserveAspectRatio="xMidYMid meet"/>
                </svg>`,
     },
 };
@@ -3565,20 +3607,22 @@ function aktualisiereInventar() {
     inventarEl.innerHTML = "";
     if (spielstand.gegenstaende.size === 0) {
         inventarEl.hidden = true;
-        return;
+    } else {
+        inventarEl.hidden = false;
+        for (const id of spielstand.gegenstaende) {
+            const g = GEGENSTAENDE[id];
+            if (!g) continue;
+            const slot = document.createElement("div");
+            slot.className = "inventar-slot";
+            slot.dataset.gegenstand = id;
+            slot.title = g.name;
+            slot.innerHTML = g.icon;
+            slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
+            inventarEl.appendChild(slot);
+        }
     }
-    inventarEl.hidden = false;
-    for (const id of spielstand.gegenstaende) {
-        const g = GEGENSTAENDE[id];
-        if (!g) continue;
-        const slot = document.createElement("div");
-        slot.className = "inventar-slot";
-        slot.dataset.gegenstand = id;
-        slot.title = g.name;
-        slot.innerHTML = g.icon;
-        slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
-        inventarEl.appendChild(slot);
-    }
+    // Tutorial-Hände hängen an Inventar-Inhalten (animal_3_2 da → bathtub-Hand etc.).
+    aktualisiereHinweise();
 }
 
 // Gegenstand aufnehmen: wird vom Objekt-Klick-Handler aufgerufen, nachdem die Figur angekommen ist.

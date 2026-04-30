@@ -41,7 +41,7 @@ CLAUDE.md         ← diese Datei
 | `flower_5.svg` | Original-Asset, nicht mehr verwendet (User-Wunsch) | — |
 | `bird_1.svg` | Vogel-Silhouette (Chain 3a) — taucht im Garten an Wolken-Position auf, sobald die zentrale Wolke geklickt wurde | Inline-SVG (Single-Path-Silhouette `#484a54`, viewBox 600×300, IDs mit `b1_`-Prefix). Initial `class="sanitar-aus"`; aktualisiereChain3() togglet anhand `vogel_da` |
 | `seed_1.svg` | Samenkorn (Chain 3b) — kein eigenes Bühnen-Element, nur Inventar-Icon nach gegossener flower_1 | `<image>` 44×44 im Inventar-Icon mit `?v=1`. Even-odd-Path-Silhouette, viewBox 144 144 512 512 |
-| `binoculars_1.svg` | „Night vision device" (Chain 3 / Bridge) — luggt aus toilet_1 heraus, sobald Octopus weg + Sitz oben | Sowohl `<image>` in `#binoculars_1_visual` (toilet_1-Schüssel, data-y-fuss=670) als auch Inventar-Icon. ?v=1. Mit clipPaths — Inline würde IDs benötigen, aber `<image>` ist Black-Box |
+| `binoculars_1.svg` | „Night vision device" (Chain 3 / Bridge) — luggt aus toilet_1 heraus, sobald Octopus weg + Sitz oben | Sowohl `<image>` in `#binoculars_1_visual` (toilet_1-Schüssel x=1102 y=495 77×67, data-y-fuss=670) als auch Inventar-Icon (31×31 in 48er-Slot zentriert). ?v=1. Mit clipPaths — Inline würde IDs benötigen, aber `<image>` ist Black-Box. Bühne und Inventar-Icon beide auf 70 % der Original-Grösse skaliert. |
 | `flower_2a.svg` *(virtuell)* / `flower_2b.svg` *(virtuell)* | Variationen von flower_2: 3 Blüten rot-orange + 5 Blüten blau gespiegelt; Inline-SVG-Klone von flower_2 mit `f2a_`/`f2b_`-Prefix, wenigeren Blüten, Hex-Recolor (siehe Garten-Sektion) | Inline-SVG |
 | `gradenhose_1.svg` | Gartenschlauch frontal-Aufsicht (Original-User-Asset), hängt an rechter Hauswand im Garten | `<image>` mit Affin-Matrix (siehe Garten-Sektion) |
 | `gradenhose_2.svg` | Stilisierte Seitenansicht des Schlauchs (Wandhaken + 8 Coil-Ovale + Düse), aktuell **unbenutzt** als Alternative | — |
@@ -57,7 +57,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=26`, `script.js?v=190`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=27`, `script.js?v=191`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -231,7 +231,7 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
   - **`<g transform="translate(37 -9)">`-Wrapper** in `toilet_2_2` und `toilet_1_2`: Die beiden Switch-Partner-Assets haben ihre Pfade im viewBox um (-37, +9) verschoben — der Wrapper gleicht das aus, sodass _1 und _2 deckungsgleich liegen.
   - **CSS `.sanitar-aus { display: none !important }`** im `<style>`-Block — wird von `setSichtbar()` togglet. `!important` schlägt die Inline-display-Setzung von `aktualisierePflanzenTiefe()`, sodass der versteckte Switch-Partner zuverlässig unsichtbar bleibt.
 
-  **Toiletten-Klick** in `OBJEKTE.badezimmer`: `toilet_1`-Polygon (1100..1240, 420..670) und `toilet_2`-Polygon (590..750, 420..670), beide ohne `laufziel` → Klick toggelt sofort, Figur bleibt stehen. Polygone bewusst enger als die volle SVG-Bbox, damit Klicks auf cupboard_2 (x=750..1100) keine Toilette mehr triggern. `toilet_1` zeigt Hinweistext, solange `spielstand.zustaende.octopus_da === true` (Tintenfisch sitzt drauf) — `toilet_2` togglet immer.
+  **Toiletten-Klick** in `OBJEKTE.badezimmer`: `toilet_1`-Polygon (1100..1240, 420..670) und `toilet_2`-Polygon (590..750, 420..670), beide ohne `laufziel` → Klick toggelt sofort, Figur bleibt stehen. Polygone bewusst enger als die volle SVG-Bbox, damit Klicks auf cupboard_2 (x=750..1100) keine Toilette mehr triggern. `toilet_1` ist gesperrt, solange `spielstand.zustaende.octopus_da === true` (Tintenfisch sitzt drauf). `toilet_2` ist gesperrt, solange `formelbuch_gefunden === false` — damit der Spieler im Tutorial-Stadium nicht versehentlich den Sitz hochklappt, bevor Chain 2 sinnvoll spielbar ist. Drop von animal_3_1 bleibt unabhängig (greift sowieso erst nach Sitz oben + leer, was nur nach Formelbuch passieren kann).
 
   Hinweis Nummerierung: Die "1"/"2" hinter `toilet_` folgt den Asset-Namen, nicht der räumlichen Lage.
 - **cupboard_2** (`assets/cupboard_2.svg?v=5`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=350 height=500. **KEIN data-y-fuss** — wandmontiert wie painting_2/animals (Schrank-Korpus endet im SVG bei ~81% der viewBox-Höhe, der Rest sind Schatten/Reflexion-Pfade; bei `data-y-fuss="650"` lag der vermeintliche Foot deutlich unter dem visuellen Korpus → Figur "verschwand" hinter dem Whitespace, wenn sie zu nah ranging). Hindernis stoppt die Figur korrekt davor. Asset wurde von Manuel vereinfacht (`?v=2`); danach Holztöne 2× ~20% aufgehellt (`?v=3`, dann `?v=4`); zuletzt manuelle User-Anpassungen (`?v=5`). Glas-Spiegel (Türkis-Gradients) und Türknäufe (Gradient_5/9) blieben unverändert. cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
@@ -517,6 +517,34 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 **Geheimtür ohne Binoculars + nicht freigeschaltet:** `findeTuerBei` filtert komplett raus → Klick fällt zur Boden-Logik durch (wie ganz normale Wand, kein Hinweis-Overlay).
 
+## Tutorial-Hinweis-Hände
+
+Cartoon-Hand mit ausgestrecktem Zeigefinger nach unten + roter Pfeil oberhalb pulsiert an interaktiven Stellen. Erscheint NUR, wenn `formelbuch_gefunden=true` UND die nächste sinnvolle Aktion an der Stelle noch zu tun ist (sonst pulsiert die Hand bei abgeschlossenen Steps weiter — verwirrend).
+
+**Mechanik:**
+- SVG-`<symbol id="hint-hand-symbol">` in `<defs>` der `#object-layer` (viewBox 60×90, gelbe Hand + roter Pfeil).
+- Pro Stelle ein `<use href="#hint-hand-symbol" class="hint-hand hint-aus" data-hint="<id>" x=Y y=Z width="60" height="90"/>` als DOM-letztes Element der jeweiligen `<g data-raum>`-Gruppe → überdeckt Möbel in der Rück-Ebene.
+- Hände haben **kein** `data-y-fuss`, werden also nicht von `klonePflanzenVorne()` in die Front-Ebene geklont. Folge: sobald die Figur in die Front-Ebene wechselt (figur.fv > möbel.fv), kann ein Möbel die Hand kurzzeitig verdecken — bewusst akzeptiert.
+- CSS `.hint-hand` mit `pointer-events:none` (Klicks fallen zum darunterliegenden OBJEKT durch) + `@keyframes hint-pulse` (Translate-Y −6 px + scale 1.05, opacity 0.85→1, 1.4 s).
+- Sichtbarkeit über `.hint-aus { display:none !important }` — togglet `aktualisiereHinweise()` in script.js.
+
+**Sichtbarkeits-Bedingungen pro `data-hint`** (alle AND `formelbuch_gefunden`):
+| `data-hint` | Raum | Position (x,y) | Sichtbar wenn |
+|---|---|---|---|
+| `cupboard_1` | buero | (1050, 305) | Schrank zu, ODER offen + Zettel noch drin (`!cupboard_1_offen \|\| (cupboard_1_offen && !zettel-im-Inv && chain_1_step < 3)`) |
+| `lichtkegel` | buero | (357, 350) | Zettel im Inventar |
+| `bathtub` | badezimmer | (400, 345) | animal_3_2 im Inventar |
+| `toilet_2` | badezimmer | (640, 325) | Sitz noch unten (toilette_2 !== 2) ODER animal_3_1 im Inventar |
+| `octopus` | badezimmer | (1085, 285) | Octopus noch da UND (animal_3_3 oder goldene_muenzen im Inventar) |
+| `toilet_1` | badezimmer | (1140, 325) | Octopus weg, Binoculars noch nicht genommen |
+| `flower_1` | garten | (330, 415) | gartenschlauch im Inventar |
+
+**Aufruf-Punkte für `aktualisiereHinweise()`:**
+- `aktualisiereChain3()` ruft es am Ende auf → wird via `aktualisiereSanitaer()` bei jeder Sanitär-/Inventar-Änderung getriggert.
+- `aktualisiereInventar()` ruft es am Ende auf → bei jedem Drop/Aufnehmen.
+- `aktualisiereCupboard1()` ruft es am Ende auf → beim Öffnen des Schranks.
+- `zeigeFormelbuch()` ruft es einmal beim Setzen von `formelbuch_gefunden=true` auf → Hände erscheinen sofort.
+
 ## Aufgaben + Overlay
 
 ```js
@@ -649,7 +677,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, Voll/Leer-Mechanik mit Spülsound), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
+**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Tutorial-Hinweis-Hände an 7 interaktiven Stellen (erscheinen nach Formelbuch-Fund, verschwinden pro Stelle bei Erledigung), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
 
 **Drei spielbare Chains + Bridge zum Keller:**
 - **Chain 1:** Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
