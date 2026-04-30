@@ -1603,7 +1603,7 @@ const OBJEKTE = {
         {
             id: "animal_3_1",
             polygon: [[1308, 435], [1418, 435], [1418, 545], [1308, 545]],
-            laufziel: { fu: 0.86, fv: 0.10 },
+            laufziel: { fu: 0.86, fv: 0.55 },
             aufnehmen: "animal_3_1",
             aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
         },
@@ -1611,11 +1611,11 @@ const OBJEKTE = {
         // (Kreisfläche). desk_4 sitzt x=1200 y=520 width=310 height=360 (viewBox 0..369.06,441).
         // Schublade-Front-Reihe Mitte liegt im viewBox y≈151..246 → Screen y ≈ 643..721,
         // x in viewBox 53..266 → Screen x ≈ 1245..1423. laufziel synchron mit animal_3_1 (vor desk_4).
-        // Hindernis [4] desk_4 reicht von fv 0.30..0.99 → laufziel fv=0.10 ist davor frei.
+        // Hindernis [3] desk_4 (zusammengefasst) reicht bis fv≈0.47 → laufziel fv=0.55 ist davor frei.
         {
             id: "chain_6_schublade",
             polygon: [[1245, 645], [1423, 645], [1423, 720], [1245, 720]],
-            laufziel: { fu: 0.86, fv: 0.10 },
+            laufziel: { fu: 0.86, fv: 0.55 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden
                        && !s.linkesInventar.has("leim"),
             aufgabe: "chain_6_flaeche",
@@ -1879,8 +1879,8 @@ const OBJEKTE = {
     keller: [
         // Chain 6: animal_1 an der hinteren Wand — Klick auf das Tier öffnet Formel-Erkennungs-
         // Aufgabe (Kreissektor). animal_1 sitzt bei x=474 y=215 width=140 height=175 → Polygon
-        // (474, 215) bis (614, 390). laufziel davor auf dem Boden, ausserhalb von chain_1
-        // (HINDERNISSE.keller[2]: fu 0.10..0.49, fv 0.05..0.44).
+        // (474, 215) bis (614, 390). laufziel davor auf dem Boden, ausserhalb des Ketten-Hindernisses
+        // (HINDERNISSE.keller[2] bbox ≈ fu 0.12..0.47, fv 0..0.48).
         {
             id: "chain_6_animal_1",
             polygon: [[474, 215], [614, 215], [614, 390], [474, 390]],
@@ -1897,8 +1897,8 @@ const OBJEKTE = {
         {
             id: "ketten_drop",
             polygon: [[280, 770], [740, 770], [740, 880], [280, 880]],
-            // laufziel HINTER den Ketten (chain_1-Hindernis reicht von fv=0.05..0.43,
-            // fu=0.10..0.49) — sonst läuft die Figur in das Hindernis-Polygon und der
+            // laufziel HINTER den Ketten (HINDERNISSE.keller[2] bbox ≈ fu 0.12..0.47,
+            // fv 0..0.48) — sonst läuft die Figur in das Hindernis-Polygon und der
             // Slide-Algorithmus pendelt. Vom Eingang (fu 0.12, fv 0.45) ist (0.55, 0.55) frei.
             laufziel: { fu: 0.55, fv: 0.55 },
             aktiv: (s) => s.gegenstaende.has("duck_1") && !s.zustaende.duck_im_keller,
@@ -2220,183 +2220,133 @@ function wechsleRaum(zielId) {
 // Rechtsklick → löschen.
 const HINDERNISSE = {
     haupt: [
-        { spline: [                                   // [0] yucca
-            { fu: 0.0598, fv: 0.8006 },
-            { fu: 0.0569, fv: 0.8460 },
-            { fu: 0.0281, fv: 0.8542 },
-            { fu: 0.0020, fv: 0.8168 },
-            { fu: 0.0049, fv: 0.7714 },
-            { fu: 0.0337, fv: 0.7632 },
+        { spline: [                                   // [0] yucca + Tisch 1 (zusammengefasst)
+            { fu: 0.0653, fv: 0.7537, hIn: { du: -0.024, dv: -0.0281 } },
+            { fu: 0.065, fv: 0.8662, hIn: { du: 0.0215, dv: -0.0861 }, hOut: { du: 0.0184, dv: 0.0286 } },
+            { fu: 0.1665, fv: 0.87, hIn: { du: -0.0458, dv: 0.0025 }, hOut: { du: 0.0168, dv: 0.0403 } },
+            { fu: 0.1664, fv: 0.9997 },
+            { fu: 0.0027, fv: 0.996 },
+            { fu: 0.0001, fv: 0.7668, hOut: { du: 0.0235, dv: -0.0078 } },
         ] },
         { spline: [                                   // [1] blume
-            { fu: 1.0000, fv: 0.1861 },
-            { fu: 0.9729, fv: 0.2615 },
-            { fu: 0.9329, fv: 0.2553 },
-            { fu: 0.9254, fv: 0.1735 },
-            { fu: 0.9577, fv: 0.0981 },
-            { fu: 0.9977, fv: 0.1043 },
+            { fu: 0.9998, fv: 0.3292, hOut: { du: -0.0245, dv: -0.0186 } },
+            { fu: 0.9402, fv: 0.2582, hIn: { du: 0.0281, dv: 0.07 }, hOut: { du: -0.0127, dv: -0.1306 } },
+            { fu: 0.9452, fv: 0.0875, hIn: { du: -0.01, dv: 0.0316 }, hOut: { du: 0.0148, dv: -0.0058 } },
+            { fu: 0.9995, fv: 0.1302, hIn: { du: -0.0302, dv: 0.004 }, hOut: { du: 0.0019, dv: 0.0629 } },
         ] },
         { spline: [                                   // [2] tulpe
-            { fu: 0.0819, fv: 0.0913 },
-            { fu: 0.0697, fv: 0.1625 },
-            { fu: 0.0247, fv: 0.1695 },
-            { fu: 0.0000, fv: 0.1051 },
-            { fu: 0.0039, fv: 0.0339 },
-            { fu: 0.0489, fv: 0.0269 },
+            { fu: 0.0618, fv: 0.1594, hIn: { du: 0.0235, dv: -0.055 }, hOut: { du: -0.0308, dv: 0.0469 } },
+            { fu: 0.0003, fv: 0.1737, hIn: { du: 0.0106, dv: 0.0461 }, hOut: { du: -0.018, dv: -0.024 } },
+            { fu: 0.0015, fv: 0.0006 },
+            { fu: 0.0928, fv: 0.0006, hIn: { du: -0.0198, dv: -0.0099 }, hOut: { du: -0.0217, dv: 0.0771 } },
         ] },
-        { spline: [                                   // [3] Tisch 1
-            { fu: 0.0001, fv: 0.9056 },
-            { fu: 0.1627, fv: 0.8996 },
-            { fu: 0.1648, fv: 0.9979 },
-            { fu: 0.0010, fv: 0.9988 },
+        { spline: [                                   // [3] desk_3
+            { fu: 0.3796, fv: 0.7957, hIn: { du: 0.0281, dv: 0.0654 }, hOut: { du: 0.0119, dv: -0.0633 } },
+            { fu: 0.4905, fv: 0.668, hIn: { du: -0.0464, dv: 0.0271 }, hOut: { du: 0.0197, dv: -0.0026 } },
+            { fu: 0.5695, fv: 0.7678, hIn: { du: -0.0246, dv: -0.0923 }, hOut: { du: -0.0284, dv: 0.0543 } },
+            { fu: 0.4711, fv: 0.8365, hIn: { du: 0.0407, dv: 0.0014 }, hOut: { du: -0.0413, dv: 0.0183 } },
         ] },
-        { spline: [                                   // [4] desk_3
-            { fu: 0.3717, fv: 0.7890 },
-            { fu: 0.4954, fv: 0.6810 },
-            { fu: 0.5740, fv: 0.7561 },
-            { fu: 0.4830, fv: 0.8227 },
+        { spline: [                                   // [4] desk_5
+            { fu: 0.9019, fv: 0.6313, hIn: { du: -0.017, dv: 0.0172 }, hOut: { du: 0.0291, dv: -0.0162 } },
+            { fu: 0.9995, fv: 0.6512, hIn: { du: -0.0351, dv: 0.0106 } },
+            { fu: 0.9996, fv: 0.8235, hOut: { du: -0.0474, dv: -0.0465 } },
+            { fu: 0.8718, fv: 0.7819, hIn: { du: 0.0473, dv: 0.0561 }, hOut: { du: -0.0128, dv: -0.1222 } },
         ] },
-        { spline: [                                   // [5] desk_5
-            { fu: 0.8869, fv: 0.6244 },
-            { fu: 1.0000, fv: 0.6575 },
-            { fu: 0.9994, fv: 0.8034 },
-            { fu: 0.8634, fv: 0.7758 },
-        ] },
-        { spline: [                                   // [6] cupboard_3
-            { fu: 0.8223, fv: 0.9241 },
-            { fu: 0.9999, fv: 0.9274 },
+        { spline: [                                   // [5] cupboard_3
+            { fu: 0.8211, fv: 0.9021, hIn: { du: -0.007, dv: 0.048 }, hOut: { du: 0.0359, dv: -0.0191 } },
+            { fu: 0.9998, fv: 0.909, hIn: { du: -0.0437, dv: 0.0247 } },
             { fu: 0.9979, fv: 0.9982 },
-            { fu: 0.8381, fv: 0.9993 },
+            { fu: 0.8287, fv: 0.9998 },
         ] },
     ],
     buero: [
-        { spline: [                                   // [0] Tisch 2 vorne
-            { fu: 0.1975, fv: 0.8172 },
-            { fu: 0.1475, fv: 0.9038 },
-            { fu: 0.0475, fv: 0.9038 },
-            { fu: 0.0000, fv: 0.8172 },
-            { fu: 0.0475, fv: 0.7306 },
-            { fu: 0.1475, fv: 0.7306 },
+        { spline: [                                   // [0] Tisch 2 + bookshelf_2 (zusammengefasst)
+            { fu: 0.3749, fv: 0.8316, hIn: { du: -0.0243, dv: -0.1208 }, hOut: { du: 0.032, dv: 0.0446 } },
+            { fu: 0.6222, fv: 0.85, hIn: { du: -0.0934, dv: -0.0091 }, hOut: { du: 0.0761, dv: 0.0279 } },
+            { fu: 0.705, fv: 0.9996, hIn: { du: -0.0329, dv: -0.1202 } },
+            { fu: 0.0006, fv: 0.9974 },
+            { fu: 0.0008, fv: 0.728, hOut: { du: 0.036, dv: -0.0009 } },
+            { fu: 0.1428, fv: 0.5854, hIn: { du: -0.0528, dv: 0.0225 }, hOut: { du: 0.0337, dv: 0.0332 } },
+            { fu: 0.2, fv: 0.6965, hIn: { du: -0.0259, dv: -0.0023 }, hOut: { du: 0.0319, dv: 0.0028 } },
+            { fu: 0.3117, fv: 0.6389, hIn: { du: -0.027, dv: -0.0073 }, hOut: { du: 0.0403, dv: 0.0462 } },
         ] },
-        { spline: [                                   // [1] Tisch 2 mitte
-            { fu: 0.2745, fv: 0.7503 },
-            { fu: 0.2245, fv: 0.8369 },
-            { fu: 0.1245, fv: 0.8369 },
-            { fu: 0.0745, fv: 0.7503 },
-            { fu: 0.1245, fv: 0.6637 },
-            { fu: 0.2245, fv: 0.6637 },
+        { spline: [                                   // [1] cupboard_1
+            { fu: 0.717, fv: 0.8746, hIn: { du: -0.0078, dv: 0.0642 }, hOut: { du: 0.0426, dv: -0.0488 } },
+            { fu: 0.9318, fv: 0.7571, hIn: { du: -0.0653, dv: 0.0249 } },
+            { fu: 0.9992, fv: 0.8498, hIn: { du: -0.0363, dv: -0.0528 } },
+            { fu: 0.9997, fv: 0.9806 },
+            { fu: 0.7267, fv: 0.9978, hOut: { du: 0.0007, dv: -0.0932 } },
         ] },
-        { spline: [                                   // [2] Tisch 2 hinten (schräg, aus Ellipse rot=1.296)
-            { fu: 0.3089, fv: 0.7019 },
-            { fu: 0.3733, fv: 0.7934 },
-            { fu: 0.3353, fv: 0.9298 },
-            { fu: 0.2329, fv: 0.9747 },
-            { fu: 0.1685, fv: 0.8832 },
-            { fu: 0.2065, fv: 0.7468 },
-        ] },
-        { spline: [                                   // [3] cupboard_1
-            { fu: 0.7268, fv: 0.9031 },
-            { fu: 0.9424, fv: 0.8080 },
-            { fu: 0.9991, fv: 0.9295 },
-            { fu: 0.7411, fv: 0.9996 },
-        ] },
-        { spline: [                                   // [4] bookshelf_2
-            { fu: 0.3339, fv: 0.9058 },
-            { fu: 0.6748, fv: 0.9009 },
-            { fu: 0.6800, fv: 0.9999 },
-            { fu: 0.3286, fv: 0.9998 },
-        ] },
-        { spline: [                                   // [5] lamp_1
-            { fu: 0.1046, fv: 0.1990 },
-            { fu: 0.0905, fv: 0.3090 },
-            { fu: 0.0367, fv: 0.3154 },
-            { fu: 0.0000, fv: 0.2120 },
-            { fu: 0.0111, fv: 0.1020 },
-            { fu: 0.0649, fv: 0.0956 },
+        { spline: [                                   // [2] lamp_1
+            { fu: 0.0989, fv: 0.2869, hIn: { du: 0.0198, dv: -0.1193 }, hOut: { du: -0.0453, dv: 0.031 } },
+            { fu: 0.0004, fv: 0.4762, hIn: { du: 0.0175, dv: -0.0756 } },
+            { fu: 0.0004, fv: 0.1186, hOut: { du: 0.0191, dv: 0.0189 } },
+            { fu: 0.0863, fv: 0.0912, hIn: { du: -0.0231, dv: -0.0082 }, hOut: { du: 0.0224, dv: 0.0306 } },
         ] },
     ],
     badezimmer: [
         { spline: [                                   // [0] bathtub
-            { fu: 0.3152, fv: 0.9544 },
-            { fu: 0.2223, fv: 1.0930 },
-            { fu: 0.0425, fv: 1.0892 },
-            { fu: 0.0000, fv: 0.9466 },
-            { fu: 0.0485, fv: 0.8080 },
-            { fu: 0.2283, fv: 0.8118 },
+            { fu: 0.303, fv: 0.9988, hIn: { du: -0.0152, dv: -0.0721 } },
+            { fu: 0.002, fv: 0.9956 },
+            { fu: 0.0001, fv: 0.8464, hOut: { du: 0.0328, dv: 0.0259 } },
+            { fu: 0.2298, fv: 0.8165, hIn: { du: -0.0767, dv: -0.0061 }, hOut: { du: 0.086, dv: 0.0006 } },
         ] },
-        { spline: [                                   // [1] toilet_1 (octopus-Seite)
-            { fu: 0.8552, fv: 0.8073 },
-            { fu: 0.8052, fv: 0.9737 },
-            { fu: 0.7052, fv: 0.9737 },
-            { fu: 0.6552, fv: 0.8073 },
-            { fu: 0.7052, fv: 0.6409 },
-            { fu: 0.8052, fv: 0.6409 },
+        { spline: [                                   // [1] toilet_1 (octopus-Seite) + cupboard_2 zusammengefasst
+            { fu: 0.924, fv: 0.7045 },
+            { fu: 0.999, fv: 0.7156, hIn: { du: -0.0465, dv: -0.0044 }, hOut: { du: 0.0009, dv: 0.0486 } },
+            { fu: 0.9998, fv: 1 },
+            { fu: 0.482, fv: 0.9999, hOut: { du: 0.0064, dv: -0.0513 } },
+            { fu: 0.4916, fv: 0.8294, hIn: { du: -0.0121, dv: 0.0696 }, hOut: { du: 0.0349, dv: -0.0604 } },
+            { fu: 0.5821, fv: 0.8203, hIn: { du: -0.0516, dv: 0.0452 } },
+            { fu: 0.7171, fv: 0.6461, hIn: { du: -0.0812, dv: 0.0172 }, hOut: { du: 0.0394, dv: -0.0914 } },
+            { fu: 0.807, fv: 0.5487 },
         ] },
         { spline: [                                   // [2] toilet_2
-            { fu: 0.4595, fv: 0.8800 },
-            { fu: 0.4321, fv: 0.9756 },
-            { fu: 0.3773, fv: 0.9756 },
-            { fu: 0.3499, fv: 0.8800 },
-            { fu: 0.3773, fv: 0.7844 },
-            { fu: 0.4321, fv: 0.7844 },
+            { fu: 0.4593, fv: 0.9976, hIn: { du: -0.0121, dv: -0.058 } },
+            { fu: 0.3432, fv: 0.9993, hOut: { du: 0.0229, dv: -0.0649 } },
+            { fu: 0.3773, fv: 0.7844, hIn: { du: -0.0197, dv: 0.0778 }, hOut: { du: 0.0301, dv: -0.0454 } },
+            { fu: 0.4453, fv: 0.7985, hIn: { du: -0.0276, dv: -0.0451 }, hOut: { du: 0.016, dv: 0.078 } },
         ] },
-        { spline: [                                   // [3] cupboard_2-Bereich
-            { fu: 0.4898, fv: 0.8668 },
-            { fu: 0.7479, fv: 0.8667 },
-            { fu: 0.7638, fv: 0.9995 },
-            { fu: 0.5000, fv: 0.9993 },
-        ] },
-        { spline: [                                   // [4] desk_4 hinterer Teil (fv-Front 0.30)
-            { fu: 0.7954, fv: 0.3000 },
-            { fu: 0.9985, fv: 0.3000 },
-            { fu: 0.9985, fv: 0.9943 },
-            { fu: 0.7566, fv: 0.9999 },
-        ] },
-        { spline: [                                   // [5] desk_4 front
-            { fu: 0.7712, fv: 0.1016 },
-            { fu: 0.9165, fv: 0.0331 },
-            { fu: 0.9999, fv: 0.2984 },
-            { fu: 0.8558, fv: 0.4480 },
+        { spline: [                                   // [3] desk_4 (front + hinterer Teil zusammengefasst)
+            { fu: 0.7566, fv: 0.003, hIn: { du: 0.0184, dv: 0.1052 } },
+            { fu: 0.9996, fv: 0.0006, hOut: { du: 0.0004, dv: 0.2563 } },
+            { fu: 0.9999, fv: 0.4432, hIn: { du: -0.0033, dv: -0.0144 }, hOut: { du: -0.0599, dv: -0.0622 } },
+            { fu: 0.8477, fv: 0.4733, hIn: { du: 0.068, dv: 0.058 }, hOut: { du: -0.0366, dv: -0.0517 } },
+            { fu: 0.7785, fv: 0.2177, hIn: { du: 0.0083, dv: 0.0966 }, hOut: { du: -0.0075, dv: -0.0874 } },
         ] },
     ],
     garten: [
         { spline: [                                   // [0] flower_1
-            { fu: 0.1111, fv: 1.0120 },
-            { fu: 0.0648, fv: 1.0713 },
-            { fu: 0.0000, fv: 1.0565 },
-            { fu: 0.0000, fv: 0.9824 },
-            { fu: 0.0400, fv: 0.9231 },
-            { fu: 0.0986, fv: 0.9379 },
+            { fu: 0.1216, fv: 0.9999, hIn: { du: -0.0118, dv: -0.0341 } },
+            { fu: 0.0012, fv: 0.9957 },
+            { fu: 0.0004, fv: 0.8689, hOut: { du: 0.0312, dv: 0.0181 } },
+            { fu: 0.1124, fv: 0.8859, hIn: { du: -0.0163, dv: -0.0296 }, hOut: { du: 0.0305, dv: 0.005 } },
         ] },
     ],
     keller: [
         { spline: [                                   // [0] Kamin (fireplace_1)
-            { fu: 0.1616, fv: 0.8226 },
-            { fu: 0.5289, fv: 0.8242 },
-            { fu: 0.5100, fv: 0.9900 },
-            { fu: 0.1486, fv: 0.9978 },
+            { fu: 0.1664, fv: 0.7953, hIn: { du: -0.0302, dv: 0.0784 }, hOut: { du: 0.0365, dv: -0.0248 } },
+            { fu: 0.5289, fv: 0.8242, hIn: { du: -0.042, dv: -0.0342 }, hOut: { du: 0.0069, dv: 0.0777 } },
+            { fu: 0.5175, fv: 0.9992 },
+            { fu: 0.1242, fv: 0.9998, hIn: { du: 0.0222, dv: -0.0093 } },
         ] },
-        { spline: [                                   // [1] Kerzen-Cluster A
-            { fu: 0.99, fv: 0.65,                                hOut: { du: -0.02, dv: 0.06 } },
-            { fu: 0.97, fv: 0.85, hIn: { du: 0.01, dv: -0.04 }, hOut: { du: -0.02, dv: 0.06 } },
-            { fu: 0.93, fv: 0.99, hIn: { du: 0.03, dv: -0.04 } },
-            { fu: 0.78, fv: 0.99 },
-            { fu: 0.71, fv: 0.85 },
-            { fu: 0.78, fv: 0.65 },
+        { spline: [                                   // [1] Kerzen-Cluster (rechts, vorne+hinten zusammengefasst)
+            { fu: 0.9995, fv: 0.7179, hOut: { du: 0.01, dv: 0.1808 } },
+            { fu: 0.9994, fv: 0.9997, hIn: { du: -0.0005, dv: -0.1834 } },
+            { fu: 0.6359, fv: 0.9983, hIn: { du: 0.0454, dv: 0.0002 }, hOut: { du: -0.0321, dv: -0.0766 } },
+            { fu: 0.6056, fv: 0.6251, hIn: { du: -0.0666, dv: 0.1809 }, hOut: { du: 0.06, dv: -0.0238 } },
+            { fu: 0.6765, fv: 0.7346 },
+            { fu: 0.7538, fv: 0.7615, hIn: { du: -0.0268, dv: 0.042 }, hOut: { du: -0.0063, dv: -0.1087 } },
+            { fu: 0.7895, fv: 0.6597, hIn: { du: -0.0069, dv: 0.061 }, hOut: { du: -0.0108, dv: -0.1999 } },
+            { fu: 0.909, fv: 0.6596, hIn: { du: -0.0124, dv: -0.1095 }, hOut: { du: 0.0484, dv: 0.015 } },
         ] },
         { spline: [                                   // [2] Ketten (chain_1/chain_2 Boden)
-            { fu: 0.0958, fv: 0.3492 },
-            { fu: 0.2752, fv: 0.0456 },
-            { fu: 0.4894, fv: 0.0835 },
-            { fu: 0.4201, fv: 0.4351 },
-        ] },
-        { spline: [                                   // [3] Kerzen-Cluster B
-            { fu: 0.7774, fv: 0.8882 },
-            { fu: 0.6430, fv: 1.0613 },
-            { fu: 0.5562, fv: 1.0205 },
-            { fu: 0.6036, fv: 0.8066 },
-            { fu: 0.7380, fv: 0.6335 },
-            { fu: 0.8248, fv: 0.6743 },
+            { fu: 0.1722, fv: 0.0013 },
+            { fu: 0.4557, fv: 0.0024, hOut: { du: 0.0486, dv: 0.2323 } },
+            { fu: 0.4173, fv: 0.3889, hIn: { du: 0.0224, dv: -0.031 }, hOut: { du: -0.038, dv: -0.0858 } },
+            { fu: 0.3301, fv: 0.4803, hIn: { du: 0.0519, dv: 0.0196 }, hOut: { du: -0.0457, dv: -0.1177 } },
+            { fu: 0.1487, fv: 0.4164, hIn: { du: 0.0837, dv: -0.104 }, hOut: { du: -0.0184, dv: 0.0069 } },
+            { fu: 0.1207, fv: 0.3498, hIn: { du: 0.003, dv: 0.0521 }, hOut: { du: 0.0239, dv: -0.228 } },
         ] },
     ],
 };
@@ -3380,9 +3330,9 @@ function zeichneObjekte() {
 
 // Debug-Render: Hindernisse als halbtransparente Polygone auf den Front-Canvas zeichnen.
 // Aktiv, wenn window.HINDERNIS_DEBUG === true. Konsolen-Toggle: hindernisDebug(true|false).
-// Pro Hindernis eine eindeutige Farbe (HSL) + Index-Beschriftung. Vierecke zeigen Eckpunkte
-// (klickbare-aussehende Marker) mit "<hindernisIdx>.<eckIdx>", sodass per Konsole gezielt
-// verschoben werden kann: HINDERNISSE.buero[3].punkte[0] = [0.70, 0.62]
+// Pro Hindernis eine eindeutige Farbe (HSL) + Index-Beschriftung. Splines zeigen Vertex-
+// und Handle-Marker mit "<hindernisIdx>.<vIdx>", per Drag justierbar; per Konsole z.B.:
+// HINDERNISSE.buero[1].spline[0].fu = 0.72
 function zeichneHindernisseDebug() {
     if (!window.HINDERNIS_DEBUG) return;
     const hs = HINDERNISSE[aktuellerRaum] || [];
