@@ -57,7 +57,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=28`, `script.js?v=192`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=29`, `script.js?v=193`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -506,6 +506,39 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 `bird_1`-OBJEKT in `OBJEKTE.garten` hat zwei Varianten mit `aktiv`-Predicates: `wolke_zentral` (aktiv wenn `!vogel_da && !wolke_zentral_weg`) und `bird_1` (aktiv wenn `vogel_da`). Selbes Polygon — Klick fällt auf den jeweils aktiven Eintrag.
 
+### Chain 4 — duck_1 + muffin_1 → Ketten → Burp/Messgerät → Teppich → Schaufel
+
+Läuft parallel zu Chain 1–3, kommt aber praktisch erst weiter, wenn der Keller offen ist (Drop in den Ketten ist Pflicht-Schritt). Chain 4 liefert die **Schaufel**, eine der zwei Items für den späteren Abschluss (Chain 5 liefert den Pickel).
+
+**Vorbedingung:** alle Klick-/Aufnehm-Schritte verlangen `formelbuch_gefunden=true` (analog Chain 1–3).
+
+| Step | Trigger | Effekt |
+|---|---|---|
+| 1a | Klick auf duck_1 in der Wanne (`#duck_1` SVG, Polygon (412..464, 472..530)) | `gegenstaende += "duck_1"`, duck_1-SVG verschwindet aus Wanne (aktualisiereChain4). |
+| 1b | Klick auf muffin_1 auf desk_5 (`#muffin_1` SVG, Polygon (1338..1378, 546..596)) | `gegenstaende += "muffin_1"`, muffin_1-SVG verschwindet von desk_5. |
+| 2 | Drag `duck_1` auf Ketten-Polygon (Keller, x=280..740, y=770..880, beide Ketten + Lücke) | `verbrauche("duck_1")`, `duck_im_keller=true`, duck_1_keller-SVG erscheint zwischen den Ketten (DOM-VOR chain_1/chain_2 → visuell hinter ihnen). |
+| 3 | Drag `muffin_1` auf duck_1_keller (Polygon (385..455, 765..840)) | `verbrauche("muffin_1")`, `duck_gefuettert=true`, CSS-Klasse `duck-gross` (scale 2× via .duck-keller-inner-Wrapper, transform-origin Bottom-Center → wächst nach oben, bleibt in den Ketten). Burp-Sound (`spieleBurp()`). `gegenstaende += "messgeraet"`. |
+| 4 | Drag `messgeraet` auf Teppich (Hauptraum, perspektivisches Trapez (538,755)..(586,635)..(1014,635)..(1062,755) basierend auf HAUPT_TEPPICH bbox) | Öffnet Aufgabe `chain_4_teppich` (MC, U=6,28 m, d=10 cm → A_äußerster_Ring = 5966 cm²). |
+| 5 | Aufgabe richtig | `verbrauche("messgeraet")`, `teppich_gemessen=true`, `gegenstaende += "schaufel"`. |
+
+**`chain_4_teppich`** — MC mit 4 Optionen:
+- ✓ 5 966 cm² — π·(R²−r²) = 3,14·(100²−90²) = 5966 (richtig)
+- ✗ 31 400 cm² — π·R² = ganze Teppich-Fläche (Distractor: Spieler vergisst die Differenz)
+- ✗ 25 434 cm² — π·r² = Innenkreis (Distractor: nimmt nur den inneren Kreis)
+- ✗ 6 280 cm² — U·d (Distractor: streifenförmiger Fehlansatz)
+
+**duck_1_keller-Visual:** Inline-Kopie der duck_1-SVG-Pfade (gelber Körper + oranger Schnabel + Auge), in `<svg id="duck_1_keller">` mit `<g class="duck-keller-inner">`-Wrapper für die `duck-gross`-CSS-Klasse. Initial mit `class="sanitar-aus"`. Position x=395 y=775 50×55 — sitzt zwischen chain_2 (x=280..560) links und chain_1 (x=540..740) rechts. Bei `duck-gross` wächst sie auf 100×110 nach oben.
+
+**Drop-Polygon-Überlapp im Bad:** duck_1-Polygon überlappt mit bathtub-Polygon. duck_1 ist DOM-/Listen-VOR bathtub platziert → `findeObjektBei` greift duck_1 zuerst, solange aktiv. `versucheDrop` filtert pro `gegenstandId` über `akzeptiert[id]` → kein Konflikt bei animal_3_2-Drop in Wanne.
+
+**Burp-Sound** (`spieleBurp` in script.js, analog `spieleSpuelung`): kurzer 0.55 s Web-Audio-Burst, Tiefpass 320→80 Hz, hoher Q (6 → resonant), Pulse-Hüllkurve. Klingt nach kurzem rumorenden Rülpser.
+
+**Inventar-Icons** in `GEGENSTAENDE`:
+- `duck_1` — kompakte Kopie der ersten 4 Pfade des Assets (Körper + Schnabel + Auge), inline-SVG mit Original-viewBox.
+- `muffin_1` — Cartoon-Cupcake: Wachspapier (gerippelt #f0bf20) + Schoko-Top (#5a3a1a) + 4 Streusel.
+- `messgeraet` — Bandmaß: gelb-orange Gehäuse (#ff9933) + schwarzer Wickel + ausgezogenes weißes Maßband mit schwarzen Skala-Tics, schräg nach unten-rechts.
+- `schaufel` — Garten-Kelle 30° rotiert: brauner Holzgriff (#8b5a2b) mit zwei dunklen Bändern + grauer Hals + zulaufendes silbernes Kellen-Blatt + Highlight.
+
 ### Bridge — Octopus weg → toilet_1 → Binoculars → Nachtsicht → Geheimtür → Keller
 
 | Step | Trigger | Effekt |
@@ -572,7 +605,7 @@ const AUFGABEN = {
 
 `zeigeOverlayText(text)` für einfachen Info-Text (z.B. „Tür verschlossen."). Schliessen via ×-Button, Klick auf dunklen Hintergrund oder `Esc`.
 
-Aktuell definiert: `chain_1_kuchen` (MC, U+A bei d=20 cm), `chain_1_pi` (MC, π-Annäherung), `chain_2_octopus` (Zahleneingabe, A=31400 cm²), `chain_3_schlauch` (MC, 5 Windungen → 25 m), `chain_3_pizza` (Zahleneingabe, A=1 m²).
+Aktuell definiert: `chain_1_kuchen` (MC, U+A bei d=20 cm), `chain_1_pi` (MC, π-Annäherung), `chain_2_octopus` (Zahleneingabe, A=31400 cm²), `chain_3_schlauch` (MC, 5 Windungen → 25 m), `chain_3_pizza` (Zahleneingabe, A=1 m²), `chain_4_teppich` (MC, äußerste Ringfläche bei U=6,28 m, d=10 cm → 5966 cm²).
 
 ## Inventar + Drag & Drop
 
@@ -619,7 +652,9 @@ Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter z
 
 `spieleSpuelung()` (Chain 2): 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep 1200 Hz → 250 Hz und Hüllkurve (Attack 0.1 s, Sustain 0.6 s, Decay zum Ende). Spielt beim Klick auf eine `voll`-Toilette.
 
-Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`.
+`spieleBurp()` (Chain 4): kurzer 0.55 s Rauschen mit Tiefpass-Sweep 320 Hz → 80 Hz, Q=6 (resonant), schnelle Pulse-Hüllkurve. Klingt nach Rülpsen — spielt nach Muffin-Drop auf duck_1_keller.
+
+Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`.
 
 ## Input / Loop
 
@@ -683,10 +718,11 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 
 **Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, `belohnung_text` darf Funktion sein), Inventar + Drag & Drop, Kollision (Kreise + Ellipsen mit optionaler Rotation + konvexe Vierecke + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate (Hand-Icon erscheint nur an Stellen, wo gerade eine sinnvolle Aktion möglich ist), Hindernis-Drag-Editor — alles drin. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**.
 
-**Drei spielbare Chains + Bridge zum Keller:**
+**Vier spielbare Chains + Bridge zum Keller:**
 - **Chain 1:** Formelbuch finden → cake_1 → Schlüssel → cupboard_1-Switch → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
 - **Chain 2:** animal_3_1 vom desk_4 → toilet_2 dumpen → animal_3_2 → Wanne → animal_3_3 → Octopus → Aufgabe `chain_2_octopus` (C=2π·100 → A=31400 cm²) → octopus_zustand +1.
 - **Chain 3:** zentrale Wolke klicken → Vogel sichtbar; parallel: Schlauch-MC-Aufgabe (5 Windungen d=5/π → 25 m) → gartenschlauch im Inventar → flower_1 giessen (skaliert 2×) → seed_1 → Vogel füttern → goldene_muenzen → Octopus → Aufgabe `chain_3_pizza` (60°, r=√(6/π) → A=1 m²) → octopus_zustand +1.
+- **Chain 4:** duck_1 (Wanne) + muffin_1 (desk_5) ins Inventar → duck auf Ketten dropen → muffin auf duck → Burp + duck wächst 2× + Messgerät → Messgerät auf Teppich → Aufgabe `chain_4_teppich` (U=6,28 m, d=10 cm → A_äußerster_Ring = 5966 cm²) → Schaufel ins Inventar.
 - **Bridge:** Beide Octopus-Aufgaben advancen state +1, bei state=3 startet Exit-Animation NACH Overlay-Schliessen → toilet_1 frei → Sitz oben togglen → Binoculars luggen heraus → aufnehmen aktiviert Nachtsicht-Filter (CSS brightness/sepia/hue-rotate auf alle 4 Render-Layer) → Hauptraum: Geheimtür mit Phosphor-Outline → code_geheimtuer aus Inventar auf Tür droppen → Code geprüft, Binoculars + Code verbraucht, Filter aus, Tür permanent in b80 → Keller offen.
 
 Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — beide Aufgaben können in beliebiger Reihenfolge gelöst werden, jede macht +1 am Octopus-State. Chain 3 ist effektiv erforderlich für die Bridge, da Chain 2 alleine nur eine Fütterung erlaubt.

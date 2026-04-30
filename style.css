@@ -526,6 +526,18 @@ h1 {
     transform: scale(2);
 }
 
+/* Chain 4: duck_1 im Keller wächst nach Muffin-Drop auf 2×. transform-origin Bottom-Center
+   am Inner-<g class="duck-keller-inner">, damit die Ente nach oben wächst und ihr Anker
+   (Bottom-Center der bbox 273.67×287.351 im viewBox) als Boden-Anker dient. */
+.duck-keller-inner {
+    transition: transform 0.8s ease-out;
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+}
+.duck-keller-inner.duck-gross {
+    transform: scale(2);
+}
+
 /* Chain 3 / Bridge: Nachtsicht-Filter — Spieler hat binoculars_1 aufgenommen.
    Wird per JS via body.classList.add("nachtsicht") aktiviert.
    Filter sitzt nicht auf #game-stage, weil das Inventar (Kind von #game-stage) nicht

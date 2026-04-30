@@ -237,6 +237,12 @@ const spielstand = {
         flower_1_gegossen: false,  // flower_1 visuell auf 2× skaliert (CSS-Klasse)
         binoculars_genommen: false, // binoculars_1 aus toilet_1-Schüssel ausblenden, sobald aufgehoben
         keller_freigeschaltet: false, // Code richtig eingegeben → Geheimtür permanent sichtbar (b80) + Keller offen
+        // Chain 4 — duck_1 + muffin_1 aufnehmen → duck in Ketten dropen → mit muffin füttern
+        // → duck wächst auf 2× und spuckt Messgerät aus → Messgerät auf Teppich → Aufgabe
+        // Ringfläche → Schaufel automatisch ins Inventar.
+        duck_im_keller: false,     // duck_1 in den Ketten platziert (DOM-Element duck_1_keller sichtbar)
+        duck_gefuettert: false,    // muffin_1 verfüttert → CSS-Klasse duck-gross + Messgerät spawnt
+        teppich_gemessen: false,   // Aufgabe chain_4_teppich gelöst → Schaufel im Inventar
     },
 };
 
@@ -436,6 +442,31 @@ function aktualisiereChain3() {
     document.querySelectorAll(".flower-1").forEach(el => {
         el.classList.toggle("flower-1-gross", !!z.flower_1_gegossen);
     });
+
+    if (typeof aktualisiereChain4 === "function") aktualisiereChain4();
+}
+
+// ---------- Chain 4 — Sichtbarkeit / Skalierung der DOM-Elemente ----------
+//   • duck_1 (Wanne)         — versteckt, sobald im Inventar oder im Keller (duck_im_keller).
+//   • muffin_1 (desk_5)      — versteckt, sobald im Inventar oder verfüttert (duck_gefuettert).
+//   • duck_1_keller (Keller) — sichtbar, sobald duck_im_keller; CSS-Klasse duck-gross
+//                              auf .duck-keller-inner, sobald duck_gefuettert.
+function aktualisiereChain4() {
+    const z = spielstand.zustaende;
+    const inv = spielstand.gegenstaende;
+    const setSichtbar = (id, sichtbar) => {
+        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+            el.classList.toggle("sanitar-aus", !sichtbar);
+        });
+    };
+    const duckInInv     = inv.has("duck_1");
+    const muffinInInv   = inv.has("muffin_1");
+    setSichtbar("duck_1",        !duckInInv && !z.duck_im_keller);
+    setSichtbar("muffin_1",      !muffinInInv && !z.duck_gefuettert);
+    setSichtbar("duck_1_keller", !!z.duck_im_keller);
+    document.querySelectorAll(".duck-keller-inner").forEach(el => {
+        el.classList.toggle("duck-gross", !!z.duck_gefuettert);
+    });
 }
 window.aktualisiereChain3 = aktualisiereChain3;
 
@@ -556,6 +587,39 @@ function spieleSpuelung() {
     src.stop(now + dauer);
 }
 window.spieleSpuelung = spieleSpuelung;
+
+// Burp-Sound (Chain 4): kurzer tiefer Rülpser, ~0.6 s. Tieffrequentes Rauschen mit
+// Tiefpass-Sweep abwärts (300 Hz → 80 Hz) + Pulse-Hüllkurve (kurzer Anschwell + Plateau + Abfall).
+function spieleBurp() {
+    if (!soundAn) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const dauer = 0.55;
+    const sampleRate = audioCtx.sampleRate;
+    const len = Math.floor(dauer * sampleRate);
+    const buf = audioCtx.createBuffer(1, len, sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    const now = audioCtx.currentTime;
+    filter.frequency.setValueAtTime(320, now);
+    filter.frequency.exponentialRampToValueAtTime(80, now + dauer);
+    filter.Q.value = 6;  // resonanter als Spülung → "voller" Klang
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.45, now + 0.06);
+    gain.gain.setValueAtTime(0.45, now + 0.30);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dauer);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start(now);
+    src.stop(now + dauer);
+}
+window.spieleBurp = spieleBurp;
 
 // Konsolen-Helfer: Sound an/aus
 window.soundAnAus = (an) => { soundAn = !!an; console.log("Sound:", soundAn ? "an" : "aus"); };
@@ -751,6 +815,31 @@ const AUFGABEN = {
             },
         },
     },
+    // Chain 4 — Teppich-Ringfläche.
+    // Der Teppich besteht aus 12 konzentrischen Kreisen mit gleichem Abstand.
+    // Gegeben: U = 6,28 m (Aussen-Umfang) und d = 10 cm (Abstand zwischen den Ringen).
+    // Lösungsweg: R = U/(2π) = 1 m = 100 cm; r = R − d = 90 cm; A = π·(R²−r²) = 3,14·1900 = 5966 cm².
+    chain_4_teppich: {
+        typ: "multiple_choice",
+        frage: "The measuring device shows the rug's outer circumference U = 6.28 m and the spacing between the concentric circles d = 10 cm. What is the area of the OUTERMOST ring?",
+        pi_hinweis: true,
+        tipp: "First find the outer radius R from U, then compute A = π·(R² − r²) with r = R − d.",
+        optionen: [
+            { katex: "5\\,966\\ \\mathrm{cm}^2", korrekt: true },
+            { katex: "31\\,400\\ \\mathrm{cm}^2" },
+            { katex: "25\\,434\\ \\mathrm{cm}^2" },
+            { katex: "6\\,280\\ \\mathrm{cm}^2" },
+        ],
+        bei_richtig: {
+            gegenstand: "schaufel",
+            belohnung_text: "Correct — the area of the outermost ring is 5966 cm². Lifting a corner of the rug, you find a flat trowel hidden underneath.",
+            callback: (s) => {
+                verbrauche("messgeraet");
+                s.zustaende.teppich_gemessen = true;
+                aktualisiereInventar();
+            },
+        },
+    },
 };
 
 // Klickbare Objekte pro Raum. Polygon in Stage-Koordinaten (1600×900).
@@ -788,6 +877,34 @@ const OBJEKTE = {
             laufziel: { fu: 0.10, fv: 0.667 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden,
             aufgabe: "chain_1_kuchen",
+        },
+        // Chain 4, Schritt 1b: muffin_1 auf desk_5 (vorne-rechts) — aufnehmbar.
+        // SVG-Bbox aus index.html: x=1348 y=556 20×27 → Polygon mit Klick-Reserve drumherum.
+        // Sichtbarkeit von #muffin_1 togglet aktualisiereChain4() (versteckt nach Aufnahme oder Verfütterung).
+        {
+            id: "muffin_1",
+            polygon: [[1338, 546], [1378, 546], [1378, 596], [1338, 596]],
+            laufziel: { fu: 0.84, fv: 0.36 },
+            aufnehmen: "muffin_1",
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.gegenstaende.has("muffin_1")
+                       && !s.zustaende.duck_gefuettert,
+        },
+        // Chain 4, finaler Drop: Messgerät auf den Teppich (HAUPT_TEPPICH, runder Teppich
+        // in Boden-Mitte). Polygon = perspektivisches Trapez aus den Eck-Boden-Punkten der
+        // Teppich-Bbox (cu±rMax, cv±rMax) mit cu=0.5, cv=0.683, rMax=0.20:
+        //   vorne-links  bodenPunkt(0.3, 0.483) ≈ (538, 755)
+        //   vorne-rechts bodenPunkt(0.7, 0.483) ≈ (1062, 755)
+        //   hinten-rechts bodenPunkt(0.7, 0.883) ≈ (1014, 635)
+        //   hinten-links  bodenPunkt(0.3, 0.883) ≈ (586, 635)
+        {
+            id: "teppich_haupt",
+            polygon: [[538, 755], [1062, 755], [1014, 635], [586, 635]],
+            laufziel: { fu: 0.5, fv: 0.45 },
+            aktiv: (s) => s.gegenstaende.has("messgeraet") && !s.zustaende.teppich_gemessen,
+            akzeptiert: {
+                messgeraet: () => zeigeAufgabe("chain_4_teppich"),
+            },
         },
     ],
     buero: [
@@ -858,6 +975,21 @@ const OBJEKTE = {
             laufziel: { fu: 0.86, fv: 0.10 },
             aufnehmen: "animal_3_1",
             aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
+        },
+        // Chain 4, Schritt 1a: duck_1 in der Wanne — aufnehmbar.
+        // SVG-Bbox aus index.html: x=420 y=480 40×44 → Polygon mit Klick-Reserve drumherum.
+        // Aufgenommen wird die Ente nur EINMAL pro Run; aktualisiereChain4() blendet das DOM-Element aus.
+        // WICHTIG: VOR dem bathtub-Eintrag platziert, weil das bathtub-Polygon (130..730, 440..640)
+        // den Duck-Bereich überlappt → findeObjektBei nimmt das erste Match. Solange der Duck aktiv
+        // ist (formelbuch + nicht aufgenommen + noch nicht im Keller), gewinnt er.
+        {
+            id: "duck_1",
+            polygon: [[412, 472], [464, 472], [464, 530], [412, 530]],
+            laufziel: { fu: 0.18, fv: 0.20 },
+            aufnehmen: "duck_1",
+            aktiv: (s) => s.zustaende.formelbuch_gefunden
+                       && !s.gegenstaende.has("duck_1")
+                       && !s.zustaende.duck_im_keller,
         },
         // Chain 3 / Bridge: binoculars_1 in der toilet_1-Schüssel — sichtbar, sobald der
         // Octopus weg und der Sitz oben ist (toilette_1===2). Klick → Aufnehm-Aktion → Inventar.
@@ -1046,7 +1178,51 @@ const OBJEKTE = {
             },
         },
     ],
-    keller: [],
+    keller: [
+        // Chain 4, Schritt 2: Drop-Target für duck_1 — beide Ketten + die Lücke dazwischen.
+        // chain_2 (x=280..560) + chain_1 (x=540..740), beide y=770..880. Polygon umschliesst beide.
+        // Nach dem Drop wird duck_1_keller (DOM-VOR den Ketten in index.html) sichtbar — Ketten
+        // überdecken die Ente visuell ("in den Ketten gefangen").
+        // WICHTIG: VOR duck_1_keller platziert, damit der Drop-Bereich für muffin_1 später greift.
+        {
+            id: "ketten_drop",
+            polygon: [[280, 770], [740, 770], [740, 880], [280, 880]],
+            laufziel: { fu: 0.32, fv: 0.05 },
+            aktiv: (s) => s.gegenstaende.has("duck_1") && !s.zustaende.duck_im_keller,
+            akzeptiert: {
+                duck_1: (s) => {
+                    verbrauche("duck_1");
+                    spielstand.zustaende.duck_im_keller = true;
+                    aktualisiereInventar();
+                    aktualisiereChain4();
+                    draw();
+                    zeigeOverlayText("You lay the rubber duck between the two chains.\nIt seems trapped.");
+                    automatischSchliessen(3000);
+                },
+            },
+        },
+        // Chain 4, Schritt 3: duck_1_keller selbst als Drop-Target für muffin_1.
+        // Polygon entspricht der Ente-Bbox (50×55), grosszügig erweitert für komfortablen Drop.
+        // Bei Drop: Ente skaliert auf 2× via CSS-Klasse + Burp-Sound + Messgerät ins Inventar.
+        {
+            id: "duck_1_keller",
+            polygon: [[385, 765], [455, 765], [455, 840], [385, 840]],
+            laufziel: { fu: 0.27, fv: 0.05 },
+            aktiv: (s) => s.zustaende.duck_im_keller && !s.zustaende.duck_gefuettert,
+            akzeptiert: {
+                muffin_1: (s) => {
+                    verbrauche("muffin_1");
+                    spielstand.zustaende.duck_gefuettert = true;
+                    spielstand.gegenstaende.add("messgeraet");
+                    aktualisiereInventar();
+                    aktualisiereChain4();
+                    spieleBurp();
+                    zeigeOverlayText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
+                    automatischSchliessen(3500);
+                },
+            },
+        },
+    ],
 };
 
 function objektIstAktiv(obj) {
@@ -3574,6 +3750,75 @@ const GEGENSTAENDE = {
         name: "Night vision device",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <image href="assets/binoculars_1.svg?v=1" x="11.5" y="11.5" width="25" height="25" preserveAspectRatio="xMidYMid meet"/>
+               </svg>`,
+    },
+    // Chain 4: duck_1 (Quietscheente) — Inline-SVG, kompakt aus dem Asset duck_1.svg.
+    duck_1: {
+        name: "Rubber duck",
+        icon: `<svg viewBox="0 0 273.67 287.351" xmlns="http://www.w3.org/2000/svg">
+                 <path d="M51.071,116.57 C67.165,114.414 83.493,131.226 83.493,131.226 C83.493,131.226 89.899,126.554 108.587,122.453 C95.056,110.133 86.595,92.351 86.595,72.617 C86.595,35.351 116.79,5.179 154.056,5.179 C191.321,5.179 221.524,35.351 221.524,72.617 C221.524,95.383 210.228,115.492 192.985,127.719 C187.61,136.25 198.978,137.734 207.321,146 C222.056,160.617 240.298,163.515 246.735,211.648 C253.149,259.687 234.743,273.883 194.235,279.367 C153.743,284.773 67.165,280.758 67.165,280.758 C67.165,280.758 4.087,255.336 5.173,218.156 C6.282,181.015 26.126,119.929 51.071,116.57" fill="#FFDA1A"/>
+                 <path d="M158.837,79.429 C158.837,79.429 183.587,45.547 195.978,45.547 C208.368,45.547 223.157,52.109 248.001,52.109 C272.806,52.109 270.837,63.648 264.173,72.617 C257.532,81.648 239.509,94.765 239.509,94.765 C239.509,94.765 249.603,112.758 248.001,116.57 C244.415,124.758 203.571,131.836 197.884,130.765 C185.97,128.594 160.915,117.664 154.056,103.492 C147.181,89.281 158.837,79.429 158.837,79.429" fill="#E6762B"/>
+                 <path d="M120.813,53.195 C120.813,64.07 129.618,72.875 140.478,72.875 C151.321,72.875 160.134,64.07 160.134,53.195 C160.134,42.351 151.321,33.578 140.478,33.578 C129.618,33.578 120.813,42.351 120.813,53.195" fill="#FFFFFE"/>
+                 <path d="M127.79,55.211 C127.79,63.758 134.72,70.734 143.274,70.734 C151.821,70.734 158.743,63.758 158.743,55.211 C158.743,46.679 151.821,39.742 143.274,39.742 C134.72,39.742 127.79,46.679 127.79,55.211" fill="#3D1212"/>
+               </svg>`,
+    },
+    // Chain 4: muffin_1 — kleines Cupcake-Icon im Cartoon-Stil.
+    muffin_1: {
+        name: "Muffin",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <!-- Wachspapier (geriffelt) -->
+                 <path d="M11 24 L14 42 Q14 44 16 44 L32 44 Q34 44 34 42 L37 24 Z" fill="#f0bf20" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                 <line x1="16" y1="26" x2="16" y2="42" stroke="#bf931a" stroke-width="1"/>
+                 <line x1="20" y1="26" x2="20" y2="42" stroke="#bf931a" stroke-width="1"/>
+                 <line x1="24" y1="26" x2="24" y2="42" stroke="#bf931a" stroke-width="1"/>
+                 <line x1="28" y1="26" x2="28" y2="42" stroke="#bf931a" stroke-width="1"/>
+                 <line x1="32" y1="26" x2="32" y2="42" stroke="#bf931a" stroke-width="1"/>
+                 <!-- Cupcake-Top (Schoko) -->
+                 <path d="M9 24 Q9 14 24 12 Q39 14 39 24 Z" fill="#5a3a1a" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                 <!-- Streusel -->
+                 <circle cx="16" cy="20" r="1.5" fill="#ff5a5a"/>
+                 <circle cx="22" cy="17" r="1.5" fill="#ffd84a"/>
+                 <circle cx="29" cy="20" r="1.5" fill="#5fff8a"/>
+                 <circle cx="32" cy="22" r="1.5" fill="#ffaa44"/>
+               </svg>`,
+    },
+    // Chain 4: Messgerät — Cartoon-Bandmaß. Gelbes Gehäuse + ausgezogenes Maßband mit Tics.
+    messgeraet: {
+        name: "Tape measure",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <!-- Maßband-Streifen, schräg ausgezogen -->
+                 <path d="M30 24 L44 36 L40 42 L26 30 Z" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                 <!-- Skala-Tics auf dem Streifen -->
+                 <line x1="30" y1="27" x2="32" y2="29" stroke="#1a1a1a" stroke-width="1.2"/>
+                 <line x1="33" y1="30" x2="35" y2="32" stroke="#1a1a1a" stroke-width="1.2"/>
+                 <line x1="36" y1="33" x2="38" y2="35" stroke="#1a1a1a" stroke-width="1.2"/>
+                 <line x1="39" y1="36" x2="41" y2="38" stroke="#1a1a1a" stroke-width="1.2"/>
+                 <!-- Gehäuse (Kreis) -->
+                 <circle cx="18" cy="22" r="14" fill="#ff9933" stroke="#1a1a1a" stroke-width="2"/>
+                 <!-- Innen-Wickel mit Achse -->
+                 <circle cx="18" cy="22" r="6" fill="#1a1a1a"/>
+                 <circle cx="18" cy="22" r="2.5" fill="#ffd84a"/>
+                 <!-- kleines Höhepunkt-Highlight -->
+                 <circle cx="14" cy="18" r="2.5" fill="#ffd084" opacity="0.7"/>
+               </svg>`,
+    },
+    // Chain 4: Schaufel (kleine Garten-Kelle, 30° rotiert).
+    schaufel: {
+        name: "Trowel",
+        icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                 <g transform="rotate(-30 24 24)">
+                   <!-- Holzgriff -->
+                   <rect x="20" y="4" width="8" height="20" fill="#8b5a2b" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+                   <!-- Bänder am Griff -->
+                   <rect x="20" y="9" width="8" height="2" fill="#5a3a1a"/>
+                   <rect x="20" y="18" width="8" height="2" fill="#5a3a1a"/>
+                   <!-- Kellen-Hals (Verbindung Holz → Blatt) -->
+                   <rect x="22" y="22" width="4" height="6" fill="#888888" stroke="#1a1a1a" stroke-width="1"/>
+                   <!-- Kellen-Blatt (zulaufend, leicht gebogen) -->
+                   <path d="M16 28 Q14 36 18 42 Q24 46 30 42 Q34 36 32 28 Z" fill="#c0c0c0" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round"/>
+                   <!-- Highlight auf Blatt -->
+                   <path d="M19 31 Q19 37 22 41" fill="none" stroke="#ececec" stroke-width="1.5" stroke-linecap="round"/>
+                 </g>
                </svg>`,
     },
 };
