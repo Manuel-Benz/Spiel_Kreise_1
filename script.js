@@ -265,6 +265,155 @@ const spielstand = {
     },
 };
 
+// ---------- Persistenz (localStorage) ----------
+// Speichert spielstand + aktuellerRaum + Figur-Position pro Browser/Origin/Profil.
+// Sets werden beim Speichern zu Arrays serialisiert und beim Laden zurück konvertiert.
+// STORAGE_VERSION hochzählen, sobald sich die Datenstruktur inkompatibel ändert — alte
+// Saves werden dann verworfen statt das Spiel zu crashen.
+const STORAGE_KEY = "spiel_kreise_1_save";
+const STORAGE_VERSION = 1;
+// Eigenes localStorage-Item für User-Settings (Sound/Musik-Toggles). Bewusst getrennt vom
+// Spielstand: bleibt beim Reset erhalten — User-Vorlieben sollen ein Reset überleben.
+const SETTINGS_KEY = "spiel_kreise_1_settings";
+
+function ladeEinstellungen() {
+    try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (typeof data.soundAn === "boolean") soundAn = data.soundAn;
+        if (typeof data.musikAn === "boolean") musikAn = data.musikAn;
+    } catch (e) {
+        console.warn("Einstellungen konnten nicht geladen werden:", e.message);
+    }
+}
+
+function speicherEinstellungen() {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ soundAn, musikAn }));
+    } catch (e) {
+        console.warn("Einstellungen konnten nicht gespeichert werden:", e.message);
+    }
+}
+
+// Sperrt speicherSpielstand() während des initialen Ladens, damit die Kaskade von
+// aktualisiere*-Aufrufen in aktualisiereAllesNachLaden() nicht redundant zurückspeichert.
+// Initial true (während des kompletten JS-Module-Loads), wird im Auto-Start nach erfolgter
+// Initialisierung auf false gesetzt — schützt davor, dass ein Top-Level-Aufruf von
+// aktualisiereLinkesInventar() (am Ende der Datei) leere Defaults speichert, BEVOR
+// ladeSpielstand() im requestAnimationFrame zum Zug kommt und einen vorhandenen Save lädt.
+let ladeVorgang = true;
+
+function speicherSpielstand() {
+    if (ladeVorgang) return;
+    try {
+        const daten = {
+            version: STORAGE_VERSION,
+            aktuellerRaum,
+            figur: { fu: figur.fu, fv: figur.fv, richtung: figur.richtung },
+            geloesteAufgaben: [...spielstand.geloesteAufgaben],
+            freigeschalteteTueren: [...spielstand.freigeschalteteTueren],
+            gegenstaende: [...spielstand.gegenstaende],
+            linkesInventar: [...spielstand.linkesInventar],
+            inventar: spielstand.inventar,
+            zustaende: spielstand.zustaende,
+            chain_7_hindernis_aktiv,  // damit das Boden-Hindernis nach Reload wieder aktiv ist
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
+    } catch (e) {
+        // QuotaExceededError, SecurityError (private mode/blocked), etc. — Spiel läuft im
+        // RAM weiter, nur ohne Persistenz. Kein Crash, einmalige Warnung in der Konsole.
+        console.warn("Speichern fehlgeschlagen:", e.message);
+    }
+}
+
+function ladeSpielstand() {
+    let raw;
+    try {
+        raw = localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn("localStorage nicht verfügbar:", e.message);
+        return false;
+    }
+    if (!raw) return false;
+    let daten;
+    try {
+        daten = JSON.parse(raw);
+    } catch (e) {
+        console.warn("Spielstand korrupt, verwerfe:", e.message);
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+        return false;
+    }
+    if (daten.version !== STORAGE_VERSION) {
+        console.info(`Alter Spielstand (Version ${daten.version}) inkompatibel mit Version ${STORAGE_VERSION} — verwerfe.`);
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+        return false;
+    }
+    // Spielstand-Felder restoren — Sets aus Arrays rebauen.
+    spielstand.geloesteAufgaben      = new Set(daten.geloesteAufgaben || []);
+    spielstand.freigeschalteteTueren = new Set(daten.freigeschalteteTueren || []);
+    spielstand.gegenstaende          = new Set(daten.gegenstaende || []);
+    spielstand.linkesInventar        = new Set(daten.linkesInventar || []);
+    spielstand.inventar              = daten.inventar || {};
+    // zustaende mergen (Default-Object war vor dem Laden initialisiert; wir überschreiben
+    // nur bekannte Keys aus dem Save). Falls eine spätere Spielversion neue Default-Keys
+    // einführt, bleiben diese auf ihren Default-Werten (kein undefined-Bug bei alten Saves).
+    Object.assign(spielstand.zustaende, daten.zustaende || {});
+    // Transient/Animations-Flags zurücksetzen — sie waren während einer laufenden Animation
+    // true (Replay-Sperre, Octopus-Exit-Timer) und sind nach Reload sinnlos.
+    spielstand.zustaende.bild_kreise_replay_aktiv = false;
+    spielstand.zustaende.bild_kreise_sequenz = [];
+    spielstand.zustaende.octopus_exit_gestartet = false;
+    // Aktuellen Raum + Figur-Position
+    if (daten.aktuellerRaum) aktuellerRaum = daten.aktuellerRaum;
+    if (daten.figur) {
+        figur.fu = daten.figur.fu;
+        figur.fv = daten.figur.fv;
+        figur.richtung = daten.figur.richtung || "vorne";
+        figur.zielFu = figur.fu;
+        figur.zielFv = figur.fv;
+    }
+    // Chain 7-Hindernis nachziehen (wenn Loch beim letzten Save offen war).
+    if (daten.chain_7_hindernis_aktiv && !chain_7_hindernis_aktiv) {
+        HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
+        chain_7_hindernis_aktiv = true;
+    }
+    return true;
+}
+
+// Wird nach ladeSpielstand() im Init aufgerufen — synchronisiert ALLE DOM-State-Spiegel
+// mit den frisch geladenen Spielstand-Werten. Einzelne aktualisiere*-Aufrufe reichen nicht,
+// weil sie sich gegenseitig nicht alle aufrufen (z.B. Cupboard1 wird nicht von Sanitaer
+// mitgenommen). Auch Raum-Sichtbarkeit (data-raum-Toggle) muss explizit nachgezogen werden.
+function aktualisiereAllesNachLaden() {
+    // Nur die Deko des aktuellen Raums anzeigen (sonst sind alle Räume gleichzeitig sichtbar).
+    document.querySelectorAll("#object-layer > g[data-raum], #object-layer-vorne > g[data-raum]").forEach(g => {
+        g.style.display = g.dataset.raum === aktuellerRaum ? "" : "none";
+    });
+    aktualisiereSanitaer();   // ruft Chain3 → Chain4 → Chain5 → Chain7 mit
+    aktualisiereCupboard1();
+    aktualisiereInventar();
+    aktualisiereLinkesInventar();
+    // Nachtsicht: wenn Binoculars im Inventar liegen und Geheimtür noch nicht freigeschaltet,
+    // muss der CSS-Filter wieder aktiv sein.
+    if (spielstand.gegenstaende.has("binoculars_1") && !spielstand.zustaende.keller_freigeschaltet) {
+        if (typeof aktiviereNachtsicht === "function") aktiviereNachtsicht();
+    }
+    draw();
+}
+
+function setzeSpielstandZurueck() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn("Reset-removeItem fehlgeschlagen:", e.message);
+    }
+    location.reload();
+}
+
+window.speicherSpielstand = speicherSpielstand;
+window.setzeSpielstandZurueck = setzeSpielstandZurueck;
+
 function istFrei(tuer) {
     if (!tuer.schloss) return true;
     return spielstand.freigeschalteteTueren.has(tuer.schloss);
@@ -273,11 +422,13 @@ function istFrei(tuer) {
 // Dev-Helfer (Konsole): z.B. freischalten("keller_schluessel")
 function freischalten(schluesselId) {
     spielstand.freigeschalteteTueren.add(schluesselId);
+    speicherSpielstand();
     draw();
     console.log(`Schlüssel "${schluesselId}" freigeschaltet.`);
 }
 function verschliessen(schluesselId) {
     spielstand.freigeschalteteTueren.delete(schluesselId);
+    speicherSpielstand();
     draw();
     console.log(`Schlüssel "${schluesselId}" entfernt.`);
 }
@@ -322,6 +473,7 @@ function aktualisiereSanitaer() {
     // Chain 3: Sichtbarkeit von binoculars_1 hängt u.a. an octopus_da und toilette_1.
     // aktualisiereChain3() ist später definiert (function-hoisting macht das sicher).
     if (typeof aktualisiereChain3 === "function") aktualisiereChain3();
+    speicherSpielstand();
 }
 
 function setzeBadewanne(zustand) {
@@ -428,6 +580,7 @@ function aktualisiereCupboard1() {
     setSichtbar("cupboard_1_2", offen);
     // Zettel im Schrank verschwinden lassen, sobald er im Inventar liegt.
     setSichtbar("cupboard_1_zettel_visual", offen && !spielstand.gegenstaende.has("zettel"));
+    speicherSpielstand();
 }
 
 function oeffneCupboard1() {
@@ -463,6 +616,7 @@ function aktualisiereChain3() {
     });
 
     if (typeof aktualisiereChain4 === "function") aktualisiereChain4();
+    speicherSpielstand();
 }
 
 // ---------- Chain 4 — Sichtbarkeit / Skalierung der DOM-Elemente ----------
@@ -487,6 +641,7 @@ function aktualisiereChain4() {
         el.classList.toggle("duck-gross", !!z.duck_gefuettert);
     });
     if (typeof aktualisiereChain5 === "function") aktualisiereChain5();
+    speicherSpielstand();
 }
 
 // ---------- Chain 5 — Bürobild-Sequenz, Drei-Kreise-Item, Pickel ----------
@@ -510,6 +665,7 @@ function aktualisiereChain5() {
     setSichtbar("painting_2_kreise", !!z.bild_kreise_im_keller);
     // Chain 7 nachziehen (function-hoisting macht das sicher).
     if (typeof aktualisiereChain7 === "function") aktualisiereChain7();
+    speicherSpielstand();
 }
 window.aktualisiereChain5 = aktualisiereChain5;
 
@@ -575,6 +731,7 @@ function aktualisiereChain7() {
         });
     };
     setSichtbar("chain_7_grab", !!z.chain_7_loch_offen);
+    speicherSpielstand();
 }
 window.aktualisiereChain7 = aktualisiereChain7;
 
@@ -686,6 +843,151 @@ function siegEndGame() {
 }
 window.siegPlayAgain = siegPlayAgain;
 window.siegEndGame = siegEndGame;
+
+// ---------- Start-Overlay: Begrüssungsbildschirm beim Page-Load ----------
+// Zeigt Story-Setup + Buttons (Continue/Start over wenn Save vorhanden, sonst nur
+// Begin adventure). Wird vom Auto-Start aufgerufen NACH loop()-Start (Overlay deckt
+// die laufende Stage ab). Klick auf Button → fade-out + ensureAudio().
+
+// Floater-Hintergrund: viele rumschwebende Kreise in unterschiedlichen Grössen
+// und Farben (passt zum Spiel-Thema Kreise). Bewusst keine schwarzen Ränder —
+// nur Fill mit variierender Opazität für Tiefen-Effekt. Random scatter über die
+// gesamte Stage, Überlappung erlaubt; die zentrale Story-Box deckt sie in der
+// Mitte ab. Insgesamt ~60 % der Stage-Fläche durch Kreise belegt (mit Überlapp).
+const FLOATER_COLORS = [
+    "#FFCE00", // yellow (Bürobild)
+    "#E63946", // red (Bürobild)
+    "#9D4EDD", // violet (Bürobild)
+    "#f5d068", // gold (treasure)
+    "#5fc8e0", // cyan
+    "#ff8a3a", // orange
+    "#6bd47a", // mint
+    "#d35f8d", // pink
+    "#a87cff", // soft violet
+    "#ffb86b", // peach
+];
+
+function spawneStartFloater() {
+    const fl = document.getElementById("start-floaters");
+    if (!fl) return;
+    fl.innerHTML = "";
+    // 130 Kreise, Durchmesser 24–220 px (Math.random()²-Bias → mehr kleine als grosse).
+    // Insgesamt ergibt das ca. 60 % Pixel-Coverage mit Überlapp; visuell ~50 % gefüllt.
+    const COUNT = 130;
+    for (let i = 0; i < COUNT; i++) {
+        const c = document.createElement("div");
+        c.className = `start-circle anim-${1 + (i % 3)}`;
+        // Pseudo-quadratische Verteilung (kleine bevorzugt) für angenehme Grössen-Mischung.
+        const u = Math.random();
+        const groesse = 24 + u * u * 200;
+        const left = Math.random() * 100;
+        const top  = Math.random() * 100;
+        const farbe = FLOATER_COLORS[Math.floor(Math.random() * FLOATER_COLORS.length)];
+        const opazitaet = 0.30 + Math.random() * 0.45; // 0.30–0.75
+        c.style.width  = `${groesse}px`;
+        c.style.height = `${groesse}px`;
+        c.style.left   = `${left}%`;
+        c.style.top    = `${top}%`;
+        c.style.background = farbe;
+        c.style.opacity = opazitaet;
+        // Zufällige Animationszeit (8–18 s) und Verzögerung (0–4 s) → entkorreliertes Schweben.
+        c.style.animationDuration = `${8 + Math.random() * 10}s`;
+        c.style.animationDelay = `${Math.random() * 4}s`;
+        fl.appendChild(c);
+    }
+}
+
+// Start-Overlay öffnen — wird einmal beim Page-Load aufgerufen, NACH ladeSpielstand()
+// (damit der Save-Status für die Button-Auswahl korrekt ist). Inventare wieder
+// einblenden lassen wir hier weg: aktualisiereInventar() läuft sowieso während
+// aktualisiereAllesNachLaden() und togglet hidden je nach Inhalt; der Overlay
+// deckt eh alles ab.
+// SessionStorage-Flag: "Start over" setzt es, der nächste Page-Load skippt den
+// Begrüssungsbildschirm und springt direkt ins frische Spiel. Beim ersten Spielen
+// (kein Flag) zeigt die Begin-adventure-Seite. Audio-Context wird beim ersten
+// In-Game-Klick automatisch unlocked (pointerdown auf #game-canvas → ensureAudio).
+const SKIP_START_KEY = "spiel_kreise_1_skip_start";
+
+function zeigeStartScreen() {
+    const startEl = document.getElementById("start-overlay");
+    if (!startEl) return;
+    // Skip-Flag von "Start over": direkt ins Spiel, kein Overlay.
+    try {
+        if (sessionStorage.getItem(SKIP_START_KEY) === "1") {
+            sessionStorage.removeItem(SKIP_START_KEY);
+            return;
+        }
+    } catch (_) {}
+    let hasSave = false;
+    try { hasSave = !!localStorage.getItem(STORAGE_KEY); } catch (_) {}
+    const btnContainer = startEl.querySelector(".start-buttons");
+    if (btnContainer) {
+        btnContainer.innerHTML = "";
+        if (hasSave) {
+            const cont = document.createElement("button");
+            cont.id = "start-continue";
+            cont.type = "button";
+            cont.textContent = "Continue";
+            cont.addEventListener("click", verstecksStartScreen);
+            btnContainer.appendChild(cont);
+            const rest = document.createElement("button");
+            rest.id = "start-restart";
+            rest.type = "button";
+            rest.className = "secondary";
+            rest.textContent = "Start over";
+            // Two-Click-Confirm: erster Klick → Button wird rot + "Are you sure?",
+            // zweiter Klick (innerhalb 3 s) löscht Save und reloaded. Schützt vor
+            // versehentlichem Reset durch Schüler:innen.
+            let confirming = false;
+            let confirmTimer = null;
+            rest.addEventListener("click", () => {
+                if (!confirming) {
+                    confirming = true;
+                    rest.textContent = "Are you sure?";
+                    rest.classList.remove("secondary");
+                    rest.classList.add("confirm");
+                    confirmTimer = setTimeout(() => {
+                        confirming = false;
+                        rest.textContent = "Start over";
+                        rest.classList.remove("confirm");
+                        rest.classList.add("secondary");
+                    }, 3000);
+                } else {
+                    if (confirmTimer) clearTimeout(confirmTimer);
+                    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+                    // Skip-Flag setzen: nach dem Reload direkt ins frische Spiel,
+                    // ohne den Begrüssungsbildschirm erneut zu zeigen.
+                    try { sessionStorage.setItem(SKIP_START_KEY, "1"); } catch (_) {}
+                    location.reload();
+                }
+            });
+            btnContainer.appendChild(rest);
+        } else {
+            const begin = document.createElement("button");
+            begin.id = "start-begin";
+            begin.type = "button";
+            begin.textContent = "Begin adventure";
+            begin.addEventListener("click", verstecksStartScreen);
+            btnContainer.appendChild(begin);
+        }
+    }
+    spawneStartFloater();
+    startEl.hidden = false;
+}
+
+function verstecksStartScreen() {
+    const startEl = document.getElementById("start-overlay");
+    if (!startEl) return;
+    // Klick auf Button zählt als User-Geste → audioCtx kann starten (Schritt-Sounds OK).
+    if (typeof ensureAudio === "function") ensureAudio();
+    startEl.classList.add("fade-out");
+    setTimeout(() => {
+        startEl.hidden = true;
+        startEl.classList.remove("fade-out");
+    }, 250);
+}
+
+window.zeigeStartScreen = zeigeStartScreen;
 
 // ---------- Dev-Helpers: chainN()-Funktionen für die Konsole ----------
 // Versetzt den Spielstand in den Zustand „Chain N erledigt" — nützlich zum Testen
@@ -882,6 +1184,11 @@ window.deaktiviereNachtsicht = deaktiviereNachtsicht;
 
 let audioCtx = null;
 let soundAn = true;
+// Musik-Flag — separat vom Spielstand, persistiert via SETTINGS_KEY (siehe ladeEinstellungen).
+// Aktuell gibt es keine Musik im Spiel; das Flag ist ein Vorgriff für eine spätere
+// Background-Music-Implementierung (z.B. Web Audio Loop). Settings-Menü zeigt es trotzdem
+// an, damit User die Vorliebe vorab setzen können.
+let musikAn = false;
 
 function ensureAudio() {
     if (!audioCtx) {
@@ -1603,19 +1910,21 @@ const OBJEKTE = {
         {
             id: "animal_3_1",
             polygon: [[1308, 435], [1418, 435], [1418, 545], [1308, 545]],
-            laufziel: { fu: 0.86, fv: 0.55 },
+            // laufziel links vor desk_4. Frühere Position (0.86, 0.55) liegt seit Umbau des
+            // toilet_1+cupboard_2-Hindernisses (jetzt bis ans Wand-fv=0 hochgezogen) IM Polygon.
+            // (0.72, 0.40) hat ~95 px Clearance zur Polygon-Kante (Kante bei fv=0.40 ≈ fu 0.795).
+            laufziel: { fu: 0.72, fv: 0.40 },
             aufnehmen: "animal_3_1",
             aktiv: (s) => s.zustaende.formelbuch_gefunden && (s.zustaende.chain_2_step ?? 0) === 0,
         },
         // Chain 6: mittlere Schublade von desk_4 — Klick öffnet Formel-Erkennungs-Aufgabe
         // (Kreisfläche). desk_4 sitzt x=1200 y=520 width=310 height=360 (viewBox 0..369.06,441).
         // Schublade-Front-Reihe Mitte liegt im viewBox y≈151..246 → Screen y ≈ 643..721,
-        // x in viewBox 53..266 → Screen x ≈ 1245..1423. laufziel synchron mit animal_3_1 (vor desk_4).
-        // Hindernis [3] desk_4 (zusammengefasst) reicht bis fv≈0.47 → laufziel fv=0.55 ist davor frei.
+        // x in viewBox 53..266 → Screen x ≈ 1245..1423. laufziel synchron mit animal_3_1 (links vor desk_4).
         {
             id: "chain_6_schublade",
             polygon: [[1245, 645], [1423, 645], [1423, 720], [1245, 720]],
-            laufziel: { fu: 0.86, fv: 0.55 },
+            laufziel: { fu: 0.72, fv: 0.40 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden
                        && !s.linkesInventar.has("leim"),
             aufgabe: "chain_6_flaeche",
@@ -1731,7 +2040,10 @@ const OBJEKTE = {
         {
             id: "octopus",
             polygon: [[930, 380], [1300, 380], [1300, 710], [930, 710]],
-            laufziel: { fu: 0.78, fv: 0.32 },
+            // (0.74, 0.32): ~75 px Clearance zur Kante des erweiterten toilet_1+cupboard_2-
+            // Hindernisses (Kante bei fv=0.32 ≈ fu 0.787). Frühere (0.78, 0.32) lag praktisch
+            // auf der Kante (~11 px) und triggerte das Snap-Verhalten.
+            laufziel: { fu: 0.74, fv: 0.32 },
             akzeptiert: {
                 // Beide Drops symmetrisch — jeder öffnet seine Aufgabe; im Aufgaben-Callback
                 // wird das Item verbraucht und der octopus_zustand um +1 advanciert (max 3).
@@ -2165,6 +2477,7 @@ function gewaehrenBelohnung(id, feedbackEl) {
     feedbackEl.textContent = text || "Correct!";
     feedbackEl.className = "feedback richtig";
 
+    speicherSpielstand();
     draw();
     automatischSchliessen(4000);
 }
@@ -2202,6 +2515,7 @@ function wechsleRaum(zielId) {
     figur.gehphase = 0;
     figur.ankunft = null;
     figur.richtung = eintrittsRichtung(eintritt.fu, eintritt.fv);
+    speicherSpielstand();
     draw();
 }
 
@@ -2292,27 +2606,20 @@ const HINDERNISSE = {
             { fu: 0.2298, fv: 0.8165, hIn: { du: -0.0767, dv: -0.0061 }, hOut: { du: 0.086, dv: 0.0006 } },
         ] },
         { spline: [                                   // [1] toilet_1 (octopus-Seite) + cupboard_2 zusammengefasst
-            { fu: 0.924, fv: 0.7045 },
-            { fu: 0.999, fv: 0.7156, hIn: { du: -0.0465, dv: -0.0044 }, hOut: { du: 0.0009, dv: 0.0486 } },
+            { fu: 0.7524, fv: 0.0013, hIn: { du: 0.0215, dv: 0.1798 }, hOut: { du: -0.0151, dv: -0.182 } },
+            { fu: 0.9999, fv: 0.0012 },
             { fu: 0.9998, fv: 1 },
             { fu: 0.482, fv: 0.9999, hOut: { du: 0.0064, dv: -0.0513 } },
             { fu: 0.4916, fv: 0.8294, hIn: { du: -0.0121, dv: 0.0696 }, hOut: { du: 0.0349, dv: -0.0604 } },
             { fu: 0.5821, fv: 0.8203, hIn: { du: -0.0516, dv: 0.0452 } },
             { fu: 0.7171, fv: 0.6461, hIn: { du: -0.0812, dv: 0.0172 }, hOut: { du: 0.0394, dv: -0.0914 } },
-            { fu: 0.807, fv: 0.5487 },
+            { fu: 0.7999, fv: 0.5221, hOut: { du: 0.0066, dv: -0.0642 } },
         ] },
         { spline: [                                   // [2] toilet_2
             { fu: 0.4593, fv: 0.9976, hIn: { du: -0.0121, dv: -0.058 } },
             { fu: 0.3432, fv: 0.9993, hOut: { du: 0.0229, dv: -0.0649 } },
             { fu: 0.3773, fv: 0.7844, hIn: { du: -0.0197, dv: 0.0778 }, hOut: { du: 0.0301, dv: -0.0454 } },
             { fu: 0.4453, fv: 0.7985, hIn: { du: -0.0276, dv: -0.0451 }, hOut: { du: 0.016, dv: 0.078 } },
-        ] },
-        { spline: [                                   // [3] desk_4 (front + hinterer Teil zusammengefasst)
-            { fu: 0.7566, fv: 0.003, hIn: { du: 0.0184, dv: 0.1052 } },
-            { fu: 0.9996, fv: 0.0006, hOut: { du: 0.0004, dv: 0.2563 } },
-            { fu: 0.9999, fv: 0.4432, hIn: { du: -0.0033, dv: -0.0144 }, hOut: { du: -0.0599, dv: -0.0622 } },
-            { fu: 0.8477, fv: 0.4733, hIn: { du: 0.068, dv: 0.058 }, hOut: { du: -0.0366, dv: -0.0517 } },
-            { fu: 0.7785, fv: 0.2177, hIn: { du: 0.0083, dv: 0.0966 }, hOut: { du: -0.0075, dv: -0.0874 } },
         ] },
     ],
     garten: [
@@ -4190,15 +4497,37 @@ startButton.addEventListener("click", () => {
 
 // Auto-Start
 requestAnimationFrame(() => {
+    // Settings (Sound/Musik) laden — separat vom Spielstand, übersteht Reset.
+    ladeEinstellungen();
+    // Spielstand aus localStorage laden (falls vorhanden) BEVOR wir DOM bauen.
+    // ladeVorgang ist seit Module-Start true und sperrt redundante Saves während der
+    // Aufbau-Kaskade. Am Ende ein expliziter Save, um den finalen Zustand
+    // (z.B. mit gemergetem zustaende-Default) konsistent zu serialisieren.
+    const geladen = ladeSpielstand();
     baueRaumDeko();
-    aktualisiereSanitaer();
-    aktualisiereCupboard1();
-    aktualisiereChain5();   // Sichtbarkeit von Bürobild-Kreisen / painting_2-Overlay / Pickel initial setzen (ruft auch aktualisiereChain7).
+    if (geladen) {
+        aktualisiereAllesNachLaden();
+    } else {
+        aktualisiereSanitaer();
+        aktualisiereCupboard1();
+        aktualisiereChain5();   // Sichtbarkeit von Bürobild-Kreisen / painting_2-Overlay / Pickel initial setzen (ruft auch aktualisiereChain7).
+    }
+    ladeVorgang = false;
+    // Finaler Post-Load-Save NUR wenn ein Save existierte (für gemergete zustaende-Defaults
+    // bei Versions-Upgrades). Bei frischem Start (z.B. nach "Start over"-Reset) NICHT speichern,
+    // sonst würde der frische Default-State direkt ein neues localStorage-Entry anlegen, und
+    // zeigeStartScreen würde fälschlich wieder den Continue-Button zeigen. Erste echte
+    // Aktion im Spiel triggert ohnehin einen Save via aktualisiere*-Hook.
+    if (geladen) speicherSpielstand();
     resizeCanvas();
     if (!loopGestartet) {
         loopGestartet = true;
         loop();
     }
+    // Start-Overlay zeigen (Begrüssungsbildschirm). Wird über die Stage gelegt;
+    // loop() läuft im Hintergrund weiter, der Overlay deckt alles ab. User-Klick
+    // auf Continue / Begin / Start over fade-t den Overlay aus und gibt das Spiel frei.
+    zeigeStartScreen();
 });
 
 window.addEventListener("resize", () => {
@@ -4794,6 +5123,80 @@ const siegEndBtn    = document.getElementById("sieg-end");
 if (siegReplayBtn) siegReplayBtn.addEventListener("click", siegPlayAgain);
 if (siegEndBtn)    siegEndBtn.addEventListener("click", siegEndGame);
 
+// Settings-Zahnrad: öffnet das Settings-Menü (Sound / Music / Reset). Vorher öffnete
+// das Zahnrad direkt den Reset-Dialog; jetzt nur indirekt über den Reset-Eintrag im Menü.
+const resetBtn         = document.getElementById("reset-button");
+const resetOverlayEl   = document.getElementById("reset-overlay");
+const resetConfirmBtn  = document.getElementById("reset-confirm");
+const resetCancelBtn   = document.getElementById("reset-cancel");
+const settingsMenuEl   = document.getElementById("einstellungen-menu");
+const settingSoundBtn  = document.getElementById("setting-sound");
+const settingSoundStat = document.getElementById("setting-sound-status");
+const settingMusicBtn  = document.getElementById("setting-music");
+const settingMusicStat = document.getElementById("setting-music-status");
+const settingResetBtn  = document.getElementById("setting-reset");
+
+function aktualisiereSettingsAnzeige() {
+    if (settingSoundStat) {
+        settingSoundStat.textContent = soundAn ? "On" : "Off";
+        settingSoundStat.classList.toggle("an",  soundAn);
+        settingSoundStat.classList.toggle("aus", !soundAn);
+    }
+    if (settingMusicStat) {
+        settingMusicStat.textContent = musikAn ? "On" : "Off";
+        settingMusicStat.classList.toggle("an",  musikAn);
+        settingMusicStat.classList.toggle("aus", !musikAn);
+    }
+}
+function oeffneSettingsMenu()  {
+    if (!settingsMenuEl) return;
+    aktualisiereSettingsAnzeige();
+    settingsMenuEl.hidden = false;
+}
+function schliesseSettingsMenu() { if (settingsMenuEl) settingsMenuEl.hidden = true; }
+function toggleSettingsMenu() {
+    if (!settingsMenuEl) return;
+    if (settingsMenuEl.hidden) oeffneSettingsMenu();
+    else schliesseSettingsMenu();
+}
+
+function oeffneResetDialog()  { if (resetOverlayEl) resetOverlayEl.hidden = false; }
+function schliesseResetDialog() { if (resetOverlayEl) resetOverlayEl.hidden = true; }
+
+if (resetBtn)        resetBtn.addEventListener("click", toggleSettingsMenu);
+if (settingSoundBtn) settingSoundBtn.addEventListener("click", () => {
+    soundAn = !soundAn;
+    speicherEinstellungen();
+    aktualisiereSettingsAnzeige();
+});
+if (settingMusicBtn) settingMusicBtn.addEventListener("click", () => {
+    musikAn = !musikAn;
+    speicherEinstellungen();
+    aktualisiereSettingsAnzeige();
+});
+if (settingResetBtn) settingResetBtn.addEventListener("click", () => {
+    schliesseSettingsMenu();
+    oeffneResetDialog();
+});
+// Klick ausserhalb des Menüs (und nicht auf den Zahnrad-Toggle selbst) schliesst das Menü.
+document.addEventListener("pointerdown", (e) => {
+    if (!settingsMenuEl || settingsMenuEl.hidden) return;
+    if (settingsMenuEl.contains(e.target)) return;
+    if (resetBtn && resetBtn.contains(e.target)) return;
+    schliesseSettingsMenu();
+});
+
+if (resetCancelBtn)  resetCancelBtn.addEventListener("click", schliesseResetDialog);
+if (resetConfirmBtn) resetConfirmBtn.addEventListener("click", setzeSpielstandZurueck);
+if (resetOverlayEl)  resetOverlayEl.addEventListener("click", (e) => {
+    if (e.target === resetOverlayEl) schliesseResetDialog();
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (resetOverlayEl && !resetOverlayEl.hidden) { schliesseResetDialog(); return; }
+    if (settingsMenuEl && !settingsMenuEl.hidden) { schliesseSettingsMenu(); return; }
+});
+
 // ---------- Formelbuch ----------
 // Wird aus dem Hauptregal heraus geöffnet (Klick auf die 5 Bücher rechts in regal-4 → siehe
 // OBJEKTE.haupt.regal_buecher). Gating: spielstand.zustaende.formelbuch_gefunden wird true,
@@ -4837,6 +5240,7 @@ function rendereInlineMath(text, ziel) {
 
 function zeigeFormelbuch() {
     spielstand.zustaende.formelbuch_gefunden = true;
+    speicherSpielstand();
     clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
 
@@ -5147,6 +5551,7 @@ function aktualisiereInventar() {
     inventarEl.innerHTML = "";
     if (spielstand.gegenstaende.size === 0) {
         inventarEl.hidden = true;
+        speicherSpielstand();
         return;
     }
     inventarEl.hidden = false;
@@ -5161,6 +5566,7 @@ function aktualisiereInventar() {
         slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
         inventarEl.appendChild(slot);
     }
+    speicherSpielstand();
 }
 
 // Gegenstand aufnehmen: wird vom Objekt-Klick-Handler aufgerufen, nachdem die Figur angekommen ist.
@@ -5391,6 +5797,7 @@ function aktualisiereLinkesInventar() {
     inventarLinksEl.innerHTML = "";
     if (spielstand.linkesInventar.size === 0) {
         inventarLinksEl.hidden = true;
+        speicherSpielstand();
         return;
     }
     inventarLinksEl.hidden = false;
@@ -5410,6 +5817,7 @@ function aktualisiereLinkesInventar() {
         });
         inventarLinksEl.appendChild(slot);
     }
+    speicherSpielstand();
 }
 window.LINKES_INVENTAR = LINKES_INVENTAR;
 window.aktualisiereLinkesInventar = aktualisiereLinkesInventar;

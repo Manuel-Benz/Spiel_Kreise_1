@@ -6,7 +6,7 @@
     <title>Mathespiel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="stylesheet" href="style.css?v=40">
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -3152,6 +3152,28 @@
             <!-- Chain 6: linkes Sammel-Inventar (Schlüsselteile + Leim). NICHT interaktiv —
                  Klick auf einen Slot zeigt nur einen Hinweis. Wird ausgeblendet, solange leer. -->
             <div id="inventar-links" hidden></div>
+            <!-- Settings-Zahnrad: unten rechts, klein. Öffnet das Settings-Menü darunter
+                 (Sound/Musik on-off + Reset). -->
+            <button id="reset-button" type="button" aria-label="Settings" title="Settings">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94 0 .31.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+            </button>
+            <!-- Settings-Menü, oberhalb des Zahnrads. Drei Einträge: Sound on/off,
+                 Music on/off, Reset progress. Toggle-Status wird per JS aktualisiert. -->
+            <div id="einstellungen-menu" hidden>
+                <button id="setting-sound" type="button" class="einstellungen-eintrag">
+                    <span class="einstellungen-label">Sound</span>
+                    <span class="einstellungen-status" id="setting-sound-status">On</span>
+                </button>
+                <button id="setting-music" type="button" class="einstellungen-eintrag">
+                    <span class="einstellungen-label">Music</span>
+                    <span class="einstellungen-status" id="setting-music-status">Off</span>
+                </button>
+                <button id="setting-reset" type="button" class="einstellungen-eintrag einstellungen-reset">
+                    Reset progress
+                </button>
+            </div>
         </div>
         <!-- Drag-Preview (Phase 6): floating Icon beim Drag & Drop. Position: fixed am Viewport. -->
         <div id="drag-preview" hidden></div>
@@ -3220,7 +3242,72 @@
                 </div>
             </div>
         </div>
+        <!-- Start-Overlay: Begrüssungsbildschirm beim Laden der Seite. Zeigt Story-Setup
+             (Tante-Mathematikerin, versteckter Schatz), 1 oder 2 Buttons je nach Save-State
+             (Continue + Start over wenn Save vorhanden, sonst nur Begin adventure). Im
+             Hintergrund schweben 130 zufällig generierte Kreise in unterschiedlichen
+             Grössen + Farben (per spawneStartFloater() in script.js). Backdrop + Esc
+             bewusst NICHT klick-schliessbar — User muss explizit einen Button wählen. -->
+        <div id="start-overlay" hidden>
+            <div id="start-floaters"></div>
+            <div id="start-box">
+                <svg id="start-house" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Hügel/Boden hinten -->
+                    <path d="M0 180 Q160 165 320 180 L320 200 L0 200 Z" fill="#2d3a2a" opacity="0.7"/>
+                    <!-- Hauskörper -->
+                    <rect x="100" y="100" width="120" height="80" fill="#c9a87a"/>
+                    <rect x="100" y="100" width="120" height="6" fill="#a88a5a"/>
+                    <!-- Dach (Giebel) -->
+                    <polygon points="88,106 160,52 232,106" fill="#7d4a32"/>
+                    <polygon points="88,106 160,52 160,106" fill="#8e5a3e"/>
+                    <!-- Schornstein -->
+                    <rect x="195" y="62" width="14" height="24" fill="#5a3a24"/>
+                    <rect x="193" y="60" width="18" height="5" fill="#4a2e1c"/>
+                    <!-- Tür -->
+                    <rect x="148" y="135" width="24" height="45" fill="#5a3a1a"/>
+                    <rect x="148" y="135" width="24" height="3" fill="#3a2410"/>
+                    <circle cx="166" cy="158" r="1.7" fill="#e8b840"/>
+                    <!-- Fenster links -->
+                    <rect x="110" y="115" width="22" height="22" fill="#3a4a5a"/>
+                    <line x1="121" y1="115" x2="121" y2="137" stroke="#7d5a36" stroke-width="1.4"/>
+                    <line x1="110" y1="126" x2="132" y2="126" stroke="#7d5a36" stroke-width="1.4"/>
+                    <!-- Fenster rechts -->
+                    <rect x="188" y="115" width="22" height="22" fill="#3a4a5a"/>
+                    <line x1="199" y1="115" x2="199" y2="137" stroke="#7d5a36" stroke-width="1.4"/>
+                    <line x1="188" y1="126" x2="210" y2="126" stroke="#7d5a36" stroke-width="1.4"/>
+                    <!-- 3 farbige Kreise (yellow/red/violet — Bürobild-Motiv) -->
+                    <g class="start-circles">
+                        <circle class="sc-yellow" cx="55"  cy="92"  r="22" fill="#FFCE00"/>
+                        <circle class="sc-red"    cx="270" cy="128" r="18" fill="#E63946"/>
+                        <circle class="sc-violet" cx="42"  cy="155" r="13" fill="#9D4EDD"/>
+                    </g>
+                    <!-- Funkel-Sterne -->
+                    <g class="start-sparkles">
+                        <path class="sp s1" d="M275 55 L277 65 L287 67 L277 69 L275 79 L273 69 L263 67 L273 65 Z" fill="#ffe680"/>
+                        <path class="sp s2" d="M30 48 L32 56 L40 58 L32 60 L30 68 L28 60 L20 58 L28 56 Z" fill="#fff7d0"/>
+                    </g>
+                </svg>
+                <h1 id="start-headline">Great-Aunt's House</h1>
+                <p id="start-story">
+                    Your great-aunt, an eccentric mathematician, has left you her old house.
+                    Her will hints at a hidden treasure — but she was obsessed with circles
+                    and locked everything behind formulas. Solve her puzzles to find what
+                    she left behind.
+                </p>
+                <div class="start-buttons"></div>
+            </div>
+        </div>
+        <!-- Bestätigungs-Overlay für den Reset-Zahnrad-Button (löscht localStorage + reload). -->
+        <div id="reset-overlay" hidden>
+            <div id="reset-box">
+                <p id="reset-text">Reset progress? This can't be undone.</p>
+                <div class="reset-buttons">
+                    <button id="reset-confirm" type="button">Reset</button>
+                    <button id="reset-cancel" type="button">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
-    <script src="script.js?v=220"></script>
+    <script src="script.js?v=231"></script>
 </body>
 </html>

@@ -60,7 +60,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=35`, `script.js?v=204`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=40`, `script.js?v=231`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -241,7 +241,7 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 
   Hinweis Nummerierung: Die "1"/"2" hinter `toilet_` folgt den Asset-Namen, nicht der räumlichen Lage.
 - **cupboard_2** (`assets/cupboard_2.svg?v=5`): einziger Schrank im Badezimmer. Vorne-mitte, `<image>` x=750 y=150 width=350 height=500. **KEIN data-y-fuss** — wandmontiert wie painting_2/animals (Schrank-Korpus endet im SVG bei ~81% der viewBox-Höhe, der Rest sind Schatten/Reflexion-Pfade; bei `data-y-fuss="650"` lag der vermeintliche Foot deutlich unter dem visuellen Korpus → Figur "verschwand" hinter dem Whitespace, wenn sie zu nah ranging). Hindernis stoppt die Figur korrekt davor. Asset wurde von Manuel vereinfacht (`?v=2`); danach Holztöne 2× ~20% aufgehellt (`?v=3`, dann `?v=4`); zuletzt manuelle User-Anpassungen (`?v=5`). Glas-Spiegel (Türkis-Gradients) und Türknäufe (Gradient_5/9) blieben unverändert. cupboard_1 wurde ins Büro verschoben, cupboard_3 in den Hauptraum.
-- **Desk 4** (`assets/desk_4.svg`, breite Anrichte mit Schubladen): inline x=1200 y=520 width=310 height=360, data-y-fuss="880" (bbox-bottom; vorher 755 als Anpassung an einen alten viewBox-Anteil — nach User-Resize obsolet, wurde im Audit korrigiert). Aus dem Hauptraum hierher verschoben. Frischer 1:1-Import aus dem Asset, **keine Strokes** (Asset hat keine — frühere weisse Stroke-Variante wurde verworfen). IDs aus dem Asset entfernt (`path2170` / `path2172` / `path2178` ×3 — Duplikate riskieren beim Klonen in die Front-Ebene). Leere Platzhalter-Pfade (`M0.322,297.233`, `M415.693,107.617`) weggelassen. **DOM-zuletzt** im Badezimmer-Block, überdeckt also Octopus + Toiletten visuell.
+- **Desk 4** (`assets/desk_4.svg`, breite Anrichte mit Schubladen): inline x=1200 y=520 width=310 height=360, data-y-fuss="880" (bbox-bottom; vorher 755 als Anpassung an einen alten viewBox-Anteil — nach User-Resize obsolet, wurde im Audit korrigiert). Aus dem Hauptraum hierher verschoben. Frischer 1:1-Import aus dem Asset, **keine Strokes** (Asset hat keine — frühere weisse Stroke-Variante wurde verworfen). IDs aus dem Asset entfernt (`path2170` / `path2172` / `path2178` ×3 — Duplikate riskieren beim Klonen in die Front-Ebene). Leere Platzhalter-Pfade (`M0.322,297.233`, `M415.693,107.617`) weggelassen. **DOM-zuletzt** im Badezimmer-Block, überdeckt also Octopus + Toiletten visuell. **Kein eigenes Hindernis mehr** — die Figur kann durch desk_4 hindurchlaufen (ursprünglich gab es ein Hindernis, das nach User-Wunsch gelöscht wurde, damit die Figur näher an die Anrichte rankommt; visueller Effekt nimmt man in Kauf, dass die Figur bei tiefer fv ggf. „im" Möbel landet).
 - **animal_3_1** (`assets/animal_3_1.svg?v=1`, Aquarium mit Goldfisch + 2 Luftblasen, blauer Wasser-Hintergrund): `<image>` x=1308 y=435 width=110 height=110, `data-y-fuss="880"` synchron mit desk_4 (gestapeltes Möbel). `preserveAspectRatio="none"`, `filter="url(#grell-mild)"` (analog desk_4 selbst). Position: mittig auf der Top-Platte (screen-y ~545 = Mitte zwischen Top-Hinterkante 529 und Vorderkante 561). DOM direkt nach desk_4. Kein eigenes Hindernis (steht auf dem Tisch, Tisch-Hindernis stoppt Figur ohnehin). **Im Inventar nehmbar** (Chain 2): OBJEKTE.badezimmer.animal_3_1 hat `aufnehmen: "animal_3_1"`. `aktualisiereSanitaer()` blendet das `<image>` aus, sobald `chain_2_step >= 1` (oder eine animal_3_*-ID im Inventar liegt). animal_3_2 und animal_3_3 sind reine Inventar-Items (Asset nur als 44×44 `<image>` im Icon).
 - **toilet_X_voll-Indikatoren**: zwei kleine `<svg>` (id=`toilet_2_voll`, `toilet_1_voll`) deckungsgleich mit toilet_X_2 (x=590/1040, y=420, 200×250, viewBox 0 0 383.9 505.1). Inhalt: gelbe Ellipse (cx=190, cy=270, rx=55, ry=20, `#d4b300` opacity 0.55) — soll wie verschmutztes Wasser in der Schüsselöffnung wirken. `pointer-events:none` (Klicks fallen auf das toilet_X-OBJEKT durch). Sichtbarkeit über `aktualisiereSanitaer()`: nur wenn `toilette_X_voll && toilette_X === 2` (Sitz oben + voll). `data-y-fuss="670"` synchron mit Toiletten.
 
@@ -468,7 +468,38 @@ hindernisDebug(true|false)              // Hindernisse als farbige Overlays + Ec
                                          // mit "<hindernisIdx>.<eckIdx>"-Label rendern.
                                          // Default OFF. Eckpunkte sind dragbar im Debug-Modus.
 dumpHindernisse() / dumpHindernisse("haupt")  // Aktuelles HINDERNISSE.<raum>-Array als Code-Snippet
+speicherSpielstand()                    // Spielstand sofort in localStorage schreiben
+setzeSpielstandZurueck()                // Spielstand löschen + Reload (was der Reset-Button auch tut)
+dragAbbrechen()                         // hängenden Drag-Zustand zurücksetzen (siehe Stolperstein)
 ```
+
+## Persistenz + Settings
+
+**Zwei separate localStorage-Keys** (bewusst getrennt — Settings überleben einen Spielstand-Reset):
+- `spiel_kreise_1_save` — der ganze Spielstand (Sets als Arrays serialisiert, Versionsstempel `STORAGE_VERSION = 1`).
+- `spiel_kreise_1_settings` — Sound-/Musik-Toggles (`{ soundAn, musikAn }`).
+
+**Spielstand-Save** (`speicherSpielstand()`): serialisiert `{ aktuellerRaum, figur.{fu,fv,richtung}, geloesteAufgaben, freigeschalteteTueren, gegenstaende, linkesInventar, inventar, zustaende, chain_7_hindernis_aktiv, version }` als JSON. Versions-Mismatch beim Laden → Save wird verworfen statt das Spiel zu crashen. Try/catch um localStorage-Calls — bei QuotaExceededError oder blockiertem Storage (Private Mode, Tracking-Schutz) läuft das Spiel im RAM weiter, einmalige Konsolen-Warnung.
+
+**Save-Hooks** an den Choke-Points: `aktualisiereInventar`, `aktualisiereLinkesInventar`, `aktualisiereSanitaer`, `aktualisiereCupboard1`, `aktualisiereChain3/4/5/7`, `wechsleRaum`, `gewaehrenBelohnung`, `freischalten`/`verschliessen`, `zeigeFormelbuch`. Mehrfach-Saves pro User-Aktion sind harmlos (idempotent, ~1 ms localStorage-Write).
+
+**Lade-Pfad** beim Init (in `requestAnimationFrame`-Block am Ende von script.js):
+1. `ladeEinstellungen()` — Sound/Musik aus `SETTINGS_KEY` (separat).
+2. `ladeSpielstand()` — wenn vorhanden: spielstand-Felder restoren (Sets aus Arrays rebauen via `new Set(daten.X)`), `Object.assign(spielstand.zustaende, daten.zustaende)` (gemerget gegen Default-Defaults → neue Felder in späteren Versionen behalten ihren Default), aktuellerRaum + figur-Position übernehmen. Transient/Animations-Flags (`bild_kreise_replay_aktiv`, `bild_kreise_sequenz`, `octopus_exit_gestartet`) werden auf Default zurückgesetzt — sie waren nur während laufender Animation true und sind nach Reload sinnlos. `chain_7_hindernis_aktiv=true` → `HINDERNISSE.garten.push(CHAIN_7_HINDERNIS)`.
+3. `baueRaumDeko()` — DOM bauen, klonen.
+4. `aktualisiereAllesNachLaden()` — toggelt Raum-Sichtbarkeit beider SVG-Layer auf den geladenen `aktuellerRaum`, ruft `aktualisiereSanitaer/Cupboard1/Inventar/LinkesInventar`, reaktiviert Nachtsicht falls Binoculars im Inventar + Geheimtür noch nicht freigeschaltet, ruft `draw()`.
+
+**`ladeVorgang`-Flag** ist seit Module-Start `true` und wird erst NACH `aktualisiereAllesNachLaden()` auf `false` gesetzt. Sperrt während dieser Phase `speicherSpielstand()` — sonst würde der Top-Level-`aktualisiereLinkesInventar()`-Aufruf am Ende der script.js den Initial-Default speichern, BEVOR ladeSpielstand() aus dem requestAnimationFrame zum Zug kommt → bestehender Save würde überschrieben.
+
+**Reset-Zahnrad + Settings-Menü** (unten rechts auf der Stage):
+- Klick aufs Zahnrad togglet das Settings-Menü (Sound on/off, Music on/off, Reset progress).
+- Sound-/Musik-Toggle: schreibt `soundAn` / `musikAn` um, ruft `speicherEinstellungen()` (separater Save unter `SETTINGS_KEY`), aktualisiert die Status-Anzeige (grün=an, rot=aus).
+- Reset-Eintrag → `#reset-overlay` (Bestätigungs-Overlay mit „Reset progress?" + roter Reset-Button + grauer Cancel). Bestätigung → `setzeSpielstandZurueck()` → `localStorage.removeItem(STORAGE_KEY)` + `location.reload()`. Settings (`SETTINGS_KEY`) bleiben dabei erhalten.
+- Klick ausserhalb des Menüs oder Esc schliesst es. Reset-Overlay schliesst auch via Backdrop-Klick + Esc.
+
+**Musik** ist aktuell ein **Stub**: `let musikAn = false` (Default) wird persistiert und im Settings-Menü getoggelt, aber es spielt noch keine Hintergrundmusik. Eine künftige `starteMusik()`/`stoppeMusik()`-Logik kann das Flag einfach prüfen und auf Toggle reagieren — bei `musikAn=true` Loop starten, bei false stoppen.
+
+**Stolperstein-Verweise:** siehe „Save-Hook in `aktualisiere*`-Funktionen", „`ladeVorgang` initial true", „Settings getrennt vom Spielstand" weiter unten.
 
 ## Aufgaben-Konventionen
 
@@ -692,6 +723,26 @@ Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overl
 
 **Geheimtür ohne Binoculars + nicht freigeschaltet:** `findeTuerBei` filtert komplett raus → Klick fällt zur Boden-Logik durch (wie ganz normale Wand, kein Hinweis-Overlay).
 
+## Start-Overlay (Begrüssungsbildschirm)
+
+Eigenes Vollbild-Overlay `#start-overlay` (z-index 20, parallel zum Sieg-Overlay), wird beim Page-Load gezeigt BEVOR der User ins Spiel kommt. Story-Setup für die Tante-Mathematikerin + Schatz-Story, plus Continue/Start-over (mit Save) bzw. Begin-adventure (ohne Save). Backdrop + Esc bewusst NICHT klick-schliessbar.
+
+**Inhalt:**
+- **Floater-Layer** (`#start-floaters`): 130 zufällig schwebende Kreise in unterschiedlichen Grössen (24–224 px Durchmesser, biased zu kleineren via Math.random²) und Farben (10er-Palette: Bürobild yellow/red/violet + treasure gold + cyan/orange/mint/pink/soft-violet/peach). Opazität 0.30–0.75 zufällig (Tiefen-Effekt). 3 CSS-Drift-Keyframes, Animation-Duration 8–18 s + Delay 0–4 s pro Kreis zufällig (entkorreliertes Schweben). KEINE Ränder. Per `spawneStartFloater()` bei jedem Aufruf neu erzeugt → bei jedem Page-Load anderes Pattern.
+- **Story-Box** (`#start-box`): warme cream-Farbe mit gold-Akzentrahmen, max-width 560 px.
+  - **Haus-SVG** (`#start-house`, viewBox 0 0 320 200): Cartoon-Haus mit Dach/Schornstein/Tür/Fenstern + 3 farbige pulsierende Kreise (yellow/red/violet — Bürobild-Motiv) + 2 funkelnde Sterne. CSS-Animationen `start-circle-pulse` 3.2 s + `sparkle-twinkle` (recyclet aus Sieg-Overlay).
+  - **Headline** „Great-Aunt's House"
+  - **Story** (3 Sätze, EN): „Your great-aunt, an eccentric mathematician, has left you her old house. Her will hints at a hidden treasure — but she was obsessed with circles and locked everything behind formulas. Solve her puzzles to find what she left behind."
+  - **Buttons** (dynamisch via JS in `zeigeStartScreen()`):
+    - Save vorhanden: **„Continue"** (gold, primär) + **„Start over"** (grau, sekundär).
+    - Kein Save: nur **„Begin adventure"** (gold).
+
+**Show-Logik:** `zeigeStartScreen()` wird im Auto-Start AUFGERUFEN (nach `loop()`-Start, Overlay deckt die laufende Stage ab). Klick auf Button → `verstecksStartScreen()` → 250 ms fade-out → `hidden=true`. `ensureAudio()` wird beim Klick gerufen (User-Geste → audioCtx aktiviert).
+
+**„Start over"-Two-Click-Confirm:** Erster Klick → Button wird rot + Text „Are you sure?", zweiter Klick (innerhalb 3 s) löscht den Save und reloaded. Innerhalb-Timer-Reset → wenn 3 s lang nicht erneut geklickt, geht der Button zurück auf „Start over"/grau. Schützt vor versehentlichem Reset durch Schüler:innen.
+
+**Skip-Flag (sessionStorage):** Beim „Start over"-Confirm wird zusätzlich `sessionStorage["spiel_kreise_1_skip_start"]="1"` gesetzt, BEVOR `location.reload()` läuft. Beim nächsten Page-Load erkennt `zeigeStartScreen()` das Flag, löscht es (1× gültig) und kehrt sofort zurück → Spiel ist direkt sichtbar, OHNE dass der User wieder durch den Begrüssungsbildschirm muss. Audio-Context unlocked sich beim ersten In-Game-Klick (pointerdown auf #game-canvas → `ensureAudio()`).
+
 ## Cursor-Feedback (Browser-Klickhand)
 
 Statt eigener Tutorial-Hand-Grafiken steuert das Spiel den nativen Browser-Cursor (`pointer` für Hand-Icon, `default` sonst). Wert: bei interaktiven Stellen wie der Wolke ist die Hand nur sichtbar, wenn die Aktion **gerade sinnvoll** ist; abgeschlossene oder noch nicht zugängliche Stellen zeigen den Default-Cursor.
@@ -816,10 +867,21 @@ Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter z
 
 Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`, `spieleTon(freq)`.
 
+**Sound-/Musik-Toggle** im Settings-Menü (Zahnrad unten rechts) togglet `soundAn` (alle SFX) bzw. `musikAn` (Stub). Beide werden in `localStorage` unter `SETTINGS_KEY` persistiert (separat vom Spielstand → Reset löscht Sound-Vorlieben NICHT). `musikAn` ist aktuell ein **Platzhalter** ohne Implementierung — siehe Persistenz-Sektion.
+
 ## Input / Loop
 
 ```
-Seitenladen → requestAnimationFrame → baueRaumDeko() → aktualisiereSanitaer() → resizeCanvas() → loop()
+Seitenladen → ladeVorgang=true (Modul-Top-Level) → ... → aktualisiereLinkesInventar() (initial leer)
+              → requestAnimationFrame:
+                  ladeEinstellungen()        ← Sound/Musik aus SETTINGS_KEY
+                  ladeSpielstand()           ← Spielstand aus STORAGE_KEY (oder false bei leerem/altem Save)
+                  baueRaumDeko()             ← DOM aufbauen + klonePflanzenVorne()
+                  aktualisiereAllesNachLaden() (wenn geladen) ODER aktualisiereSanitaer/Cupboard1/Chain5 (wenn frisch)
+                  ladeVorgang=false
+                  speicherSpielstand()       ← finalen Post-Load-Stand persistieren
+                  resizeCanvas()
+                  loop()
 loop(): aktualisiereFigur() → draw() → requestAnimationFrame(loop)
 canvas.pointerdown:
     → Tür-Polygone? → figur läuft hin → ankunft = starteRaumwechsel()
@@ -828,7 +890,7 @@ canvas.pointerdown:
 window.resize → resizeCanvas()
 ```
 
-**Wichtig:** `baueRaumDeko()` läuft VOR `resizeCanvas()`.
+**Wichtig:** `baueRaumDeko()` läuft VOR `resizeCanvas()`. `ladeSpielstand()` läuft VOR `baueRaumDeko()`, damit `klonePflanzenVorne()` schon den geladenen `aktuellerRaum` kennt und die Front-Layer-Sichtbarkeit korrekt setzt.
 
 ## Deko-Generatoren (JS-seitig)
 
@@ -841,6 +903,21 @@ klonePflanzenVorne()               // klont alle [data-y-fuss]-Elemente in #obje
 ladeBuschBild(src)                 // cached Image-Loader für Detail-Büsche
 zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 ```
+
+## Touch-/Tablet-Tauglichkeit
+
+Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Browser. Konkrete Massnahmen:
+
+- **Pointer-Events** durchgängig (kein `mousedown`/`mousemove`/`mouseup` oder HTML5-DnD) — Touch + Maus laufen über denselben Code-Pfad. `e.button !== 0`-Filter ist touch-kompatibel (Touch fired button=0).
+- **`touch-action: none`** auf body, `#game-canvas` und `.inventar-slot` → kein Pinch-Zoom, kein Scroll, kein Browser-Wisch während Drag oder Spiel-Klick.
+- **Drag-Listener am `document`** (nicht am Slot) → `setPointerCapture` überlebt Slot-Rerender via `aktualisiereInventar()`. Pointer-ID wird in `dragZustand` gespeichert; nur Events mit dieser ID werden akzeptiert (Multi-Touch-sicher).
+- **`-webkit-tap-highlight-color: transparent`** global → kein blauer Flash beim Tap auf iOS Safari (eigene `:active`-Styles geben das visuelle Feedback).
+- **`user-select: none` + `-webkit-user-select: none` + `-webkit-touch-callout: none`** auf body → kein Text-Selektieren oder iOS-Long-Press-Menü, das den Drag-Start aus dem Inventar stört. `.aufgabe-input`/`input`/`textarea` heben das auf, damit Aufgaben-Eingaben editierbar bleiben.
+- **Touch-Targets ≥ 44×44 px** (Apple-Empfehlung): `#overlay-close` (X-Schliessen) und `#reset-button` (Settings-Zahnrad) auf 44×44 vergrössert (vorher 32 bzw. 36). MC-Optionen sind ~39 px hoch, aber full-width gestapelt → Treffsicherheit hoch.
+- **Input-Font-Size ≥ 16 px** (`.aufgabe-input` mit 1.1 rem ≈ 17.6 px) → kein iOS-Auto-Zoom auf Focus.
+- **`dblclick` und `contextmenu`** sind nur im `HINDERNIS_DEBUG`-Modus aktiv (Spline-Vertex-Insert + Vertex/Handle-Löschen) — End-User auf Tablets ist davon nicht betroffen.
+- **Viewport-Meta** korrekt: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`.
+- **16:9-Inscription** in `resizeCanvas`: nimmt das grösste 16:9-Rechteck im Viewport. In Portrait-Orientierung wird die Stage entsprechend kleiner — funktional, aber Landscape ist optimal. Kein Orientierungs-Hinweis nötig (Schüler:innen rotieren intuitiv).
 
 ## Stolpersteine
 
@@ -867,7 +944,7 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **Switch-Triplet (Octopus) — Asset-IDs absichtlich dupliziert:** Die drei Octopus-Varianten (`octopus_1_1/_2/_3`) sind alle gleichzeitig im DOM, deckungsgleich, einer sichtbar via `aktualisiereSanitaer()`. Asset-Pfad-IDs (`path3982-5`, `path4647`, etc.) wurden NICHT geprefixed — alle drei tragen dieselben IDs. Funktioniert hier, weil: 1) keine Gradients (nur solid fills) → keine Paint-Server-Lookups, die Duplikat-IDs ins Wanken bringen würden; 2) CSS-`:not(#path4647)` matcht ALLE Elemente mit dieser ID (auch dreifach im DOM); 3) `klonePflanzenVorne()` prefixt für die Front-Ebene mit `v_<idx>_`, der Rück-Layer bleibt mit Duplikaten. JS verwendet keine `getElementById` auf Inner-Pfade. Bei Bedarf für künftige Switch-Triplets mit Gradients: pro State per Skript prefixen (z.B. `o1_`/`o2_`/`o3_`).
 - **Sanitärobjekt mit zwei orthogonalen States** (Sitz vs. Voll/Leer): toilet_2 hat zwei unabhängige Switch-States — `toilette_2` (1=Sitz unten / 2=Sitz oben) UND `toilette_2_voll` (false/true). Visualisierung der voll-State über separates `<svg id="toilet_2_voll">` mit gelber Ellipse, deckungsgleich mit toilet_2_2. `aktualisiereSanitaer()` macht den Voll-Indikator nur sichtbar, wenn BEIDE Bedingungen erfüllt sind: `toilette_2_voll && toilette_2 === 2` (sonst sieht man die Schüsselöffnung nicht und der Indikator wäre nicht plausibel). Klick-Aktion auf toilet_2 ist zustandsabhängig: voll → spülen + sound + voll=false; leer → Sitz togglen.
 - **Inventar-Item-Transition** (Glas-Varianten): animal_3_1 → animal_3_2 → animal_3_3 sind drei unterschiedliche IDs, die nacheinander durchs Inventar wandern. `aktualisiereSanitaer()` blendet das `<image id="animal_3_1">` auf desk_4 aus, sobald irgendeine der drei IDs im Inventar liegt ODER `chain_2_step >= 1` — sonst würde das Glas auf desk_4 wieder erscheinen, sobald _1 verbraucht und _2 erzeugt wird. Die `aktiv`-Funktion am OBJEKT verhindert weitere Aufnehm-Klicks parallel. Wichtig: `nimmAufGegenstand()` ruft `aktualisiereSanitaer()` direkt nach `gegenstaende.add()` auf, sonst verschwindet das Image erst beim nächsten Sanitär-Toggle (z.B. Toilette anklicken).
-- **Drop-Suche bei überlappenden OBJEKT-Polygonen** (`versucheDrop`): `findeObjektBei()` liefert das ERSTE polygon-passende OBJEKT zurück, egal ob es den Gegenstand akzeptiert. Bei Drop muss explizit nach dem ersten OBJEKT gesucht werden, das `akzeptiert[gegenstandId]` hat. Beispiel: `octopus`-Polygon `(930..1370, 380..710)` überlappt mit `toilet_1` `(1100..1240, 420..670)`. Wenn animal_3_3 in den Überlapp-Bereich gedroppt wird, würde `findeObjektBei` toilet_1 liefern → kein `akzeptiert.animal_3_3` → Drop verpufft. Lösung in `versucheDrop`: eigene Schleife über `OBJEKTE[aktuellerRaum]`, die nur OBJEKTE mit polygon-Treffer UND `akzeptiert[gegenstandId]` zurückliefert.
+- **Drop-Suche bei überlappenden OBJEKT-Polygonen** (`versucheDrop`): `findeObjektBei()` liefert das ERSTE polygon-passende OBJEKT zurück, egal ob es den Gegenstand akzeptiert. Bei Drop muss explizit nach dem ersten OBJEKT gesucht werden, das `akzeptiert[gegenstandId]` hat. Beispiel: `octopus`-Polygon `(930..1300, 380..710)` überlappt mit `toilet_1` `(1100..1240, 420..670)`. Wenn animal_3_3 in den Überlapp-Bereich gedroppt wird, würde `findeObjektBei` toilet_1 liefern → kein `akzeptiert.animal_3_3` → Drop verpufft. Lösung in `versucheDrop`: eigene Schleife über `OBJEKTE[aktuellerRaum]`, die nur OBJEKTE mit polygon-Treffer UND `akzeptiert[gegenstandId]` zurückliefert.
 - **Klon-Prefixierung bricht ID-spezifische CSS-Selektoren** (Octopus-Mund): Die CSS-Regel `.octopus *:not(#path4647) { stroke: none !important }` matcht den geklonten Mund (Front-Layer-ID `v_<idx>_path4647`) nicht — er fällt unter „andere Elemente" und verliert seinen Stroke. Symptom: Mund verschwindet, sobald die Figur in die Front-Ebene wechselt (figur.fv > octopus.fv). Lösung: Attribut-Suffix-Selektor `.octopus *:not([id$="path4647"])` matcht Original UND alle `v_*_path4647`-Klone.
 - **Slide-Algorithmus stoppt bei seitlich liegendem Polygon-Center** (Bug-Fix in `slideUmHindernis`): Der frühere Center-basierte Blocker-Filter (`along = dfu*ux + dfv*uy; if (along <= 0) continue`) klassifizierte Polygone als „behind me" sobald ihr Schwerpunkt hinter der Figur lag — auch wenn eine Polygon-Spitze noch im Pfad war. Symptom: Figur lief schräg an einem Polygon vorbei, Direkt-Schritt sagte „in Hindernis", aber slide fand keinen Blocker (Center war ja schon „hinter ihr") → return null → Figur blieb stehen. **Fix:** statt Center+Along zu schätzen, das Hindernis nehmen, in das der direkte Schritt reinläuft (`for (h of hs) if (istInForm(h, neueFu, neueFv)) { blocker = h; break; }`). Reproduzierbar beim Bad → Garten-Pfad in Haupt entlang desk_3.
 - **Slide-Schritt landet auf Polygon-Boundary** (Folge-Bug, nur theoretisch nach dem oberen Fix): Bei sehr langen Slides parallel zur Polygon-Kante driftet der reine Tangenten-Schritt (figur.pos + tangent*schritt) numerisch auf die Kante. `pktInKonvexPolygon` zählt Boundary-Punkte (alle Cross-Produkte gleichvorzeichig, eines ≈0) als „drin" → Schritt abgelehnt → Gegenrichtung osc-blockiert → null → Stuck. **Fix:** zusätzlich `+0.002 * Außen-Normale` aufaddieren, damit der Schritt sicher außerhalb landet. Driftet die Figur über viele Slide-Frames um insgesamt ~2 mm (in Bühnen-Skala) vom Polygon weg — visuell unsichtbar.
@@ -883,10 +960,16 @@ zeichneBuschBild(def)              // rendert einen Detail-Busch via drawImage
 - **MC-Optionen Zufalls-Reihenfolge:** `baueMultipleChoice` macht pro Render einen Fisher–Yates-Shuffle einer flachen Kopie von `a.optionen`. Klick-Handler bekommt das Option-Objekt direkt (nicht Index), damit Korrektheits-Prüfung unabhängig von der Render-Reihenfolge funktioniert. Original-`AUFGABEN[id].optionen` bleibt unverändert.
 - **`HINDERNISSE.<raum>` dynamisch erweitern (Chain 7):** Beim Öffnen des Lochs in der Gartenmitte wird `CHAIN_7_HINDERNIS` (vordefiniertes Boden-Polygon) per `HINDERNISSE.garten.push(...)` zur Laufzeit angehängt. Modul-State `chain_7_hindernis_aktiv` (let-Variable) verhindert Doppel-Push. Beim Reload wird das Modul frisch initialisiert → State und HINDERNISSE-Original-Liste sind sauber. Klärt sich also automatisch.
 - **`<svg>`-Klick-Polygone für Chain 7 mussten gross dimensioniert werden:** Die Drop-Targets `gartenmitte_grab` (560..1040, 660..800 = 480×140) und `chest_1` (660..940, 670..800 = 280×130) sind absichtlich grosszügig, weil die Figur beim Drop hinkommt und der User das mit dem Drag-Cursor präzise treffen muss. Kleinere Polygone (vorher 240×40) frustrierten beim Drop.
+- **Save-Hook in `aktualisiere*`-Funktionen:** `speicherSpielstand()` sitzt am ENDE jeder Sichtbarkeits-Aktualisierungsfunktion (`aktualisiereSanitaer/Cupboard1/Inventar/LinkesInventar/Chain3/4/5/7`) sowie in `wechsleRaum`, `gewaehrenBelohnung`, `freischalten`/`verschliessen`, `zeigeFormelbuch`. Damit ist garantiert, dass jede State-Mutation in einem Save endet — auch wenn ein Drop-Callback nur `spielstand.zustaende.X = true` macht und am Schluss eines der `aktualisiere*` ruft. Mehrfach-Saves pro Aktion sind harmlos (idempotent, ~1 ms). Direkte spielstand-Mutationen ohne anschliessenden `aktualisiere*`-Aufruf (wie `octopus_exit_gestartet=true` in `schliesseOverlay`) werden NICHT direkt persistiert; in dem Fall fängt der nächste Sichtbarkeits-Toggle (oder das Reset-Helper-Pattern) den Wert ein. Wenn neue State-Mutationen abseits dieser Pfade entstehen: entweder explizit `speicherSpielstand()` aufrufen oder einen `aktualisiere*`-Helper einbauen.
+- **`ladeVorgang` initial true (Module-Top-Level):** `let ladeVorgang = true` steht am Anfang der Datei (NICHT erst im requestAnimationFrame). Grund: am Ende der script.js gibt es einen Top-Level-`aktualisiereLinkesInventar()`-Aufruf (rendert das Sammel-Inventar initial leer). Dieser Aufruf läuft VOR dem requestAnimationFrame und damit vor `ladeSpielstand()`. Wäre `ladeVorgang` initial false, würde der Aufruf einen leeren Default-Save schreiben und einen vorhandenen User-Save überschreiben. Mit `ladeVorgang=true` wird `speicherSpielstand()` während der Modul-Initialisierung gesperrt; erst nach erfolgtem Laden + DOM-Aufbau wird das Flag im Auto-Start auf false gesetzt und ein expliziter Save schreibt den finalen Post-Load-Zustand.
+- **Settings getrennt vom Spielstand:** `SETTINGS_KEY = "spiel_kreise_1_settings"` ist eine eigene localStorage-Entry für `{ soundAn, musikAn }`. Bewusst NICHT in den Spielstand integriert — sonst würde ein Reset (Zahnrad → Reset progress → `setzeSpielstandZurueck`) auch die Sound-Vorlieben löschen. User-Erwartung ist meist: „Reset" = Fortschritt weg, aber „Sound aus" bleibt aus. Wer ein Setting wirklich an den Run koppeln will (z.B. eine pro-Spiel Schwierigkeitsstufe), das in den Spielstand legen — nicht in `SETTINGS_KEY`.
+- **Hindernis-Form-Erweiterung erfordert Laufziel-Audit:** Wenn ein Spline-Hindernis ausgeweitet wird (z.B. `HINDERNISSE.badezimmer[1]` von „nur Front-Bereich fv 0.55..1.0" auf „bis zur Wand fv=0..1.0"), können laufziele anderer OBJEKTE plötzlich INSIDE liegen. `setzeFigurZiel()` snapped sie zwar auf die nächste Polygon-Kante, aber visuell endet die Figur dann an einer ungewollten Stelle. **Workflow nach jeder Hindernis-Änderung:** alle laufziele im selben Raum gegen das geänderte Polygon prüfen (animal_3_1, chain_6_schublade, octopus, binoculars_1 waren nach der toilet_1+cupboard_2-Erweiterung betroffen — animal_3_1/Schublade hart drin, octopus borderline). Bei mehreren betroffenen laufzielen einzeln neu wählen — Faustregel: Clearance ≥ 50 px floor-Distanz zur Polygon-Kante.
+- **Auto-Save überschreibt frischen „Start over"-Reset** (Stolperstein zum Begrüssungsbildschirm): Der Auto-Start ruft am Ende `speicherSpielstand()` auf, „um den finalen Post-Load-Zustand konsistent zu serialisieren". Wenn aber im vorherigen Page-Load „Start over" gedrückt wurde, ist localStorage frisch leer — und der Auto-Save würde sofort einen leeren Default-State ablegen. Beim nächsten Reload sieht `zeigeStartScreen()` dann irrtümlich einen Save und zeigt Continue/Start-over statt „Begin adventure". **Fix:** der Auto-Save am Ende läuft NUR wenn `geladen===true` (also wirklich ein Save da war). Frischer Start → kein Auto-Save → erste echte In-Game-Aktion triggert ohnehin einen Save via `aktualisiere*`-Hook.
+- **„Start over"-Skip-Flag (sessionStorage):** Damit „Start over" → Confirm direkt ins Spiel führt (statt wieder den Begrüssungsbildschirm zu zeigen, wo der User „Begin adventure" klicken müsste), wird beim Confirm zusätzlich `sessionStorage["spiel_kreise_1_skip_start"]="1"` gesetzt, dann reloaded. `zeigeStartScreen()` checkt das Flag früh, löscht es (1× gültig) und kehrt sofort zurück → Overlay bleibt versteckt. SessionStorage statt localStorage, damit das Flag nicht über Tabs/Sessions hinweg „klebt". Audio-Context unlocked sich beim ersten In-Game-Klick automatisch.
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, MC mit **Zufalls-Reihenfolge**, `belohnung_text` darf Funktion sein, optionaler `geloest_text`-Override), Inventar + Drag & Drop (rechts) **plus linkes Sammel-Inventar (Chain 6, NICHT interaktiv)**, Kollision (**alle Hindernisse als Splines** — Kreise/Ellipsen als 6-Eck-Näherung, Vierecke 1:1; kubische Bezier-Splines mit Live-Editor inkl. Doppelklick-Handle-Reset + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate, Hindernis-Drag-Editor. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**. **Auto-Close global 4 s.** **Inventar-Icons komplett randlos** (kein `stroke="#1a1a1a"` mehr). **Kombinations-Helper chain123() etc. rufen automatisch `bridge()` mit** wenn 1+2+3 enthalten.
+**Aktueller Stand:** Infrastruktur, Spielstand, **Persistenz via localStorage** (Spielstand + separate Settings, Reset-Zahnrad mit Sound/Music/Reset-Menü), **Begrüssungsbildschirm** (Story-Setup mit Tante-Mathematikerin, 130 schwebende Kreise im Hintergrund, Continue/Start-over bzw. Begin-adventure, Two-Click-Confirm-Reset, Skip-Flag für Direkt-Start nach Reset), **Tablet-tauglich** (Touch-Targets ≥ 44 px, `touch-action: none`, `-webkit-tap-highlight-color: transparent`, Long-Press-Callout unterdrückt), Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, MC mit **Zufalls-Reihenfolge**, `belohnung_text` darf Funktion sein, optionaler `geloest_text`-Override), Inventar + Drag & Drop (rechts) **plus linkes Sammel-Inventar (Chain 6, NICHT interaktiv)**, Kollision (**alle Hindernisse als Splines** — Kreise/Ellipsen als 6-Eck-Näherung, Vierecke 1:1; kubische Bezier-Splines mit Live-Editor inkl. Doppelklick-Handle-Reset + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate, Hindernis-Drag-Editor. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**. **Auto-Close global 4 s.** **Inventar-Icons komplett randlos** (kein `stroke="#1a1a1a"` mehr). **Kombinations-Helper chain123() etc. rufen automatisch `bridge()` mit** wenn 1+2+3 enthalten.
 
 **Sieben spielbare Chains + Bridge zum Keller + Sieg-Endscreen:**
 - **Chain 1:** Formelbuch finden → cake_1 → Schlüssel (silbern) → cupboard_1 mit `chain_1_schloss`-Aufgabe (90° → π/2) → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
@@ -925,19 +1008,13 @@ Generiert werden **alle Permutationen** der nichtleeren Subsets von {1..7} (~13 
 
 Diese Funktionen verändern nur Flags + Inventar; visuelle Zustände werden über `aktualisiere*`-Helper nachgezogen. Keine Aufgaben-Overlays/Auto-Close-Effekte werden ausgelöst (kein Spam-Workflow in der Konsole).
 
-**Offen:**
-- Diagnose-`console.warn` in `slideUmHindernis` rausnehmen, sobald keine neuen Slide-Hänger mehr auftauchen.
-- Optionales `localStorage` für Fortschritt (erst nach komplettem Inhaltsfeedback sinnvoll).
-
-**Atmosphäre-Updates:** Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro mit goldener Birne und warmem Schein, animal_1 + animal_2 wandmontiert im Keller (animal_1 mit Honig-Tint, animal_2 mit grell-soft), rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling oben drauf (perspektivisch skaliert). **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken (3 Schichten: Schatten/Body/Highlight), neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()` auf Silhouette + dunkle Schatten + helle Highlights, `bush_3` mit „Doppelkrone" (path17 70%-Klon in dunklerem Grün), `flower_2a`/`flower_2b` als rote/blaue Variationen mit reduzierten Blüten, `flower_4`/`flower_6` Inline→Canvas-Migration (damit `bush_4`/`bush_1` sie überdecken), Gartenschlauch (`gradenhose_1.svg`) mit Affin-Matrix an die rechte Hauswand projiziert. **Chain 4 Items:** Bandmaß-, Cupcake-, Schaufel- und Quietscheente-Inventar-Icons als Cartoon-SVGs handgezeichnet (`messgeraet`, `muffin_1`, `schaufel`, `duck_1` — alles in 48er-Slot). **Performance:** Nightvision von 4-fach-CSS-Composite-Filter auf Single-Pass-SVG-feColorMatrix umgestellt; figure-canvas aus dem Filter ausgenommen. **Datenpflege:** `data-y-fuss`-Audit über alle Räume — falsche Werte nach diversen User-Resizes korrigiert.
+**Atmosphäre-Updates** (alle integriert): Wandbilder (painting_1 + 2 mit grell-mild), Pixar-Stil-Lampe (lamp_1) im Büro, animal_1 + animal_2 wandmontiert im Keller, rotierter desk_3 (-2°) mit Pilzlampe + plant_setzling. **Garten-Politur:** tieferer Himmel `#5c9cc2` + goldigere Sonne `#ffc028` + 4 prozedurale Wolken, neue Buschstruktur via `mulberry32`-Seed + `ctx.clip()`, `bush_3`-Doppelkrone, `flower_2a`/`flower_2b` rote/blaue Varianten, `flower_4`/`flower_6` Inline→Canvas-Migration, Gartenschlauch mit Affin-Matrix an Hauswand. **Chain 4 Items:** Bandmaß / Cupcake / Schaufel / Quietscheente als handgezeichnete Inventar-Icons. **Performance:** Nightvision als Single-Pass-SVG-feColorMatrix. **Datenpflege:** `data-y-fuss`-Audit über alle Räume.
 
 **Offen:**
-- **Chain 7:** Schatztruhe (chest_1) wird in der Gartenmitte vergraben. Erst interaktiv, wenn Schaufel (Chain 4) + Pickel (Chain 5) + vereinter_schluessel (Chain 6) im Inventar liegen. Schaufel/Pickel zum Ausgraben, dann vereinter_schluessel zum Aufschliessen.
-- Weitere Kreis-Aufgaben falls gewünscht (aktuell 11 Aufgaben definiert: 7 Rechen-Aufgaben + 4 Formel-Erkennung in Chain 6).
-- Auslösende Handlungen für Sanitär-Switch (welche Aufgabe → `setzeBadewanne(2)` etc.).
-- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar).
-- `localStorage` für Fortschritt (erst nach Inhalten sinnvoll).
+- Hintergrundmusik implementieren — Toggle (`musikAn`) ist im Settings-Menü schon da, Persistenz steht, aber `starteMusik()`/`stoppeMusik()` fehlen noch. Web Audio Loop oder einfache `<audio>`-Quelle möglich.
 - Diagnose-`console.warn` in `slideUmHindernis` rausnehmen, sobald keine neuen Slide-Hänger mehr auftauchen.
+- Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar) — aktuell nur generisches rotes Feedback.
+- Weitere Kreis-Aufgaben falls gewünscht (aktuell 13 Aufgaben definiert: 8 Rechen-Aufgaben über Chains 1–5 + 4 Formel-Erkennung in Chain 6 + 1 Bonus auf der Sonne).
 
 ## Git-Workflow
 
