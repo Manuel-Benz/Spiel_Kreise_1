@@ -1941,14 +1941,13 @@ const OBJEKTE = {
                 pickel:   (s) => oeffneGrab("pickel"),
             },
         },
-        // Chain 7: Schatztruhe im offenen Loch — Drop-Target für vereinter_schluessel.
-        // Polygon grosszügig (280×130) um den sichtbaren Truhen-Bereich (chest_1 image
-        // x=700 y=690 200×89) — leichter zu treffen beim Drag.
-        // laufziel davor (gleicher Bereich wie gartenmitte_grab — Hindernis blockiert
-        // nicht die Annäherung, nur das Reinlaufen ins Loch).
+        // Chain 7: Schatztruhe (HINTER dem Loch, x=715 y=598 170×76) — Drop-Target für
+        // vereinter_schluessel. Polygon deckt die Truhe direkt ab (mit etwas Puffer):
+        // (700..900, 590..680) ≈ 200×90, leichter zu treffen beim Drag als die exakte Truhe.
+        // laufziel davor in der Garten-Mitte — Hindernis blockiert das Reinlaufen ins Loch.
         {
             id: "chest_1",
-            polygon: [[660, 670], [940, 670], [940, 800], [660, 800]],
+            polygon: [[700, 590], [900, 590], [900, 680], [700, 680]],
             laufziel: { fu: 0.50, fv: 0.30 },
             aktiv: (s) => s.zustaende.chain_7_loch_offen
                        && !s.zustaende.chain_7_geoeffnet
