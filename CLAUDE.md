@@ -62,7 +62,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=46`, `script.js?v=241`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=47`, `script.js?v=241`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -932,6 +932,7 @@ Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Br
 - **`dblclick` und `contextmenu`** sind nur im `HINDERNIS_DEBUG`-Modus aktiv (Spline-Vertex-Insert + Vertex/Handle-Löschen) — End-User auf Tablets ist davon nicht betroffen.
 - **Viewport-Meta** korrekt: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`.
 - **16:9-Inscription** in `resizeCanvas`: nimmt das grösste 16:9-Rechteck im Viewport. In Portrait-Orientierung wird die Stage entsprechend kleiner — funktional, aber Landscape ist optimal. Kein Orientierungs-Hinweis nötig (Schüler:innen rotieren intuitiv).
+- **Reduced-Motion-Hook:** `@media (prefers-reduced-motion: reduce)` am Ende von `style.css` schaltet alle continuous-loop-Animationen ab (Kaminflammen `#fp_g4609/_4755/_4353`, Start-Floaters + pulsierende Kreise + Sparkles, Sieg-Feuerwerk + Krone-Pulse + Sparkles). One-shot-Animationen (octopus-leave, skelett-lacht, sammlung-kombi) bleiben — narrativ + kurz. Nutzer mit OS-Setting „Bewegung reduzieren" sehen keine Feuerwerks-Partikel mehr (initial opacity 0 → ohne Keyframe-Pulse permanent unsichtbar) — bewusst akzeptiert.
 
 ## Stolpersteine
 

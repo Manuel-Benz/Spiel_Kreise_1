@@ -1132,3 +1132,24 @@ body.nachtsicht #object-layer-vorne {
 #reset-cancel:hover {
     background: #c5c5c5;
 }
+
+/* ---------- Reduced-Motion-Hook ----------
+   Wenn der Nutzer im OS "Bewegung reduzieren" aktiviert hat (Accessibility-Setting),
+   werden alle continuous-loop-Animationen deaktiviert: Kaminflammen, Start-Overlay-
+   Floaters + Pulse + Sparkle, Sieg-Overlay-Feuerwerk + Krone-Pulse + Sparkle.
+   One-shot-Animationen bleiben (octopus-leave, skelett-lacht, sammlung-kombi) —
+   die sind narrativ und kurz. */
+@media (prefers-reduced-motion: reduce) {
+    /* Kaminflammen (in index.html als Inline-<style> im fireplace-SVG definiert) */
+    #fp_g4609, #fp_g4755, #fp_g4353,
+    /* Start-Overlay: Floaters + pulsierende Kreise + Sparkles */
+    .start-circle,
+    #start-house .start-circles circle,
+    #start-house .start-sparkles .sp,
+    /* Sieg-Overlay: Feuerwerk-Partikel + Krone-Pulse + Sparkles */
+    .firework .particle,
+    #sieg-treasure .krone,
+    #sieg-treasure .sparkle {
+        animation: none !important;
+    }
+}
