@@ -62,7 +62,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=47`, `script.js?v=242`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=47`, `script.js?v=243`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -342,7 +342,6 @@ Hauptfunktionen:
   5. **Wand-Fallback:** verlässt die bevorzugte Seite den Laufbereich oder führt in ein anderes Hindernis → ANDERE Seite probieren.
   6. **Oszillations-Schutz:** Slide-Schritt, der innerhalb `schritt*0.5` der letzten Position liegt (`figur.letztePosFu/Fv`), wird abgelehnt → andere Seite. Wenn beide Seiten geblockt oder zur letztePos zurückführen, return null → Figur stoppt. Verhindert Hin-und-Her-Pendeln, wenn die Figur frontal auf eine Hindernis-Kante drückt und das Ziel hinter dem Hindernis nicht erreichbar ist (z.B. Klick hinter cupboard_1).
 - **Safety-Net** in `aktualisiereFigur`: vor jedem Schritt: in einem Hindernis? Falls ja → zum nächsten Randpunkt + clamp.
-- **Diagnostik:** wenn slide returns null, loggt `aktualisiereFigur` eine `Slide stuck`-Warnung mit pos/ziel/letztePos/richtung in die Konsole — hilft, übersehene Edge-Cases zu finden.
 
 Pflanzen-Radien orientieren sich am Fussabdruck (Topfbasis), nicht am Blattwerk → Figur kann knapp vorbei, der Körper verschwindet perspektivisch hinter den Blättern. Vierecke umgekehrt: präziser visueller Footprint mit kleinem Puffer (z.B. cupboard_1 mit 3% Puffer um den sichtbaren Schrank-Linksrand).
 
@@ -1027,7 +1026,6 @@ Diese Funktionen verändern nur Flags + Inventar; visuelle Zustände werden übe
 
 **Offen:**
 - Hintergrundmusik implementieren — Toggle (`musikAn`) ist im Settings-Menü schon da, Persistenz steht, aber `starteMusik()`/`stoppeMusik()` fehlen noch. Web Audio Loop oder einfache `<audio>`-Quelle möglich.
-- Diagnose-`console.warn` in `slideUmHindernis` rausnehmen, sobald keine neuen Slide-Hänger mehr auftauchen.
 - Hinweise bei falscher Antwort (pro Aufgabe konfigurierbar) — aktuell nur generisches rotes Feedback.
 - Weitere Kreis-Aufgaben falls gewünscht (aktuell 13 Aufgaben definiert: 8 Rechen-Aufgaben über Chains 1–5 + 4 Formel-Erkennung in Chain 6 + 1 Bonus auf der Sonne).
 

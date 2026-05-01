@@ -3872,13 +3872,6 @@ function aktualisiereFigur() {
             neueFv = slid.fv;
         } else {
             // Keine Gleite möglich (z.B. zwischen zwei Hindernissen) → doch stoppen.
-            console.warn(
-                `Slide stuck in ${aktuellerRaum}: ` +
-                `pos=(${figur.fu.toFixed(4)}, ${figur.fv.toFixed(4)}) ` +
-                `ziel=(${figur.zielFu.toFixed(4)}, ${figur.zielFv.toFixed(4)}) ` +
-                `letztePos=(${figur.letztePosFu?.toFixed(4)}, ${figur.letztePosFv?.toFixed(4)}) ` +
-                `richtung=(${ux.toFixed(4)}, ${uy.toFixed(4)})`
-            );
             figur.zielFu = figur.fu;
             figur.zielFv = figur.fv;
             figur.ankunft = null;
