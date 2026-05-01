@@ -4453,11 +4453,18 @@ function elementFv(el) {
     return (900 - parseFloat(el.dataset.yFuss)) / 300;
 }
 
+// Cache der zuletzt zum Togglen verwendeten figur.fv. Solange die Figur sich
+// nicht spürbar bewegt (z.B. steht), würden die display-Werte identisch ausfallen
+// → Frame-Skip spart ~130 DOM-Reflows pro Frame (50 Kerzen + 15 Möbel × 2 Layer).
+// Initial NaN, damit der erste Aufruf nach Page-Load garantiert durchläuft.
+let letzteToggleFv = NaN;
 function aktualisierePflanzenTiefe() {
     // Für alle Möbel/Pflanzen mit data-y-fuss im Rück- UND Front-Layer die Sichtbarkeit togglen.
     // Entscheidung: wer tiefer im Raum ist (grösseres fv), liegt weiter hinten → Figur liegt davor.
     // Sanitärobjekt-Switch: Elemente mit class="sanitar-aus" haben CSS `display:none !important`,
     // das die inline-display-Setzung hier überschreibt → Switch-Partner bleiben versteckt.
+    if (Math.abs(figur.fv - letzteToggleFv) < 0.001) return;
+    letzteToggleFv = figur.fv;
     svgLayer.querySelectorAll('[data-y-fuss]').forEach(el => {
         const fv = elementFv(el);
         el.style.display = (figur.fv > fv) ? "none" : "";
