@@ -448,11 +448,8 @@ function setSichtbar(id, sichtbar) {
 }
 
 // ---------- Sanitärobjekt-Switch (Badezimmer) ----------
-// Setzt Sichtbarkeit der Toiletten (toilet_1_1/_2 + toilet_2_1/_2) entsprechend
-// spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
-// bathtub_1_1 und bathtub_1_2 sind KEINE Switch-Partner mehr — _1_1 ist der Hintergrund-
-// Layer (volle Wanne), _1_2 der Vordergrund (Wasser bis x-Mittelachse). Beide sind
-// permanent sichtbar; der Octopus taucht beim Exit zwischen ihnen unter.
+// Spiegelt Toiletten-Switches, Voll-Indikatoren, Octopus-Triplet auf das DOM
+// (Bathtub-Layer-Pair siehe CLAUDE.md, kein Switch mehr).
 function aktualisiereSanitaer() {
     setSichtbar("toilet_1_1", spielstand.zustaende.toilette_1 === 1);
     setSichtbar("toilet_1_2", spielstand.zustaende.toilette_1 === 2);
@@ -520,11 +517,8 @@ window.setzeToilette1Voll = setzeToilette1Voll;
 window.setzeToilette2Voll = setzeToilette2Voll;
 window.setzeOctopusZustand = setzeOctopusZustand;
 
-// Octopus-Exit-Animation: dreiphasig per CSS @keyframes (siehe style.css "octopus-leave").
-// (A) krabbeln zu toilet_2-Höhe + scale 0.7 → (B) Pause → (C) Kopfsprung-Parabel zur
-// Wannen-x-Mitte mit 180°-Drehung. Octopus taucht hinter bathtub_1_2 (Vordergrund-Layer
-// mit Wasser bis x-Mittelachse) ins Wasser. Nach animationend setzt aktualisiereSanitaer
-// via octopus_da=false die sanitar-aus-Klasse → display:none. toilet_1 wird klickbar.
+// Octopus-Exit: triggert die @keyframes-Animation `octopus-leave` (siehe style.css).
+// Nach animationend → octopus_da=false, toilet_1 wird klickbar. Details in CLAUDE.md.
 function animiereOctopusRaus() {
     // Beide DOM-Vorkommen (Rück- + Front-Layer-Klon mit `v_<idx>_octopus_1_3`-Prefix) ansprechen.
     const els = document.querySelectorAll(`[id="octopus_1_3"], [id^="v_"][id$="_octopus_1_3"]`);
@@ -577,13 +571,7 @@ function oeffneCupboard1() {
 }
 window.oeffneCupboard1 = oeffneCupboard1;
 
-// ---------- Chain 3 — Sichtbarkeit / Skalierung der DOM-Elemente ----------
-// Spiegelt spielstand.zustaende auf das DOM:
-//   • bird_1 (Garten)             — sichtbar wenn vogel_da
-//   • gradenhose_1 (Garten)       — versteckt sobald schlauch_genommen
-//   • flower_1 (Garten)           — Klasse "flower-1-gross" → CSS scale(2)
-//   • binoculars_1 in toilet_1    — sichtbar wenn !octopus_da && toilette_1===2 && !genommen
-// Selektor matcht Original UND Front-Layer-Klone (`v_<idx>_…`-Prefix von klonePflanzenVorne).
+// ---------- Chain 3 ----------
 function aktualisiereChain3() {
     const z = spielstand.zustaende;
     setSichtbar("bird_1", !!z.vogel_da);
@@ -600,11 +588,7 @@ function aktualisiereChain3() {
     speicherSpielstand();
 }
 
-// ---------- Chain 4 — Sichtbarkeit / Skalierung der DOM-Elemente ----------
-//   • duck_1 (Wanne)         — versteckt, sobald im Inventar oder im Keller (duck_im_keller).
-//   • muffin_1 (desk_5)      — versteckt, sobald im Inventar oder verfüttert (duck_gefuettert).
-//   • duck_1_keller (Keller) — sichtbar, sobald duck_im_keller; CSS-Klasse duck-gross
-//                              auf .duck-keller-inner, sobald duck_gefuettert.
+// ---------- Chain 4 ----------
 function aktualisiereChain4() {
     const z = spielstand.zustaende;
     const inv = spielstand.gegenstaende;
@@ -1128,9 +1112,8 @@ window.chain7 = chain7;
 })();
 
 // ---------- Chain 3 / Bridge: Nachtsicht ----------
-// Aktiviert/deaktiviert die Body-Klasse `nachtsicht`. Per CSS sitzt darüber ein
-// brightness/sepia/hue-rotate-Filter auf #stage (siehe style.css). Inventar/Overlay
-// liegen ausserhalb #stage und bleiben normal lesbar.
+// Togglt die Body-Klasse `nachtsicht` → SVG-Filter `url(#nachtsicht)` auf die drei
+// statischen Render-Layer (Single-Pass feColorMatrix, siehe CLAUDE.md).
 function aktiviereNachtsicht() {
     document.body.classList.add("nachtsicht");
     draw();  // Geheimtür-Phosphor-Outline neu zeichnen
@@ -4370,10 +4353,7 @@ function baueRaumDeko() {
 }
 
 // ---------- Tiefensortierung für Pflanzen ----------
-// Jede Pflanze mit `data-fv` im SVG-Layer wird in eine zweite SVG-Ebene geklont, die ÜBER
-// dem Figur-Canvas liegt. Pro Frame entscheidet `aktualisierePflanzenTiefe()`, welche Ebene
-// die Pflanze zeigt: ist die Figur tiefer im Raum als die Pflanze (figur.fv > pflanze.fv),
-// erscheint die Pflanze in der Front-Ebene und verdeckt die Figur; sonst in der Rück-Ebene.
+// Klont alle [data-y-fuss]-Elemente in die Front-Ebene; siehe CLAUDE.md "Tiefensortierung".
 function klonePflanzenVorne() {
     svgLayerVorne.innerHTML = "";
     document.querySelectorAll('#object-layer > g[data-raum]').forEach(hintenGruppe => {
