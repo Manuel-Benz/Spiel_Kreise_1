@@ -437,8 +437,11 @@ window.verschliessen = verschliessen;
 window.spielstand = spielstand;
 
 // ---------- Sanitärobjekt-Switch (Badezimmer) ----------
-// Setzt Sichtbarkeit von bathtub_1_1/1_2 und beider Toiletten (toilet_1_1/_2 + toilet_2_1/_2)
-// entsprechend spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
+// Setzt Sichtbarkeit der Toiletten (toilet_1_1/_2 + toilet_2_1/_2) entsprechend
+// spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
+// bathtub_1_1 und bathtub_1_2 sind KEINE Switch-Partner mehr — _1_1 ist der Hintergrund-
+// Layer (volle Wanne), _1_2 der Vordergrund (Wasser bis x-Mittelachse). Beide sind
+// permanent sichtbar; der Octopus taucht beim Exit zwischen ihnen unter.
 function aktualisiereSanitaer() {
     const setSichtbar = (id, sichtbar) => {
         // Original (z.B. id="toilet_1_1") UND Front-Layer-Klone (id="v_<idx>_toilet_1_1")
@@ -449,8 +452,6 @@ function aktualisiereSanitaer() {
             el.classList.toggle("sanitar-aus", !sichtbar);
         });
     };
-    setSichtbar("bathtub_1_1", spielstand.zustaende.badewanne === 1);
-    setSichtbar("bathtub_1_2", spielstand.zustaende.badewanne === 2);
     setSichtbar("toilet_1_1", spielstand.zustaende.toilette_1 === 1);
     setSichtbar("toilet_1_2", spielstand.zustaende.toilette_1 === 2);
     setSichtbar("toilet_2_1", spielstand.zustaende.toilette_2 === 1);
@@ -517,10 +518,11 @@ window.setzeToilette1Voll = setzeToilette1Voll;
 window.setzeToilette2Voll = setzeToilette2Voll;
 window.setzeOctopusZustand = setzeOctopusZustand;
 
-// Octopus-Exit-Animation: octopus_1_3 wird per CSS-Transition aus dem Bild geschoben
-// (Richtung "zurueck"-Pfeil = nach unten-vorne). Versatz nach links/rechts kippt der
-// Figur-Position aus, damit der Octopus ihr ausweicht.
-// Ende: octopus_da=false, Sichtbarkeit aus, toilet_1 wird damit klickbar.
+// Octopus-Exit-Animation: dreiphasig per CSS @keyframes (siehe style.css "octopus-leave").
+// (A) krabbeln zu toilet_2-Höhe + scale 0.7 → (B) Pause → (C) Kopfsprung-Parabel zur
+// Wannen-x-Mitte mit 180°-Drehung. Octopus taucht hinter bathtub_1_2 (Vordergrund-Layer
+// mit Wasser bis x-Mittelachse) ins Wasser. Nach animationend setzt aktualisiereSanitaer
+// via octopus_da=false die sanitar-aus-Klasse → display:none. toilet_1 wird klickbar.
 function animiereOctopusRaus() {
     // Beide DOM-Vorkommen (Rück- + Front-Layer-Klon mit `v_<idx>_octopus_1_3`-Prefix) ansprechen.
     const els = document.querySelectorAll(`[id="octopus_1_3"], [id^="v_"][id$="_octopus_1_3"]`);
@@ -530,33 +532,20 @@ function animiereOctopusRaus() {
         aktualisiereSanitaer();
         return;
     }
-    // Figur ist links der Mitte → Octopus bewegt sich nach RECHTS raus, sonst nach links.
-    // (figur.fu < 0.5 → rechte Seite frei, weicht der Figur aus.)
-    const richtungRechts = (figur.fu < 0.5);
-    const dx = richtungRechts ? 380 : -560;
-    const dy = 520;  // nach unten-vorne raus (Richtung "zurueck"-Pfeil unten am Bildrand).
     let abgeschlossen = false;
     const beenden = () => {
         if (abgeschlossen) return;
         abgeschlossen = true;
         spielstand.zustaende.octopus_da = false;
         aktualisiereSanitaer();
-        els.forEach(el => {
-            el.classList.remove("octopus-leaving");
-            el.style.transform = "";
-        });
+        els.forEach(el => el.classList.remove("octopus-leaving"));
     };
     els.forEach(el => {
         el.classList.add("octopus-leaving");
-        // Im nächsten Frame Transform setzen, damit die CSS-Transition greift.
-        requestAnimationFrame(() => {
-            el.style.transform = `translate(${dx}px, ${dy}px)`;
-        });
-        el.addEventListener("transitionend", beenden, { once: true });
+        el.addEventListener("animationend", beenden, { once: true });
     });
-    // Safety-Net: falls transitionend nicht feuert (z.B. Element wird vorher hidden),
-    // nach 2.4 s zwangsweise abschliessen (Transition selbst dauert 1.92 s).
-    setTimeout(beenden, 2400);
+    // Safety-Net falls animationend nicht feuert: nach 2.5 s zwangsweise abschliessen.
+    setTimeout(beenden, 2500);
 }
 window.animiereOctopusRaus = animiereOctopusRaus;
 window.setzeToilette1 = setzeToilette1;
@@ -2524,7 +2513,7 @@ function wechsleRaum(zielId) {
 //   • Kreis:    { fu, fv, r }                      — runde/kompakte Objekte (Pflanzen, Octopus)
 //   • Ellipse:  { fu, fv, rx, ry }                 — flache/breite Objekte (Tisch1, Kamin)
 //   • Viereck:  { punkte: [[fu,fv], ...] }         — konvexes Polygon, ideal für rechteckige
-//                                                     Möbel mit gerader Kante (Schrank, Truhe).
+//                                                     Möbel mit gerader Kante (z.B. Schrank).
 // Konvex bedeutet: alle Innenwinkel < 180°. 4 Punkte sind üblich, 3+ funktionieren.
 // Werte lassen sich live in der Konsole ändern:  HINDERNISSE.haupt[0].r = 0.08
 // Alle Hindernisse als Splines — interaktiv editierbar per hindernisDebug(true).
@@ -5309,16 +5298,16 @@ window.pruefeFormelbuch = pruefeFormelbuch;
 // Registry aller möglichen Gegenstände. Icon ist Inline-SVG (viewBox 0..48).
 const GEGENSTAENDE = {
     // Chain 1: Schlüssel für cupboard_1 (Büro). Silberner "moderner" Schlüssel —
-    // sechseckiger Reide-Kopf links, Schaft nach rechts, gestufter L-Bart am Ende.
+    // ovaler hochstehender Reide-Kopf links, Schaft nach rechts, gestufter L-Bart am Ende.
     // Bewusst anders gestaltet als der goldene `vereinter_schluessel` (Chain 6 → Chain 7,
-    // ovaler Reide-Kopf vertikal, einfache Zähne, gold). Randlos.
+    // grössere ovale Reide quer, einfache Zähne, gold). Randlos.
     schluessel_buero: {
         name: "Silver key",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <!-- Sechseckiger Reide-Kopf (silber) -->
-                 <polygon points="4,24 9,16 19,16 24,24 19,32 9,32" fill="#b8b8b8"/>
+                 <!-- Ovaler Reide-Kopf hochstehend (silber) -->
+                 <ellipse cx="14" cy="24" rx="8" ry="12" fill="#b8b8b8"/>
                  <!-- Highlight oben-links -->
-                 <polygon points="4,24 9,16 11,18.5 7,25" fill="#dcdcdc"/>
+                 <ellipse cx="10" cy="18" rx="2" ry="3.5" fill="#dcdcdc"/>
                  <!-- Loch in der Mitte -->
                  <circle cx="14" cy="24" r="3.5" fill="#4a4a4a"/>
                  <!-- Schaft (horizontal) -->
@@ -5327,8 +5316,8 @@ const GEGENSTAENDE = {
                  <rect x="22" y="22" width="20" height="1.2" fill="#dcdcdc"/>
                  <!-- Gestufter L-Bart am Ende (unten) -->
                  <path d="M34 22 L42 22 L42 30 L46 30 L46 26 L34 26 Z" fill="#b8b8b8"/>
-                 <!-- Schatten-Akzent unten am Bart -->
-                 <rect x="34" y="25" width="12" height="1" fill="#9a9a9a"/>
+                 <!-- Streifen am unteren Bart-Rand (gleiche Hauptfarbe). -->
+                 <rect x="34" y="25" width="12" height="1" fill="#b8b8b8"/>
                </svg>`,
     },
     // Chain 1: Zerknitterter Zettel mit Schrift drauf. Eckige Form mit Falt-Ecke + Linien.

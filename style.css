@@ -581,12 +581,43 @@ h1 {
     stroke: none !important;
 }
 
-/* Octopus-Exit-Animation: bei octopus_1_3 → translate aus dem Bild raus.
-   Kein Fade — der Octopus krabbelt aus dem Bild, opacity bleibt 1.
-   transform-origin=center, ease-in damit die Bewegung sanft anrollt.
-   Wird via JS auf #octopus_1_3 gesetzt (animiereOctopusRaus); transitionend → display:none. */
+/* Octopus-Exit-Animation: dreiphasig per @keyframes, total 2.2s.
+   Phase A (0..45.5%, 1.0s): krabbeln zu toilet_2-Höhe (dx=-570) + scale auf 0.7.
+   Phase B (45.5..68.2%, 0.5s): Pause an dieser Position.
+   Phase C (68.2..100%, 0.7s): parabelförmiger Sprung zur Wannen-Mitte (dx=-720) mit
+     Apex bei dy=-405, gleichzeitig 180°-Rotation → "Kopfsprung ins Wasser".
+   Zwischen bathtub_1_1 (hinten) und bathtub_1_2 (vorne, Wasser bis x-Mittelachse) im DOM,
+   sodass octopus_1_3 visuell hinter bathtub_1_2 untertaucht. animationend → display:none.
+   transform-box: view-box + transform-origin: 1150px 545px → scale + rotate um den
+   Octopus-Mittelpunkt im outer-viewBox-Koordinatensystem. */
+@keyframes octopus-leave {
+    0% {
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+        transform: translate(0, 0) scale(1) rotate(0);
+    }
+    45.5% {
+        transform: translate(-470px, -5px) scale(0.7) rotate(0);
+    }
+    68.2% {
+        transform: translate(-470px, -5px) scale(0.7) rotate(0);
+    }
+    76% {
+        transform: translate(-533px, -305px) scale(0.7) rotate(45deg);
+    }
+    84% {
+        transform: translate(-595px, -405px) scale(0.7) rotate(90deg);
+    }
+    92% {
+        transform: translate(-658px, -305px) scale(0.7) rotate(135deg);
+    }
+    100% {
+        transform: translate(-720px, -5px) scale(0.7) rotate(180deg);
+    }
+}
 .octopus-leaving {
-    transition: transform 1.92s cubic-bezier(0.45, 0, 0.55, 1) !important;
+    animation: octopus-leave 2.2s linear forwards !important;
+    transform-box: view-box;
+    transform-origin: 1150px 545px;
 }
 
 /* Chain 3b: flower_1 wird nach dem Giessen sichtbar grösser.

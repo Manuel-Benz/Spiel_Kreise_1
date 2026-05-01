@@ -4,7 +4,7 @@ Architektur-Doku, damit ein neuer Chat sofort weiterarbeiten kann.
 
 ## Projektkontext
 
-Interaktives Mathe-Lernspiel (Thema: Kreise) für den Schulunterricht. Aufbau als **Escape-Room-artiges Abenteuer** mit 5 Räumen, linearer Aufgaben-Progression und Cross-Room-Lookups. Vanilla HTML/CSS/JS, kein Build-Tool, kein Framework.
+Interaktives Mathe-Lernspiel **„Full Circle"** (Thema: Kreise) für den Schulunterricht. Aufbau als **Escape-Room-artiges Abenteuer** mit 5 Räumen, linearer Aufgaben-Progression und Cross-Room-Lookups. Vanilla HTML/CSS/JS, kein Build-Tool, kein Framework. (GitHub-Repo-Name `Spiel_Kreise_1` und localStorage-Keys `spiel_kreise_1_*` sind historisch — wurden bewusst nicht umbenannt, um die Repo-URL und bestehende User-Spielstände nicht zu brechen.)
 
 Entwickler: Manuel Benz (Lehrer, wenig Programmiererfahrung). GitHub: `Manuel-Benz/Spiel_Kreise_1`.
 
@@ -28,7 +28,9 @@ CLAUDE.md         ← diese Datei
 | `lamp_lava_1.svg`, `bookshelf_1.svg` | Originale; Inline-Varianten im Hauptraum | nicht direkt |
 | `bookshelf_2.svg`, `chair_1.svg` | Bücherregal + Bürostuhl im Büro | Inline-SVG (kopiert) |
 | `octopus_1_1.svg`, `octopus_1_2.svg`, `octopus_1_3.svg`, `duck_1.svg` | Tintenfisch (3 Stimmungs-States, Switch-Triplet für Chain 2) + Quietscheente | Inline-SVG (alle drei Octopus-Varianten deckungsgleich, `class="octopus"`, IDs der Asset-Pfade NICHT geprefixed → bewusste Duplikate; CSS `:not(#path4647)` matcht alle drei) |
-| `bathtub_1_1/1_2.svg`, `toilet_2_1/2.svg` | Wanne + WC, je 2 Switch-States | Inline-SVG |
+| `bathtub_1_1.svg`, `bathtub_1_2.svg` | Wanne als Layer-Paar: _1_1 Hintergrund (volle Wanne), _1_2 Vordergrund (Wasser nur bis x-Mittelachse) — Octopus taucht beim Exit dazwischen unter | `<image href>` |
+| `bathtub_1_3.svg` | Alte Switch-State-Variante (Sitz oben + klares Wasser), aktuell ungenutzt | — |
+| `toilet_2_1/2.svg` | WC, 2 Switch-States | Inline-SVG |
 | `skeleton_3.svg` | Tanzendes Skelett im Keller (id `skelett_3`); Chain 5 togglet CSS-Klasse `skelett-lacht` für 2 s (schnellere Wackel-+Scale-Pulse-Animation, überlagert die SMIL-Schaukel) | `<image href>` |
 | `fireplace_1.svg` | Steinkamin im Keller | Inline-SVG |
 | `cake_1.svg` | Torte auf Tisch 1 im Hauptraum | Inline-SVG |
@@ -60,7 +62,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=40`, `script.js?v=231`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=46`, `script.js?v=239`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -127,7 +129,7 @@ Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()`
 | `buero` | Büro | Pfeil→Haupt, F→Badezimmer | b90/b90, Wände b70 | Tisch2 + Tischlampe + Bücherregal + Bürostuhl + cupboard_1 (gespiegelt) + lamp_1 (Pixar-Stil, vorne-links) |
 | `badezimmer` | Badezimmer | Pfeil→Haupt, B→Büro | b90/b90, Wände b70 | Tintenfisch, 2 Toiletten, Wanne mit Ente, cupboard_2, desk_4 (mit animal_3_1/Aquarium oben drauf) |
 | `garten` | Garten | H→Haupt | Himmel + Wiese + rechte Hauswand | 12 Sträucher + 4 Detail-Büsche, Sonne, Zaun |
-| `keller` | Keller | (kleine, b80) →Haupt an linker Wand, gleiche Geometrie wie Geheimtür im Hauptraum | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, Truhe, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
+| `keller` | Keller | (kleine, b80) →Haupt an linker Wand, gleiche Geometrie wie Geheimtür im Hauptraum | b80/b90, Wände b80, sehr dunkel | Tanzendes Skelett hinten-rechts, painting_2, Kamin, Ketten, plant_kraeuter, ~50 Kerzen, animal_1 + animal_2 (an Wand), muffin_4 |
 
 `aktuellerRaum` hält die aktive ID. `wechsleRaum(zielId)`:
 - merkt `vonRaum`, setzt `aktuellerRaum = zielId`
@@ -232,7 +234,7 @@ Inline-SVG-Reihenfolge in `<g data-raum="haupt">`:
 - **Sanitärobjekte** (Renderreihenfolge hinten → vorn). Drei Switch-Paare: jeweils zwei `<svg>`-Blöcke an exakt derselben Position/Größe, einer initial sichtbar, der andere `display:none`. Konvention: `#X_1` = Initialzustand, `#X_2` = nach Handlung. Sitzring ist rot eingefärbt (Inline-Fills `#FF5C5C` dunkel + `#FF8C8C` hell), Wasser bei der Wanne wechselt von blau (`#A7C5EA`) zu klar (`#FCFCFC`).
   - **Toilette 2** (links): `#toilet_2_1` / `#toilet_2_2` bei (590, 420) 200×250, data-y-fuss=670
   - **Toilette 1** (rechts, visueller Klon): `#toilet_1_1` / `#toilet_1_2` bei (1040, 420) 200×250, data-y-fuss=670
-  - **Badewanne**: `#bathtub_1_1` / `#bathtub_1_2` bei (130, 440) 600×200
+  - **Badewanne (Layer-Paar)**: `#bathtub_1_1` (Hintergrund-Layer, volle Wanne mit Wasser) + `#bathtub_1_2` (Vordergrund-Layer, Wasser nur bis x-Mittelachse) bei (130, 440) 600×200, beide als `<image href>`. **KEIN Switch-Paar** — beide permanent sichtbar; der Octopus taucht beim Exit zwischen ihnen unter (siehe „Octopus-Exit-Animation"). DOM-Reihenfolge: `bathtub_1_1` zwischen Toiletten und Octopus; `bathtub_1_2` NACH `octopus_1_3` und VOR `duck_1`.
   - `duck_1` schwimmt auf der Wanne
   - **`<g transform="translate(37 -9)">`-Wrapper** in `toilet_2_2` und `toilet_1_2`: Die beiden Switch-Partner-Assets haben ihre Pfade im viewBox um (-37, +9) verschoben — der Wrapper gleicht das aus, sodass _1 und _2 deckungsgleich liegen.
   - **CSS `.sanitar-aus { display: none !important }`** im `<style>`-Block — wird von `setSichtbar()` togglet. `!important` schlägt die Inline-display-Setzung von `aktualisierePflanzenTiefe()`, sodass der versteckte Switch-Partner zuverlässig unsichtbar bleibt.
@@ -304,23 +306,21 @@ Wände/Decke/Boden in dunklen Grautönen (b80/b100/b90). **Skelett** aus `skelet
 - `chain_1` (kürzere Kette mit Kugel, x=540 y=770, 200×110) — rechts daneben (überlappt chain_2 leicht bei x=540..560)
 - Beide ohne `data-y-fuss` → bleiben in der Rück-Ebene, Figur überdeckt sie. **Hindernis** `HINDERNISSE.keller[2]` deckt den ganzen Ketten-Footprint inkl. Vorraum ab → Figur darf den Bereich nicht betreten (für Chain-4-Drop-laufziel siehe Chain 4).
 
-**Schatztruhe** (`chest_1.svg`, inline) vorne-rechts: `<svg id="chest_1" x="1190" y="716" width="310" height="150">`. `data-y-fuss="866"` (= bbox-bottom; nach User-Vergrösserung von 210×94 auf 310×150 nachgezogen — Tiefensortierung, Figur kann davor und dahinter laufen). Hindernis: `{ fu:0.65, fv:0.30, rx:0.10, ry:0.04 }` (breit + flach).
-
 **muffin_4** (aus dem Hauptraum hierher verschoben): `<svg id="muffin_4" data-y-fuss="657" x="1218" y="624" width="25" height="33">`. (User verschob nach hinten und verkleinerte; data-y-fuss auf bbox-bottom 657 gesetzt.) **Wachspapier-Farben modifiziert**: ursprünglich Gelb-Grün (`#abc837`→`#89a02c`), jetzt warmes Gelb-Orange (`#f0bf20`→`#bf931a`).
 
 **animal_1** (`assets/animal_1.svg`, große Tier-/Kreatur-Figur an der hinteren Wand): inline mit IDs `a1_` prefixed (143 Path-IDs). Position vom User justiert auf `x="474" y="215" width="140" height="175" preserveAspectRatio="none"`. **Sanfter Gelb-Tint t=0.06** auf alle 95 Hex-Farbwerte angewendet (verschoben Richtung Honig/Warm-Beige, ohne dass es offensichtlich gelb wirkt — siehe Stolperstein "Animal-Tint"). **KEIN data-y-fuss** — wandmontiert, soll IMMER hinter Figur sein → bleibt nur in Rück-Ebene.
 
 **animal_2** (`assets/animal_2.svg`, kleinere Tier-Figur an der Wand): inline mit IDs `a2_` prefixed (10 Gradients erhalten). Position `x="645" y="220" width="130" height="154"`. `filter="url(#grell-soft)"` (effektiv saturate 1.0 = Originalfarben, da Parent `#grell` doppelt saturiert). **KEIN data-y-fuss** — gleicher Mechanismus wie animal_1, immer in Rück-Ebene.
 
-Alle Inline-Imports im Keller (Kamin, Ketten, Truhe, animals) haben prefixierte IDs (`fireplace_…`/`ch1_…`/`ch2_…`/`ch_…`/`a1_…`/`a2_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett/animals (Deko, Figur kann durchlaufen).
+Alle Inline-Imports im Keller (Kamin, Ketten, animals) haben prefixierte IDs (`fireplace_…`/`ch1_…`/`ch2_…`/`a1_…`/`a2_…`) gegen Konflikte. Kein eigenes Hindernis bei Kerzen/Ketten/Skelett/animals (Deko, Figur kann durchlaufen).
 
 ## Hindernis-System (Kollision)
 
 `HINDERNISSE[raumId]` ist ein Array. Jedes Hindernis ist eine von vier Formen:
 
 - **Kreis**: `{ fu, fv, r }` — runde/kompakte Objekte (Pflanzen, Octopus).
-- **Ellipse**: `{ fu, fv, rx, ry, rot? }` — flache/breite Objekte (Tisch1, Kamin, Truhe). `rot` ist optional in Radian (Default 0): Rotation der rx-Achse ggü. der fu-Achse, im Uhrzeigersinn auf dem Boden-(fu,fv)-System (atan2-Konvention). Im Debug-Editor per ↻-Handle interaktiv setzbar.
-- **Viereck (konvex, polygon)**: `{ punkte: [[fu1,fv1], [fu2,fv2], [fu3,fv3], [fu4,fv4]] }` — rechteckige Möbel mit gerader Kante (Schrank, ggf. später Truhe/Schreibtisch). Konvex bedeutet: alle Innenwinkel < 180°. 3+ Punkte erlaubt, beliebige Reihenfolge (Cross-Product-Test).
+- **Ellipse**: `{ fu, fv, rx, ry, rot? }` — flache/breite Objekte (Tisch1, Kamin). `rot` ist optional in Radian (Default 0): Rotation der rx-Achse ggü. der fu-Achse, im Uhrzeigersinn auf dem Boden-(fu,fv)-System (atan2-Konvention). Im Debug-Editor per ↻-Handle interaktiv setzbar.
+- **Viereck (konvex, polygon)**: `{ punkte: [[fu1,fv1], [fu2,fv2], [fu3,fv3], [fu4,fv4]] }` — rechteckige Möbel mit gerader Kante (Schrank, ggf. später Schreibtisch). Konvex bedeutet: alle Innenwinkel < 180°. 3+ Punkte erlaubt, beliebige Reihenfolge (Cross-Product-Test).
 - **Spline (kubische Bezier-Kette)**: `{ spline: [{ fu, fv, hIn?: {du,dv}, hOut?: {du,dv} }, ...] }` — geschlossene Kette von kubischen Bezier-Edges für unregelmäßige/weiche Konturen (z.B. Kerzen-Cluster). Edge i geht von vertex[i] zu vertex[(i+1)%n]; Kontrollpunkte = vertex + (hOut bzw. hIn) als Offset-Vektoren. Fehlende Handles ⇒ degenerierter Cubic = effektiv gerade Kante. Handles sind nicht symmetrisch (zwei unabhängige Tangenten — Knicke an Vertices erlaubt). Für Kollision wird der Spline pro Edge mit `SPLINE_N=16` Samples in eine Polyline subdiviert (`splinePoly(h)`, gecached auf `h._cachedPoly`, invalidiert bei jedem Vertex-/Handle-Drag) und mit Ray-Casting (`pktInPolygonAllgemein`) getestet — funktioniert auch für nicht-konvexe Splines. Slide-Manöver projizieren auf das nächste Polyline-Segment; Außen-Normale via Centroid-Richtung (an konkaven Stellen leicht ungenau, für Level-Design ausreichend). **Alle HINDERNISSE-Einträge sind Splines** — Kreise/Ellipsen als 6-Eck-Näherung konvertiert, Vierecke 1:1 übernommen. Kreis/Ellipse/Viereck-Typen bleiben im Code für eventuelle spätere Nutzung.
 
 Form-Helper (alle in `script.js` direkt vor `istImHindernis`):
@@ -425,7 +425,7 @@ const spielstand = {
 ```
 
 **Sanitärobjekt-Switch:** `aktualisiereSanitaer()` togglet die CSS-Klasse `sanitar-aus` mehrerer `<svg>`-Blöcke basierend auf `spielstand.zustaende`. Selektor: `'[id="X"], [id^="v_"][id$="_X"]'` — matcht Original UND die Front-Layer-Klone (deren IDs von `klonePflanzenVorne()` mit `v_<idx>_` prefixed sind). Wird beim Init und nach jeder Zustandsänderung aufgerufen. Behandelt:
-- Bathtub `#bathtub_1_1/1_2` (Sitz-Switch via `badewanne`).
+- ~~Bathtub-Switch entfernt~~ — `bathtub_1_1` und `bathtub_1_2` sind jetzt ein Layer-Paar (Hintergrund + Vordergrund mit Wasser bis x-Mittelachse), beide permanent sichtbar. Der `badewanne`-State und `setzeBadewanne()`-Helper bleiben für Backwards-Compat, ohne visuellen Effekt.
 - Toiletten `#toilet_1_1/1_2`, `#toilet_2_1/2_2` (Sitz-Switch via `toilette_1/2`).
 - Voll-Indikatoren `#toilet_1_voll`, `#toilet_2_voll` (gelbe Ellipsen) — sichtbar nur, wenn `toilette_X_voll && toilette_X === 2` (Sitz oben + voll).
 - Octopus `#octopus_1_1/_2/_3` — sichtbar nach `octopus_da && octopus_zustand === N`.
@@ -521,7 +521,7 @@ Mehrere lineare Chains laufen parallel; gelöste Aufgaben dürfen voneinander ab
 
 | Step | Trigger | Effekt |
 |---|---|---|
-| 0→1 | Klick `cake_1` (Hauptraum) → MC-Aufgabe `chain_1_kuchen` (U + A bei d=20 cm, π=3.14 → U=62,8, A=314) | `gegenstaende += "schluessel_buero"` (Silberner Schlüssel mit Hex-Reide + L-Bart, optisch klar anders als der goldene `vereinter_schluessel` aus Chain 6) |
+| 0→1 | Klick `cake_1` (Hauptraum) → MC-Aufgabe `chain_1_kuchen` (U + A bei d=20 cm, π=3.14 → U=62,8, A=314) | `gegenstaende += "schluessel_buero"` (Silberner Schlüssel mit hochstehender ovaler Reide + L-Bart, optisch klar anders als der goldene `vereinter_schluessel` aus Chain 6) |
 | 1→2a | Silber-Schlüssel auf cupboard_1 (linke Hälfte, x=980..1180) gezogen | Schlüssel verbraucht, **MC-Aufgabe `chain_1_schloss` öffnet sich** (90° → π/2 rad). Bei richtig: `oeffneCupboard1()` → Schrank-Switch öffnet. Bei falsch: Schrank zu, Spieler kann erneut versuchen (gleicher Aufgaben-Dialog bleibt offen). |
 | 2→3 | Klick auf Zettel im offenen Schrank → Overlay mit Button „Mitnehmen" | `gegenstaende += "zettel"`, Zettel verschwindet visuell aus dem Schrank |
 | 3→4 | Zettel auf Lichtkegel der **handgemalten Tischlampe auf table_2** (x=330..445, y=430..515) gezogen | Öffnet MC-Aufgabe `chain_1_pi` |
@@ -554,7 +554,18 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 **Octopus-Exit-Timing:** `setTimeout(() => animiereOctopusRaus(), 2000)` wird **nicht** im Aufgaben-Callback gestartet, sondern in `schliesseOverlay()` über einen Hook: wenn nach Schliessen `octopus_zustand===3 && octopus_da && !octopus_exit_gestartet`, dann startet der 2-Sekunden-Timer. Damit zählt die Pause ab dem Moment, in dem User wieder das Spiel sieht (statt schon während des Mood-Hinweis-Overlays). `octopus_exit_gestartet`-Flag verhindert Doppel-Trigger.
 
-**Octopus-Exit-Richtung:** `animiereOctopusRaus()` liest `figur.fu` und kippt das Ziel zur jeweils anderen Seite (figur.fu < 0.5 → Octopus nach rechts/+380 px, sonst nach links/-560 px), y immer +520 px (nach unten-vorne raus Richtung "zurueck"-Pfeil). 2.4 s Safety-Timeout, falls `transitionend` nicht feuert (z.B. weil `display:none` schon vorher zugeschlagen hat). **Kein Fade** — der Octopus krabbelt mit voller Opacity aus dem Bild; CSS-Transition `transform 1.92s cubic-bezier(0.45, 0, 0.55, 1)` (1.6 s × 1.2 = 20 % langsamer als ursprünglich, damit die Bewegung gemächlicher wirkt).
+**Octopus-Exit-Animation:** `animiereOctopusRaus()` startet eine dreiphasige CSS-`@keyframes`-Animation `octopus-leave` (Total 2.2 s, siehe `style.css`):
+- **Phase A** (0..45.5 %, 1.0 s): Octopus krabbelt von Original-Position zu `dx=-470, dy=-5` und schrumpft auf `scale(0.7)`. ease-out für sanftes Anrollen.
+- **Phase B** (45.5..68.2 %, 0.5 s): Pause an dieser Position (~toilet_2-Höhe).
+- **Phase C** (68.2..100 %, 0.7 s): parabelförmiger Sprung zur Wannen-x-Mitte (`dx=-720`) mit Apex bei `dy=-405`, gleichzeitig 180°-Rotation (4 lineare Stützpunkte approximieren die Parabel: 76 % bei dx=-533, 84 % Apex bei dx=-595, 92 % bei dx=-658, 100 % bei dx=-720) → „Kopfsprung ins Wasser".
+
+Nach `animationend` setzt `aktualisiereSanitaer` via `octopus_da=false` die `sanitar-aus`-Klasse → `display:none`. Safety-Timeout 2.5 s.
+
+**DOM-Layering für „Untertauchen":** `bathtub_1_1` (Hintergrund-Layer, volle Wanne) DOM-VOR Octopus, `bathtub_1_2` (Vordergrund, Wasser nur bis x-Mittelachse) DOM-NACH allen Octopus-Varianten und VOR `duck_1`. So taucht der Octopus während der Sprung-Landephase visuell hinter `bathtub_1_2` ein, während die Ente weiter vorne auf dem Wasser bleibt. Beide bathtub-SVGs sind als `<image href>` eingebunden (kein Switch-Partner mehr — `aktualisiereSanitaer` togglet sie nicht; der `badewanne`-State und `setzeBadewanne()`-Helper bleiben für Backwards-Compat, haben aber keinen visuellen Effekt).
+
+`transform-box: view-box; transform-origin: 1150px 545px` referenziert das outer SVG (#object-layer mit viewBox 0 0 1600 900); Origin in user-units auf den visuellen Octopus-Mittelpunkt → scale + rotate um den Octopus selbst.
+
+**Frühere Varianten:** (a) Figur-Ausweich-Heuristik (figur.fu<0.5 → +380px) schickte ihn in die rechte untere Ecke; (b) `dx=-350, dy=520` zum „zurueck"-Pfeil querte den Figur-Bereich; (c) `dx=-720` mit Translate + Fade fadete in der Mitte weg statt in der Wanne; (d) translate + scale 0.7 + display:none wirkte zu abrupt — Octopus „verschwand" statt „tauchte unter".
 
 ### Chain 3 — Wolke → Vogel + Schlauch → Blume → Samen + Vogel → Münzen → Octopus
 
@@ -731,7 +742,7 @@ Eigenes Vollbild-Overlay `#start-overlay` (z-index 20, parallel zum Sieg-Overlay
 - **Floater-Layer** (`#start-floaters`): 130 zufällig schwebende Kreise in unterschiedlichen Grössen (24–224 px Durchmesser, biased zu kleineren via Math.random²) und Farben (10er-Palette: Bürobild yellow/red/violet + treasure gold + cyan/orange/mint/pink/soft-violet/peach). Opazität 0.30–0.75 zufällig (Tiefen-Effekt). 3 CSS-Drift-Keyframes, Animation-Duration 8–18 s + Delay 0–4 s pro Kreis zufällig (entkorreliertes Schweben). KEINE Ränder. Per `spawneStartFloater()` bei jedem Aufruf neu erzeugt → bei jedem Page-Load anderes Pattern.
 - **Story-Box** (`#start-box`): warme cream-Farbe mit gold-Akzentrahmen, max-width 560 px.
   - **Haus-SVG** (`#start-house`, viewBox 0 0 320 200): Cartoon-Haus mit Dach/Schornstein/Tür/Fenstern + 3 farbige pulsierende Kreise (yellow/red/violet — Bürobild-Motiv) + 2 funkelnde Sterne. CSS-Animationen `start-circle-pulse` 3.2 s + `sparkle-twinkle` (recyclet aus Sieg-Overlay).
-  - **Headline** „Great-Aunt's House"
+  - **Headline** „Full Circle"
   - **Story** (3 Sätze, EN): „Your great-aunt, an eccentric mathematician, has left you her old house. Her will hints at a hidden treasure — but she was obsessed with circles and locked everything behind formulas. Solve her puzzles to find what she left behind."
   - **Buttons** (dynamisch via JS in `zeigeStartScreen()`):
     - Save vorhanden: **„Continue"** (gold, primär) + **„Start over"** (grau, sekundär).
@@ -931,7 +942,7 @@ Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Br
 - **„Hinter Canvas-Element"-Migrationspattern (SVG → Canvas):** Architektur-bedingt liegt das SVG-`<g data-raum>` IMMER VOR dem `<canvas>` in der Stack-Reihenfolge. Wenn ein Element visuell HINTER ein Canvas-Element soll (z.B. flower_4 hinter bush_4, flower_6 hinter bush_1), muss es ebenfalls auf den Canvas wandern. Vorgehen: 1) Inline-SVG-Inhalt aus index.html ausschneiden, 2) als standalone-SVG-Datei speichern (mit eigenem viewBox, ohne x/y), 3) als BUESCHE-Eintrag (`{ src, cx, baseY, breite, hoehe }`) hinzufügen, 4) in `zeichneGartenZaun()` an passender Stelle vor dem überdeckenden Canvas-Element via `zeichneBuschBild` rendern. Konsequenz: keine `data-y-fuss`-Tiefensortierung mehr (Canvas-Elemente sind immer hinter Figur). User-Customizations (geänderte Farben, gespiegelte Wrapper) müssen mitübernommen werden.
 - **SVG-Filter `filter="url(#name)"`** statt CSS-Filter — robuster (#grell, #grell-mild, #invert).
 - **Body-CSS:** `position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none` — verhindert Scroll/Verschieben.
-- **Switch-Partner exakte Position:** `bathtub_1_1/1_2`, `toilet_1_1/1_2`, `toilet_2_1/2_2` müssen deckungsgleich liegen — sonst „springt" das Objekt beim Umschalten. toilet_1_2 / toilet_2_2 brauchen einen `<g transform="translate(37 -9)">`-Wrapper, weil die Pfade im Asset-viewBox verschoben sind.
+- **Switch-Partner exakte Position:** `toilet_1_1/1_2`, `toilet_2_1/2_2` müssen deckungsgleich liegen — sonst „springt" das Objekt beim Umschalten. toilet_1_2 / toilet_2_2 brauchen einen `<g transform="translate(37 -9)">`-Wrapper, weil die Pfade im Asset-viewBox verschoben sind. (`bathtub_1_1/_1_2` waren früher auch ein Switch-Paar; sind jetzt ein Layer-Paar — siehe Badezimmer-Sektion.)
 - **Sanitär-Klone-IDs in `aktualisiereSanitaer`:** Die Sanitär-SVGs haben `data-y-fuss="670"` und werden von `klonePflanzenVorne()` in die Front-Ebene geklont. Beim Klonen werden alle IDs mit `v_<idx>_` prefixed (gegen Gradient-Konflikte). Konsequenz: ein naiver Selektor `[id="toilet_1_1"]` matcht nur das Original, NICHT den Klon `v_5_toilet_1_1`. Ohne Klon-Match haben die Front-Layer-Klone NIE die `sanitar-aus`-Klasse → sobald die Figur näher als der Toiletten-Foot kommt und der Tiefen-Toggle die Klone sichtbar macht, sind alle 4 Klon-Switch-Partner gleichzeitig sichtbar (toilet_X_2 überdeckt toilet_X_1 dank DOM-Reihenfolge → User sieht „beide WCs gespült", State unverändert). Selektor muss daher Original UND Klon abdecken: `[id="X"], [id^="v_"][id$="_X"]`.
 - **Klick-Polygon vs. Möbel-Bbox-Überlapp:** Die Klick-Polygone von `OBJEKTE` werden NICHT durch Hindernisse blockiert — ein Klick auf ein Möbel ohne eigenes Klick-Objekt fällt durch zur Boden-Logik, ABER trifft trotzdem überlappende Klick-Polygone anderer Objekte. Beispiel: ursprünglich waren toilet_1/toilet_2 die volle SVG-Bbox (200×250 px) und überlappten mit cupboard_2 (x=750..1100); ein Klick auf den Schrank togglte ungewollt eine Toilette. Lösung: Klick-Polygone enger ziehen, sodass sie nicht mit Nachbar-Möbeln überlappen.
 - **Gradient-Defs in geklonten Inline-SVGs:** Wenn ein `<svg>` mit eigener `<defs>` ein `data-y-fuss` hat und in die Front-Ebene geklont wird, entstehen ID-Duplikate. Paint-server-Lookup nimmt den ersten DOM-Treffer — wenn dessen Parent `display:none` ist, rendern Pfade unsichtbar (so verschwanden früher die desk_1-Beine). **Aktueller Workaround:** `klonePflanzenVorne()` prefixed seit script.js v134 alle IDs im Klon mit `v_<idx>_` und schreibt alle internen `url(#…)`-/`xlink:href="#…"`-Refs entsprechend um → beide Layer haben eigene Gradient-Defs, kein Konflikt mehr. Das löste z.B. das "verschwindende Kerzen-Flammen"-Problem (candle_2 hat 2 Gradients pro Kerze). Alternativ: solid colors statt Gradient — oder Asset als `<image href>` einbinden (Black-Box, eigener ID-Scope). cake_2 nutzt diese Alternativ-Lösung historisch.
