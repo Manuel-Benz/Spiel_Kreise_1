@@ -436,6 +436,17 @@ window.freischalten = freischalten;
 window.verschliessen = verschliessen;
 window.spielstand = spielstand;
 
+// ---------- Sichtbarkeits-Toggle-Helper ----------
+// Togglet die CSS-Klasse `sanitar-aus` (mit display:none !important im <style>)
+// auf einem Element UND seinen Front-Layer-Klonen. `klonePflanzenVorne()` prefixt
+// Klon-IDs mit `v_<idx>_` gegen Gradient-Konflikte → der Selektor matcht beide.
+// Wird von aktualisiereSanitaer/Cupboard1/Chain3/4/5/7 benutzt.
+function setSichtbar(id, sichtbar) {
+    document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
+        el.classList.toggle("sanitar-aus", !sichtbar);
+    });
+}
+
 // ---------- Sanitärobjekt-Switch (Badezimmer) ----------
 // Setzt Sichtbarkeit der Toiletten (toilet_1_1/_2 + toilet_2_1/_2) entsprechend
 // spielstand.zustaende. Wird beim Init und nach jedem Wechsel aufgerufen.
@@ -443,15 +454,6 @@ window.spielstand = spielstand;
 // Layer (volle Wanne), _1_2 der Vordergrund (Wasser bis x-Mittelachse). Beide sind
 // permanent sichtbar; der Octopus taucht beim Exit zwischen ihnen unter.
 function aktualisiereSanitaer() {
-    const setSichtbar = (id, sichtbar) => {
-        // Original (z.B. id="toilet_1_1") UND Front-Layer-Klone (id="v_<idx>_toilet_1_1")
-        // matchen — `klonePflanzenVorne()` prefixt Klon-IDs mit `v_<idx>_` gegen Gradient-Konflikte.
-        // Wir toggeln eine CSS-Klasse `sanitar-aus` (mit display:none !important im <style>),
-        // die die Inline-display-Setzung von aktualisierePflanzenTiefe() überschreibt.
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     setSichtbar("toilet_1_1", spielstand.zustaende.toilette_1 === 1);
     setSichtbar("toilet_1_2", spielstand.zustaende.toilette_1 === 2);
     setSichtbar("toilet_2_1", spielstand.zustaende.toilette_2 === 1);
@@ -560,11 +562,6 @@ window.wechsleToilette2 = wechsleToilette2;
 // Selektor matcht Original UND Front-Layer-Klone (siehe Stolperstein "Sanitär-Klone-IDs").
 function aktualisiereCupboard1() {
     const offen = !!spielstand.zustaende.cupboard_1_offen;
-    const setSichtbar = (id, sichtbar) => {
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     setSichtbar("cupboard_1_1", !offen);
     setSichtbar("cupboard_1_2", offen);
     // Zettel im Schrank verschwinden lassen, sobald er im Inventar liegt.
@@ -589,11 +586,6 @@ window.oeffneCupboard1 = oeffneCupboard1;
 // Selektor matcht Original UND Front-Layer-Klone (`v_<idx>_…`-Prefix von klonePflanzenVorne).
 function aktualisiereChain3() {
     const z = spielstand.zustaende;
-    const setSichtbar = (id, sichtbar) => {
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     setSichtbar("bird_1", !!z.vogel_da);
     setSichtbar("gradenhose_1", !z.schlauch_genommen);
     setSichtbar("binoculars_1_visual", !z.octopus_da && z.toilette_1 === 2 && !z.binoculars_genommen);
@@ -616,11 +608,6 @@ function aktualisiereChain3() {
 function aktualisiereChain4() {
     const z = spielstand.zustaende;
     const inv = spielstand.gegenstaende;
-    const setSichtbar = (id, sichtbar) => {
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     const duckInInv     = inv.has("duck_1");
     const muffinInInv   = inv.has("muffin_1");
     setSichtbar("duck_1",        !duckInInv && !z.duck_im_keller);
@@ -640,11 +627,6 @@ function aktualisiereChain4() {
 //     (kein separates Aufnehm-SVG im Keller mehr; pickel_da-Flag obsolet).
 function aktualisiereChain5() {
     const z = spielstand.zustaende;
-    const setSichtbar = (id, sichtbar) => {
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     // Drei klickbare Bürobild-Kreise — verstecken, sobald die Aufgabe gelöst ist.
     const kreiseSichtbar = !z.bild_kreise_geloest;
     setSichtbar("bild_kreis_yellow", kreiseSichtbar);
@@ -714,11 +696,6 @@ window.aktualisiereChain3 = aktualisiereChain3;
 // Selektor matcht Original UND Front-Layer-Klone (v_<idx>_chain_7_grab) wie aktualisiereSanitaer.
 function aktualisiereChain7() {
     const z = spielstand.zustaende;
-    const setSichtbar = (id, sichtbar) => {
-        document.querySelectorAll(`[id="${id}"], [id^="v_"][id$="_${id}"]`).forEach(el => {
-            el.classList.toggle("sanitar-aus", !sichtbar);
-        });
-    };
     setSichtbar("chain_7_grab", !!z.chain_7_loch_offen);
     speicherSpielstand();
 }
