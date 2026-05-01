@@ -1435,17 +1435,20 @@
                          (Front-Edge des Lochs). Truhe sitzt HINTER dem Loch (nicht drin),
                          Bottom-Edge an der hinteren Rim-Höhe y=684. -->
                     <g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">
-                        <!-- Drei vertikale Wand-Trapeze, alle vom oberen (y=684) bis zum unteren
-                             Rim (y=786). Linke + rechte sind schmaler, Mittelwand breiter.
-                             Lichtquelle oben-links: links heller, rechts dunkler, Mitte hell-braun. -->
-                        <!-- Linke Wand (Lichtseite): heller — Trapez, schmaler oben + unten -->
-                        <polygon points="581,786 651,786 663,684 613,684" fill="#b08856"/>
-                        <!-- Mittelwand (front): hell braun — Trapez, perspektivisch breiter unten -->
-                        <polygon points="651,786 950,786 937,684 663,684" fill="#9c7548"/>
-                        <!-- Rechte Wand (Schattenseite): dunkler — Trapez -->
-                        <polygon points="950,786 1020,786 987,684 937,684" fill="#5a3f24"/>
-                        <!-- Schatztruhe HINTER dem Loch (Bottom an hinterer Rim-Höhe minus 20 px). -->
-                        <image id="chest_1" href="assets/chest_1.svg?v=1" x="715" y="588" width="170" height="76" preserveAspectRatio="none" filter="url(#grell-mild)"/>
+                        <!-- Back-Wand (Strip am oberen Rim, zwischen outer-back y=684 und
+                             inner-back y=720): dunkel braun -->
+                        <polygon points="613,684 987,684 884,720 716,720" fill="#4a3522"/>
+                        <!-- Drei vertikale Wand-Trapeze unterhalb der Back-Wand, alle vom inner-
+                             back (y=720) bis zum unteren Rim (y=786). Linke + rechte schmaler,
+                             Mittelwand breiter. Lichtquelle oben-links: links heller, rechts dunkler. -->
+                        <!-- Linke Wand: heller -->
+                        <polygon points="581,786 660,786 740,720 716,720" fill="#b08856"/>
+                        <!-- Mittelwand (front): hell braun, perspektivisch breiter unten -->
+                        <polygon points="660,786 940,786 860,720 740,720" fill="#9c7548"/>
+                        <!-- Rechte Wand: dunkler -->
+                        <polygon points="940,786 1020,786 884,720 860,720" fill="#5a3f24"/>
+                        <!-- Schatztruhe HINTER dem Loch. -->
+                        <image id="chest_1" href="assets/chest_1.svg?v=1" x="715" y="598" width="170" height="76" preserveAspectRatio="none" filter="url(#grell-mild)"/>
                     </g>
                 </g>
                 <g data-raum="keller" style="display:none" filter="url(#grell)">
@@ -3289,6 +3292,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=252"></script>
+    <script src="script.js?v=253"></script>
 </body>
 </html>
