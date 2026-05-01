@@ -690,11 +690,11 @@ window.aktualisiereChain7 = aktualisiereChain7;
 // (Spiel neu starten via Reload) automatisch verworfen — Module-State ist frisch.
 const CHAIN_7_HINDERNIS = {
     spline: [
-        { fu: 0.3297, fv: 0.34 },
-        { fu: 0.6733, fv: 0.3462 },
-        { fu: 0.6737, fv: 0.768, hOut: { du: -0.0762, dv: 0.0017 } },
+        { fu: 0.3297, fv: 0.34, hIn: { du: -0.0186, dv: 0.1904 } },
+        { fu: 0.6733, fv: 0.3462, hOut: { du: 0.0125, dv: 0.1732 } },
+        { fu: 0.6737, fv: 0.768, hIn: { du: 0.0204, dv: -0.1506 }, hOut: { du: -0.0762, dv: 0.0017 } },
         { fu: 0.5043, fv: 0.8964, hIn: { du: 0.1051, dv: -0.0215 }, hOut: { du: -0.0936, dv: -0.0187 } },
-        { fu: 0.3285, fv: 0.754, hIn: { du: 0.0879, dv: 0.0193 } },
+        { fu: 0.3285, fv: 0.754, hIn: { du: 0.0879, dv: 0.0193 }, hOut: { du: -0.0155, dv: -0.1403 } },
     ],
 };
 let chain_7_hindernis_aktiv = false;
