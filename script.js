@@ -122,7 +122,7 @@ const RAEUME = {
                       deaktiviereNachtsicht();
                       aktualisiereInventar();
                       zeigeOverlayText("The keypad clicks open. The hatch to the cellar swings free.");
-                      automatischSchliessen(4000);
+                      automatischSchliessen();
                       draw();
                   },
               },
@@ -734,12 +734,12 @@ function oeffneGrab(werkzeug) {
         aktualisiereChain7();
         draw();
         zeigeOverlayText("You break through the soil and uncover a wooden chest in the hole.");
-        automatischSchliessen(4000);
+        automatischSchliessen();
     } else {
         // Erstes Werkzeug — kurze Bestätigung, damit der User sieht, dass etwas passiert.
         const fehlt = z.chain_7_schaufel_gedroppt ? "pickaxe" : "trowel";
         zeigeOverlayText(`You start breaking up the soil — but you also need a ${fehlt}.`);
-        automatischSchliessen(4000);
+        automatischSchliessen();
     }
 }
 window.oeffneGrab = oeffneGrab;
@@ -1684,7 +1684,7 @@ function kombiniereSchluessel() {
         aktualisiereLinkesInventar();
         aktualisiereInventar();
         zeigeOverlayText("The three key fragments and the glue fuse into one complete key.\nIt's now in your inventory.");
-        automatischSchliessen(4000);
+        automatischSchliessen();
     }, 2800);
 }
 window.kombiniereSchluessel = kombiniereSchluessel;
@@ -1803,7 +1803,7 @@ const OBJEKTE = {
                 aktualisiereCupboard1();
                 draw();
                 zeigeOverlayText("You take a crumpled note. It's barely legible.");
-                automatischSchliessen(4000);
+                automatischSchliessen();
             },
         },
         // Chain 1, Schritt 4: Lichtkegel der handgemalten Tischlampe auf Tisch 2 — Drop-Target
@@ -1974,7 +1974,7 @@ const OBJEKTE = {
                     setzeToilette2Voll(true);
                     aktualisiereInventar();
                     zeigeOverlayText("You tip the fish into the toilet.\nThe glass is now empty.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -1993,7 +1993,7 @@ const OBJEKTE = {
                     spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 3);
                     aktualisiereInventar();
                     zeigeOverlayText("You fill the glass with water from the bathtub.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2050,7 +2050,7 @@ const OBJEKTE = {
                 aktualisiereChain3();
                 draw();
                 zeigeOverlayText("As the cloud drifts apart, a bird becomes visible behind it.");
-                automatischSchliessen(4000);
+                automatischSchliessen();
             },
         },
         // Chain 3c: Vogel als Drop-Target für seed_1 → goldene_muenzen.
@@ -2071,7 +2071,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain3();
                     zeigeOverlayText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2105,7 +2105,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain3();
                     zeigeOverlayText("You water the flower. It grows in a flash and offers you a seed.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2188,7 +2188,7 @@ const OBJEKTE = {
                     aktualisiereChain4();
                     draw();
                     zeigeOverlayText("You lay the rubber duck between the two chains.\nIt seems trapped.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2213,7 +2213,7 @@ const OBJEKTE = {
                     aktualisiereChain5();
                     skelettLachen();
                     zeigeOverlayText("The three circles slip onto the painting and complete it.\nThe skeleton bursts into laughter and gives you a pickaxe as thanks.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2237,7 +2237,7 @@ const OBJEKTE = {
                     aktualisiereChain4();
                     spieleBurp();
                     zeigeOverlayText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 },
             },
         },
@@ -2445,7 +2445,7 @@ function gewaehrenBelohnung(id, feedbackEl) {
 
     speicherSpielstand();
     draw();
-    automatischSchliessen(4000);
+    automatischSchliessen();
 }
 
 // Richtung, in die die Figur beim Eintritt schaut — "in den Raum hinein",
@@ -4824,7 +4824,7 @@ canvas.addEventListener("pointerdown", (e) => {
             if (tuer.secret && !spielstand.zustaende.keller_freigeschaltet) {
                 if (!spielstand.gegenstaende.has("code_geheimtuer")) {
                     zeigeOverlayText("A keypad sits next to the door.\nYou need to find a code first.");
-                    automatischSchliessen(4000);
+                    automatischSchliessen();
                 }
                 return;
             }
@@ -5519,7 +5519,7 @@ function nimmAufGegenstand(obj) {
     if (obj.aufnehmen === "duck_1") {
         // Chain 4 — Story-Hinweis: Ente sieht unheimlich aus, soll man bald wieder los werden.
         zeigeOverlayText("You take the rubber duck.\nIt looks strangely menacing — you'd rather get rid of it soon.");
-        automatischSchliessen(4000);
+        automatischSchliessen();
     }
     // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.
     // animal_3_1-Image auf desk_4 verschwinden lassen, sobald es im Inventar liegt).
@@ -5748,7 +5748,7 @@ function aktualisiereLinkesInventar() {
         slot.addEventListener("pointerdown", (e) => {
             e.preventDefault();
             zeigeOverlayText("Collection items on the left can't be used for interactions — only inventory items on the right can.");
-            automatischSchliessen(4000);
+            automatischSchliessen();
         });
         inventarLinksEl.appendChild(slot);
     }
