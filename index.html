@@ -6,7 +6,18 @@
     <title>Full Circle</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=47">
+    <link rel="stylesheet" href="style.css?v=48">
+    <script>
+        // Skip-Flag synchron prüfen vor Body-Parse: damit der Startscreen-Overlay im
+        // "Start over"-Pfad nicht 1 Frame aufblitzt, bevor JS ihn versteckt. Konsumiert
+        // das sessionStorage-Flag hier; zeigeStartScreen() prüft danach die HTML-Klasse.
+        try {
+            if (sessionStorage.getItem("spiel_kreise_1_skip_start") === "1") {
+                sessionStorage.removeItem("spiel_kreise_1_skip_start");
+                document.documentElement.classList.add("skip-start");
+            }
+        } catch (_) {}
+    </script>
 </head>
 <body>
     <!-- Startbildschirm vorerst ausgeklammert (direkt ins Spiel).
@@ -3260,7 +3271,7 @@
              Hintergrund schweben 130 zufällig generierte Kreise in unterschiedlichen
              Grössen + Farben (per spawneStartFloater() in script.js). Backdrop + Esc
              bewusst NICHT klick-schliessbar — User muss explizit einen Button wählen. -->
-        <div id="start-overlay" hidden>
+        <div id="start-overlay">
             <div id="start-floaters"></div>
             <div id="start-box">
                 <svg id="start-house" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
@@ -3320,6 +3331,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=256"></script>
+    <script src="script.js?v=257"></script>
 </body>
 </html>

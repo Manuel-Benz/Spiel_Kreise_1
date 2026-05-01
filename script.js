@@ -862,13 +862,10 @@ const SKIP_START_KEY = "spiel_kreise_1_skip_start";
 function zeigeStartScreen() {
     const startEl = document.getElementById("start-overlay");
     if (!startEl) return;
-    // Skip-Flag von "Start over": direkt ins Spiel, kein Overlay.
-    try {
-        if (sessionStorage.getItem(SKIP_START_KEY) === "1") {
-            sessionStorage.removeItem(SKIP_START_KEY);
-            return;
-        }
-    } catch (_) {}
+    // Skip-Flag von "Start over": Inline-<head>-Script hat den sessionStorage-Flag bereits
+    // konsumiert und `html.skip-start` gesetzt. Overlay ist via CSS sofort versteckt → wir
+    // returnen einfach, ohne den Overlay aufzubauen.
+    if (document.documentElement.classList.contains("skip-start")) return;
     let hasSave = false;
     try { hasSave = !!localStorage.getItem(STORAGE_KEY); } catch (_) {}
     const btnContainer = startEl.querySelector(".start-buttons");

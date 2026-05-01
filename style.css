@@ -850,6 +850,9 @@ body.nachtsicht #object-layer-vorne {
 }
 #start-overlay[hidden] { display: none; }
 #start-overlay.fade-out { opacity: 0; }
+/* Skip-Flag: HTML hat Klasse `skip-start` via Inline-<head>-Script gesetzt → Overlay sofort
+   versteckt, kein 1-Frame-Aufblitzen zwischen Page-Load und JS-Init im "Start over"-Pfad. */
+html.skip-start #start-overlay { display: none; }
 
 #start-floaters {
     position: absolute;
