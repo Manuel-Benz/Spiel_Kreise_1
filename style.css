@@ -853,6 +853,11 @@ body.nachtsicht #object-layer-vorne {
 /* Skip-Flag: HTML hat Klasse `skip-start` via Inline-<head>-Script gesetzt → Overlay sofort
    versteckt, kein 1-Frame-Aufblitzen zwischen Page-Load und JS-Init im "Start over"-Pfad. */
 html.skip-start #start-overlay { display: none; }
+/* Auch das Game-Stage versteckt halten, bis JS den ersten Frame gezeichnet hat — sonst
+   Game-FOUC (SVG-Inline ist sofort gemalt, Canvas erst nach JS-Run). game-ready wird im
+   Auto-Start nach loop() per JS gesetzt → CSS schaltet game-stage sichtbar. */
+html.skip-start #game-stage { visibility: hidden; }
+html.skip-start.game-ready #game-stage { visibility: visible; }
 
 #start-floaters {
     position: absolute;

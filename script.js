@@ -4307,6 +4307,12 @@ requestAnimationFrame(() => {
     // loop() läuft im Hintergrund weiter, der Overlay deckt alles ab. User-Klick
     // auf Continue / Begin / Start over fade-t den Overlay aus und gibt das Spiel frei.
     zeigeStartScreen();
+    // game-ready: signalisiert CSS, dass JS den ersten Frame gezeichnet hat. Wichtig für
+    // den "Start over"-Pfad, wo der Overlay versteckt ist und ohne diese Klasse das
+    // halb-aufgebaute Spiel sichtbar wäre (SVG ohne Canvas). CSS-Regel im skip-start-Pfad:
+    //   html.skip-start #game-stage { visibility: hidden }
+    //   html.skip-start.game-ready #game-stage { visibility: visible }
+    document.documentElement.classList.add("game-ready");
 });
 
 window.addEventListener("resize", () => {

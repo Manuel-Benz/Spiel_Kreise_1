@@ -64,7 +64,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=48`, `script.js?v=257`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=49`, `script.js?v=258`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -763,6 +763,13 @@ Eigenes Vollbild-Overlay `#start-overlay` (z-index 20, parallel zum Sieg-Overlay
 **Skip-Flag (sessionStorage):** Beim „Start over"-Confirm wird zusätzlich `sessionStorage["spiel_kreise_1_skip_start"]="1"` gesetzt, BEVOR `location.reload()` läuft. Beim nächsten Page-Load **prüft ein Inline-`<script>` im `<head>`** das Flag SYNCHRON (vor Body-Parse), konsumiert es und setzt `document.documentElement.classList.add("skip-start")`. CSS-Regel `html.skip-start #start-overlay { display: none }` versteckt den Overlay sofort, bevor irgendwas gemalt wird. `zeigeStartScreen()` prüft die Klasse statt sessionStorage und returnt früh. Audio-Context unlocked sich beim ersten In-Game-Klick.
 
 **No-Flicker Loading:** `#start-overlay` hat KEIN `hidden`-Attribut mehr — ist von t=0 an sichtbar (z-index 20 deckt alles ab). So sieht der User beim Reload sofort den Startscreen statt kurz das halb-aufgebaute Spiel (Inline-SVG ohne Canvas-Inhalt). JS baut das Spiel dahinter unsichtbar auf; `verstecksStartScreen()` blendet den Overlay nach Klick aus.
+
+**No-Flicker im Skip-Start-Pfad:** Wenn der Overlay via `html.skip-start`-CSS sofort versteckt ist, würde der Game-FOUC drunter sichtbar (SVG-Inline gemalt, Canvas leer). Daher zusätzlich:
+```
+html.skip-start #game-stage { visibility: hidden; }
+html.skip-start.game-ready #game-stage { visibility: visible; }
+```
+Auto-Start setzt am Ende der Init-RAF `document.documentElement.classList.add("game-ready")` — nach `loop()` (= erster `draw()`-Aufruf). Class-Mutation triggert Style-Recalc innerhalb derselben Frame → der nächste Paint zeigt das Game-Stage mit fertig gezeichnetem Canvas. User sieht also: schwarzer Body-Hintergrund kurz, dann instant das fertige Spiel.
 
 ## Cursor-Feedback (Browser-Klickhand)
 
