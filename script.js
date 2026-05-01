@@ -781,6 +781,11 @@ function spawneFireworks() {
 
 // Button-Handler für Sieg-Overlay. Werden beim DOMContentLoaded gebunden (siehe Block ganz unten).
 function siegPlayAgain() {
+    // Save löschen, damit der Reload tatsächlich ein frisches Spiel startet (sonst
+    // würde der Begrüssungsbildschirm „Continue / Start over" zeigen). Skip-Flag setzen,
+    // damit der Story-Screen nicht erneut erscheint — analog zum „Start over"-Confirm.
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    try { sessionStorage.setItem("spiel_kreise_1_skip_start", "1"); } catch (_) {}
     location.reload();
 }
 function siegEndGame() {
@@ -1552,7 +1557,11 @@ const OBJEKTE = {
         // tulpe-Hindernisses (HINDERNISSE.haupt[2]: fu=-0.01..0.08, fv=0.02..0.18).
         {
             id: "chain_6_tulpe",
-            polygon: [[20, 720], [175, 720], [175, 880], [20, 880]],
+            // Polygon bewusst auf den Topf+Stengel-Bereich (y≥840) beschränkt, damit es klar
+            // unterhalb der L-Tür-Bottom-Linie liegt — sonst würde der pointerdown-Handler
+            // (Türen vor Objekten) den Klick als Garten-Tür interpretieren. Asset wurde
+            // dafür leicht nach unten verschoben (translate y=884 → 894 in index.html).
+            polygon: [[20, 840], [175, 840], [175, 895], [20, 895]],
             laufziel: { fu: 0.13, fv: 0.04 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden
                        && !s.linkesInventar.has("schluesselteil_3"),
@@ -1791,7 +1800,11 @@ const OBJEKTE = {
         // Kein `aktion` — Klick auf die Wanne fällt durch zur Boden-Logik (Figur läuft hin).
         {
             id: "bathtub",
-            polygon: [[130, 440], [730, 440], [730, 640], [130, 640]],
+            // Linke Polygon-Kante x=220 statt 130: die buero-Tür auf der linken Wand
+            // (seitenTuerPolygon mit x_max=202.5) reicht perspektivisch bis in die linke
+            // obere Wannen-Ecke. Klicks in dem Bereich landeten sonst als Tür-Klick im
+            // Büro statt einer Wannen-Aktion. Visuelle Wanne bleibt unverändert.
+            polygon: [[220, 440], [730, 440], [730, 640], [220, 640]],
             laufziel: { fu: 0.18, fv: 0.20 },
             // Cursor:pointer nur, wenn animal_3_2 zum Drop bereit ist (sonst gibt's keine Aktion).
             aktiv: (s) => s.zustaende.formelbuch_gefunden && s.gegenstaende.has("animal_3_2"),
@@ -5465,20 +5478,18 @@ aktualisiereInventar();
 // NICHT interaktiv — Klick zeigt nur einen Hinweis, kein Drag-Start. Sobald alle 4 drin sind,
 // triggert sammleSchluesselteil() die kombiniereSchluessel-Animation (siehe oben).
 const LINKES_INVENTAR = {
-    // Reide-Teil (oberer Schlüsselkopf mit Loch). Bruchkante unten zeigt, dass es ein Teilstück ist.
+    // Reide-Teil (oberer Schlüsselkopf mit Loch, ohne Hals). Bruchkante direkt am
+    // Reide-Boden mit Zacken nach unten — wirkt wie ein abgebrochener Knauf.
     // Goldfarbtöne (analog vereinter_schluessel) statt grau, randlos.
     schluesselteil_1: {
         name: "Key fragment (top)",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                 <g fill="#e8b840">
-                   <ellipse cx="24" cy="16" rx="9" ry="8"/>
-                   <rect x="22" y="22" width="4" height="14"/>
-                 </g>
-                 <ellipse cx="24" cy="16" rx="3.6" ry="3" fill="#fff8e1"/>
-                 <!-- Highlights für Plastizität -->
-                 <ellipse cx="20" cy="13" rx="3" ry="1.6" fill="#f5d068" opacity="0.85"/>
-                 <!-- Bruchkante unten (zackig, dunkleres Gold) -->
-                 <path d="M19 36 L21 40 L23 37 L26 41 L28 37 L29 40 L26 43 L22 43 Z" fill="#b89540"/>
+                 <ellipse cx="24" cy="18" rx="10" ry="9" fill="#e8b840"/>
+                 <ellipse cx="24" cy="18" rx="4" ry="3.4" fill="#fff8e1"/>
+                 <!-- Highlight für Plastizität -->
+                 <ellipse cx="20" cy="14" rx="3" ry="1.6" fill="#f5d068" opacity="0.85"/>
+                 <!-- Bruchkante unten (Zacken nach unten weisend, am Reide-Boden) -->
+                 <path d="M29 34 L27 30 L25 33 L22 29 L20 33 L19 30 L22 27 L26 27 Z" fill="#b89540"/>
                </svg>`,
     },
     // Mittel-Schaft (zylindrischer Stab, Bruchkante oben + unten).
@@ -5495,18 +5506,21 @@ const LINKES_INVENTAR = {
                </svg>`,
     },
     // Bart-Teil (unterer Schlüsselbart mit zwei Zähnen, Bruchkante oben).
+    // Schaft bewusst nur das untere Drittel des viewBox (y=24..39, Höhe 15) — vorher
+    // wirkte das Fragment wie ein ganzer Schlüssel ohne Reide. Die Zacken-Bruchkante
+    // ist jetzt prominenter (y=15..24) und macht klar, dass es ein Bruchstück ist.
     schluesselteil_3: {
         name: "Key fragment (bit)",
         icon: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                  <g fill="#e8b840">
-                   <rect x="22" y="13" width="4" height="26"/>
-                   <rect x="26" y="26" width="11" height="3"/>
-                   <rect x="26" y="33" width="7" height="3"/>
+                   <rect x="22" y="24" width="4" height="15"/>
+                   <rect x="26" y="29" width="11" height="3"/>
+                   <rect x="26" y="35" width="7" height="3"/>
                  </g>
                  <!-- Highlight (heller Streifen) -->
-                 <rect x="22" y="13" width="1.5" height="26" fill="#f5d068"/>
-                 <!-- Bruchkante oben -->
-                 <path d="M19 9 L21 13 L23 10 L26 14 L28 10 L29 13 L26 16 L22 16 Z" fill="#b89540"/>
+                 <rect x="22" y="24" width="1.5" height="15" fill="#f5d068"/>
+                 <!-- Bruchkante oben (prominenter, zackiger) -->
+                 <path d="M18 15 L20 22 L22 17 L24 23 L26 16 L28 22 L30 18 L31 23 L27 25 L21 25 Z" fill="#b89540"/>
                </svg>`,
     },
     // Leim — Tube mit Cap und Label, randlos. Gelbe Tube mit hellem Highlight.
@@ -5623,7 +5637,15 @@ function bridge() {
     z.toilette_1 = 2;
     z.binoculars_genommen = true;
     z.keller_freigeschaltet = true;
+    // End-State der Bridge: code_geheimtuer wurde auf die Geheimtür gedroppt und ist
+    // verbraucht; binoculars_1 ist beim Drop ebenfalls weg; keller_code-Eintrag im
+    // inventar-Lookup wurde gelöscht. Helper räumt auf, falls die Items via chain1()
+    // o.ä. vorab eingefügt wurden.
+    spielstand.gegenstaende.delete("code_geheimtuer");
+    spielstand.gegenstaende.delete("binoculars_1");
+    delete spielstand.inventar.keller_code;
     if (typeof deaktiviereNachtsicht === "function") deaktiviereNachtsicht();
+    aktualisiereInventar();
     aktualisiereSanitaer();
     draw();
     console.log("Bridge ✓ — Keller freigeschaltet.");
@@ -5677,6 +5699,10 @@ function chain7() {
         HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
         chain_7_hindernis_aktiv = true;
     }
+    // Schaufel + Pickel sind beim Drop auf gartenmitte_grab verbraucht — Helper räumt
+    // auf, falls die Items via chain4()/chain5() vorab eingefügt wurden.
+    spielstand.gegenstaende.delete("schaufel");
+    spielstand.gegenstaende.delete("pickel");
     spielstand.gegenstaende.add("vereinter_schluessel");
     aktualisiereInventar();
     aktualisiereChain7();
