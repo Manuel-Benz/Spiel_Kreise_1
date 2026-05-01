@@ -3928,10 +3928,10 @@ function loop() {
 const gameStage = document.getElementById("game-stage");
 const STAGE_PADDING = 0; // Stage füllt den Viewport voll aus (16:9-Letterbox per body-bg)
 
-// DPR-Cap: auf Retina-iPads ist devicePixelRatio=2 → 4× so viele Pixel wie nötig.
-// Mit 1.5 bleiben Linien noch scharf, aber Canvas-Render-Last sinkt deutlich.
-// Per Konsole zur Laufzeit anpassbar via setzeDprCap(N) zum Vergleichen.
-let dprCap = 1.5;
+// DPR-Cap: deckelt window.devicePixelRatio. Default Infinity = kein Cap, Gerät entscheidet
+// selbst (Retina-Mac/iPad: 2). Lever für später, falls auf älteren iPads der Garten/Keller
+// einbricht — dann via setzeDprCap(1.5) in der Konsole testen, ob's hilft.
+let dprCap = Infinity;
 function setzeDprCap(n) {
     dprCap = n;
     resizeCanvas();

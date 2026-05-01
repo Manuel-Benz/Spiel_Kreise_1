@@ -62,7 +62,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=47`, `script.js?v=241`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=47`, `script.js?v=242`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -85,7 +85,7 @@ function draw() {
 
 `resizeCanvas()` setzt beide Canvases auf dieselbe DPR-aware Pixelgrösse. Klicks landen nur auf `#game-canvas`; `#figure-canvas` und beide SVGs haben `pointer-events: none`.
 
-**DPR-Cap (`dprCap`, Default 1.5):** `devicePixelRatio` wird via `Math.min(window.devicePixelRatio || 1, dprCap)` gedeckelt — auf Retina-iPads (DPR=2) sonst 4× so viele Pixel zu rendern wie nötig. Bei 1.5 bleiben Linien noch scharf, Canvas-Render-Last sinkt deutlich. Konsole-Helper: `setzeDprCap(N)` (z.B. 1, 1.5, 2) zum Vergleichen ohne Reload.
+**DPR-Cap (`dprCap`, Default `Infinity` = kein Cap):** `devicePixelRatio` wird via `Math.min(window.devicePixelRatio || 1, dprCap)` gedeckelt. Default ohne Cap — Gerät entscheidet selbst (Retina-Mac/iPad rendert mit 2). Lever bleibt drin: falls je auf älteren Schul-iPads der Garten/Keller einbricht, in der Konsole `setzeDprCap(1.5)` testen → 50 % weniger Pixel im Canvas, Linien bleiben scharf genug. Aktuell ungenutzt, weil auf modernen Geräten kein spürbarer Frame-Drop messbar.
 
 ## Koordinatensystem & Perspektive
 
