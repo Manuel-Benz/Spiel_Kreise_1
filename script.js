@@ -4552,38 +4552,6 @@ async function ladeSVG(pfad) {
     }
 }
 
-// Platziert ein SVG perspektivisch auf dem Boden (Füße an fu, fv).
-function platziereAufBoden(svgRoot, fu, fv, basisBreite) {
-    const [x, y] = bodenPunkt(fu, fv);
-    const s = 1 - 0.45 * fv;
-    const breite = basisBreite * s;
-    let hoehe = breite;
-    if (svgRoot.viewBox && svgRoot.viewBox.baseVal && svgRoot.viewBox.baseVal.width > 0) {
-        const vb = svgRoot.viewBox.baseVal;
-        hoehe = breite * vb.height / vb.width;
-    }
-    svgRoot.setAttribute("x", x - breite / 2);
-    svgRoot.setAttribute("y", y - hoehe);
-    svgRoot.setAttribute("width", breite);
-    svgRoot.setAttribute("height", hoehe);
-    svgLayer.appendChild(svgRoot);
-    return svgRoot;
-}
-
-// Platziert ein SVG an fixen Zimmerkoordinaten (z. B. für Wandobjekte).
-function platziereImZimmer(svgRoot, x, y, breite, hoehe) {
-    svgRoot.setAttribute("x", x);
-    svgRoot.setAttribute("y", y);
-    svgRoot.setAttribute("width", breite);
-    svgRoot.setAttribute("height", hoehe);
-    svgLayer.appendChild(svgRoot);
-    return svgRoot;
-}
-
-function entferneAlleSVGs() {
-    svgLayer.innerHTML = "";
-}
-
 // ---------- Eingabe ----------
 
 function canvasZuLogisch(clientX, clientY) {
@@ -5200,7 +5168,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- Formelbuch ----------
 // Wird aus dem Hauptregal heraus geöffnet (Klick auf die 5 Bücher rechts in regal-4 → siehe
 // OBJEKTE.haupt.regal_buecher). Gating: spielstand.zustaende.formelbuch_gefunden wird true,
-// und Aufgaben können via pruefeFormelbuch() vorher prüfen, ob das Buch schon entdeckt ist.
+// und Aufgaben prüfen den State direkt via aktiv-Predicate (s. OBJEKTE).
 const FORMELBUCH = [
     { name: "Circumference", de: "Umfang", formel: "U = 2\\pi r",
       kommentar: "Circumference of the entire circle." },
@@ -5289,17 +5257,7 @@ function zeigeFormelbuch() {
     overlayEl.hidden = false;
 }
 
-// Helper für später definierte Aufgaben: prüft, ob das Formelbuch schon entdeckt wurde.
-// Gibt true zurück, sonst false UND zeigt einen Hinweis-Overlay. Aufgaben rufen die
-// Funktion am Anfang ihres aktion/aufgabe-Callbacks auf.
-function pruefeFormelbuch() {
-    if (spielstand.zustaende.formelbuch_gefunden) return true;
-    zeigeOverlayText("You need the right formulas first.\nLook for the formula book in the main room.");
-    return false;
-}
-
 window.zeigeFormelbuch = zeigeFormelbuch;
-window.pruefeFormelbuch = pruefeFormelbuch;
 
 // ---------- Inventar (Phase 6) ----------
 // Gegenstände können im Raum aufgenommen werden (Klick auf Objekt mit `aufnehmen`),
