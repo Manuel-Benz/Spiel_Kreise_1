@@ -66,7 +66,6 @@ const GRAU = {
 const FARBEN = {
     // Türen (global, unabhängig vom Raum)
     tuer:        GRAU.b50,
-    tuerLabel:   GRAU.b100,
     tuerGeheim:  GRAU.b70,            // Hauptraum-Wandfarbe → unsichtbare Geheimtür
     tuerGeheimOffen: GRAU.b80,        // Nach Code-Eingabe: dunkler als Wand → permanenter Akzent
     tuerGeheimOutline: "#5fff8a",     // Phosphor-Grün unter Nachtsicht (binoculars im Inventar)
@@ -101,11 +100,11 @@ const RAEUME = {
             hintereWand: GRAU.b70, linkeWand: GRAU.b70, rechteWand: GRAU.b70,
         },
         tueren: [
-            { id: "A", label: "A", polygon: [[460, 600], [640, 600], [640, 240], [460, 240]],
+            { id: "A", polygon: [[460, 600], [640, 600], [640, 240], [460, 240]],
               ziel: "buero",  laufziel: { fu: 0.26, fv: 0.92 } },
-            { id: "B", label: "B", polygon: [[960, 600], [1140, 600], [1140, 240], [960, 240]],
+            { id: "B", polygon: [[960, 600], [1140, 600], [1140, 240], [960, 240]],
               ziel: "badezimmer", laufziel: { fu: 0.74, fv: 0.92 } },
-            { id: "L", label: "L", polygon: seitenTuerPolygon(linkeWandPunkt),
+            { id: "L", polygon: seitenTuerPolygon(linkeWandPunkt),
               ziel: "garten", laufziel: { fu: 0.12, fv: 0.45 } },
             { id: "geheim", secret: true,
               polygon: [rechteWandPunkt(0.325, 0), rechteWandPunkt(0.575, 0), rechteWandPunkt(0.575, 0.4), rechteWandPunkt(0.325, 0.4)],
@@ -138,7 +137,7 @@ const RAEUME = {
             rechteWand: "#a8a49c",
         },
         tueren: [
-            { id: "zurueck", label: "H", polygon: seitenTuerPolygon(rechteWandPunkt),
+            { id: "zurueck", polygon: seitenTuerPolygon(rechteWandPunkt),
               ziel: "haupt", laufziel: { fu: 0.88, fv: 0.45 } },
         ],
     },
@@ -170,7 +169,7 @@ const RAEUME = {
         tueren: [
             { id: "zurueck", pfeil: true, polygon: PFEIL_POLYGON,
               ziel: "haupt", laufziel: { fu: 0.5, fv: 0.05 } },
-            { id: "badezimmer", label: "F", polygon: seitenTuerPolygon(rechteWandPunkt),
+            { id: "badezimmer", polygon: seitenTuerPolygon(rechteWandPunkt),
               ziel: "badezimmer", laufziel: { fu: 0.88, fv: 0.45 } },
         ],
     },
@@ -183,7 +182,7 @@ const RAEUME = {
         tueren: [
             { id: "zurueck", pfeil: true, polygon: PFEIL_POLYGON,
               ziel: "haupt", laufziel: { fu: 0.5, fv: 0.05 } },
-            { id: "buero", label: "B", polygon: seitenTuerPolygon(linkeWandPunkt),
+            { id: "buero", polygon: seitenTuerPolygon(linkeWandPunkt),
               ziel: "buero", laufziel: { fu: 0.12, fv: 0.45 } },
         ],
     },
@@ -229,6 +228,7 @@ const spielstand = {
         // → in Wanne füllen → animal_3_3 (Glas mit Wasser) → Octopus zwei Mal füttern.
         chain_2_step: 0,           // 0 = nichts, 1 = animal_3_1 aufgenommen, 2 = im WC entleert, 3 = aufgefüllt, 4 = Octopus 1× gefüttert, 5 = Octopus 2× → exit.
         octopus_exit_gestartet: false, // Sicherheits-Flag: Exit-Animation maximal 1× pro Run starten (siehe schliesseOverlay-Hook).
+        octopus_hmmm_gespielt: false,  // Sicherheits-Flag: Hmmmm_1.mp3 maximal 1× beim ersten Mood-Advance (state 1→2).
         // Chain 3 — zwei parallele Pfade: (a) zentrale Wolke anklicken → Vogel sichtbar.
         // (b) Schlauch-Aufgabe lösen → gartenschlauch ins Inventar → auf flower_1 droppen
         // → seed_1. Dann seed_1 auf Vogel → goldene_muenzen. Goldene Münzen auf Octopus
@@ -667,6 +667,7 @@ window.kreisGedrueckt = kreisGedrueckt;
 function skelettLachen() {
     const els = document.querySelectorAll(`[id="skelett_3"], image[href$="skeleton_3.svg"]`);
     els.forEach(el => el.classList.add("skelett-lacht"));
+    setTimeout(() => spieleAudio("Laughing_1"), 500);
     setTimeout(() => {
         els.forEach(el => el.classList.remove("skelett-lacht"));
     }, 2000);
@@ -933,6 +934,7 @@ function verstecksStartScreen() {
     if (!startEl) return;
     // Klick auf Button zählt als User-Geste → audioCtx kann starten (Schritt-Sounds OK).
     if (typeof ensureAudio === "function") ensureAudio();
+    if (typeof starteMusik === "function") starteMusik();
     startEl.classList.add("fade-out");
     setTimeout(() => {
         startEl.hidden = true;
@@ -965,10 +967,147 @@ window.deaktiviereNachtsicht = deaktiviereNachtsicht;
 let audioCtx = null;
 let soundAn = true;
 // Musik-Flag — separat vom Spielstand, persistiert via SETTINGS_KEY (siehe ladeEinstellungen).
-// Aktuell gibt es keine Musik im Spiel; das Flag ist ein Vorgriff für eine spätere
-// Background-Music-Implementierung (z.B. Web Audio Loop). Settings-Menü zeigt es trotzdem
-// an, damit User die Vorliebe vorab setzen können.
-let musikAn = false;
+// Default an: starteMusik() wird im verstecksStartScreen-Handler aufgerufen und
+// triggert die Intro→Loop→Outro-Sequenz (siehe Background-Musik-Sektion unten).
+let musikAn = true;
+
+// ---------- Background-Musik (Web Audio API für sample-genaues gapless) ----------
+// Sequenz: beim ersten Klick auf den Start-Screen läuft `Haupt_1` (Intro). Danach
+// wechselt der Player auf `<Raum>_2` für den Raum, in dem die Figur gerade ist —
+// die _2-Files sind 8 Takte lang und werden immer ausgespielt, dann (≈300 ms vor
+// Track-Ende) wird der aktuelle Raum gelesen und der nächste Track exakt am
+// Endezeitpunkt des aktuellen geplant — sample-genau, kein Gap. Sobald der
+// Spieler die Schatztruhe öffnet (`chain_7_geoeffnet=true`), wird beim nächsten
+// Decision-Point das Outro `Garten_3` geplant und gespielt; danach Phase `done`.
+//
+// Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
+// am Decision-Point keine Netzwerk-Latenz zuschlägt.
+const MUSIK_VOLUME = 0.25;
+const MUSIK_LOOP_PRO_RAUM = {
+    haupt:      "Haupt_2",
+    buero:      "Buero_2",
+    badezimmer: "Badezimmer_2",
+    garten:     "Garten_2",
+    keller:     "Keller_2",
+};
+const MUSIK_FILES = ["Haupt_1", "Haupt_2", "Buero_2", "Badezimmer_2", "Garten_2", "Keller_2", "Garten_3"];
+const MUSIK_LOOKAHEAD = 0.30; // s vor Track-Ende → Raum lesen + nächsten Track planen.
+
+let musikBuffers = {};         // name → AudioBuffer (cached)
+let musikBufferPromises = {};  // name → Promise<AudioBuffer>
+let musikGainNode = null;
+let musikSource = null;        // aktuell spielender AudioBufferSourceNode
+let musikTimer = null;         // setTimeout-Handle für nächsten Decision-Point
+let musikPhase = "idle";       // "idle" | "intro" | "loop" | "outro" | "done"
+
+function getBuffer(name) {
+    if (musikBufferPromises[name]) return musikBufferPromises[name];
+    musikBufferPromises[name] = (async () => {
+        const resp = await fetch(`assets/music/${name}.mp3`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} für ${name}`);
+        const ab = await resp.arrayBuffer();
+        const buf = await audioCtx.decodeAudioData(ab);
+        musikBuffers[name] = buf;
+        return buf;
+    })();
+    return musikBufferPromises[name];
+}
+
+function initMusikGain() {
+    if (musikGainNode || !audioCtx) return;
+    musikGainNode = audioCtx.createGain();
+    musikGainNode.gain.value = MUSIK_VOLUME;
+    musikGainNode.connect(audioCtx.destination);
+}
+
+function naechsterLoopName() {
+    return MUSIK_LOOP_PRO_RAUM[aktuellerRaum] || "Haupt_2";
+}
+
+// Plant einen Track ab `startTime` (audioCtx-Zeit, in Sekunden). Awaitet
+// Buffer-Decode falls noch nicht fertig — bei Preload (siehe starteMusik) ist's
+// instant. Setzt anschliessend einen Timer auf den nächsten Decision-Point.
+async function spieleTrack(name, startTime) {
+    let buffer;
+    try {
+        buffer = await getBuffer(name);
+    } catch (e) {
+        console.warn(`Musik ${name} konnte nicht geladen werden:`, e.message);
+        return;
+    }
+    if (!musikAn) return;  // User hat während Decode stummgeschaltet
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(musikGainNode);
+    const t = Math.max(startTime, audioCtx.currentTime);
+    src.start(t);
+    musikSource = src;
+    const endTime = t + buffer.duration;
+    const decideMs = Math.max(0, (endTime - MUSIK_LOOKAHEAD - audioCtx.currentTime) * 1000);
+    if (musikTimer) clearTimeout(musikTimer);
+    musikTimer = setTimeout(() => decideUndPlane(endTime), decideMs);
+}
+
+// Wird ~300 ms vor Track-Ende aufgerufen. Liest aktuellen Raum / Endgame-Flag,
+// wählt nächsten Track-Namen, plant ihn exakt am `scheduleAt`-Zeitpunkt
+// (= Endezeit des aktuellen Tracks).
+function decideUndPlane(scheduleAt) {
+    musikTimer = null;
+    if (!musikAn) return;
+
+    if (musikPhase === "intro") {
+        musikPhase = "loop";
+        spieleTrack(naechsterLoopName(), scheduleAt);
+        return;
+    }
+    if (musikPhase === "loop") {
+        if (spielstand.zustaende.chain_7_geoeffnet) {
+            musikPhase = "outro";
+            spieleTrack("Garten_3", scheduleAt);
+        } else {
+            spieleTrack(naechsterLoopName(), scheduleAt);
+        }
+        return;
+    }
+    if (musikPhase === "outro") {
+        musikPhase = "done";
+        musikSource = null;
+    }
+}
+
+function starteMusik() {
+    if (!musikAn) return;
+    if (musikSource || musikTimer) return;  // läuft schon
+    if (musikPhase === "done") return;      // Endgame durch
+    if (typeof ensureAudio === "function") ensureAudio();
+    if (!audioCtx) return;
+    initMusikGain();
+
+    // Background-Preload aller MP3s (parallel; Promise-Cache verhindert Doppellade).
+    MUSIK_FILES.forEach(name => { getBuffer(name).catch(() => {}); });
+
+    const startTime = audioCtx.currentTime + 0.05;
+    if (musikPhase === "idle") {
+        musikPhase = "intro";
+        spieleTrack("Haupt_1", startTime);
+    } else {
+        // Resume mid-loop (Toggle-aus-dann-wieder-an): direkt mit aktuellem Raum-Loop.
+        spieleTrack(naechsterLoopName(), startTime);
+    }
+}
+
+function stoppeMusik() {
+    if (musikTimer) { clearTimeout(musikTimer); musikTimer = null; }
+    if (musikSource) {
+        try { musikSource.stop(); } catch (e) {}
+        musikSource = null;
+    }
+    // musikPhase NICHT zurücksetzen — beim nächsten starteMusik() weitermachen
+    // (kein erneutes Intro).
+}
+
+window.starteMusik = starteMusik;
+window.stoppeMusik = stoppeMusik;
 
 function ensureAudio() {
     if (!audioCtx) {
@@ -1029,38 +1168,9 @@ function spieleSchritt() {
     src.stop(now + v.dur);
 }
 
-// Spülsound (Platzhalter): 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep abwärts +
-// langsam ansteigender und wieder abfallender Lautstärke. Klingt nach "Schwall + Abfluss".
+// Spülsound: spielt assets/sounds/Toilet_1.mp3.
 function spieleSpuelung() {
-    if (!soundAn) return;
-    ensureAudio();
-    if (!audioCtx) return;
-    const dauer = 1.6;
-    const sampleRate = audioCtx.sampleRate;
-    const len = Math.floor(dauer * sampleRate);
-    const buf = audioCtx.createBuffer(1, len, sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-    const src = audioCtx.createBufferSource();
-    src.buffer = buf;
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = "lowpass";
-    const now = audioCtx.currentTime;
-    // Tiefpass-Sweep: 1200 Hz → 250 Hz (Wasser läuft ab → Restgurgeln)
-    filter.frequency.setValueAtTime(1200, now);
-    filter.frequency.exponentialRampToValueAtTime(250, now + dauer);
-    filter.Q.value = 0.7;
-    const gain = audioCtx.createGain();
-    // Hüllkurve: Attack 0.1 s → Sustain 0.25 → Decay zum Ende
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.1);
-    gain.gain.setValueAtTime(0.25, now + 0.7);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dauer);
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(audioCtx.destination);
-    src.start(now);
-    src.stop(now + dauer);
+    spieleAudio("Toilet_1");
 }
 window.spieleSpuelung = spieleSpuelung;
 
@@ -1119,6 +1229,44 @@ function spieleTon(freq, dauer = 0.4) {
     osc.stop(now + dauer + 0.02);
 }
 window.spieleTon = spieleTon;
+
+// MP3-Audio-Files aus assets/sounds/. `name` ohne Pfad und ohne Endung
+// (z.B. "Bird_1" → "assets/sounds/Bird_1.mp3"). Pro Aufruf eine frische
+// Audio-Instanz, damit überlappende Plays funktionieren. Browser cached die
+// Datei auf HTTP-Ebene, kein eigenes Preload nötig.
+function spieleAudio(name, volume = 0.75) {
+    if (!soundAn) return null;
+    try {
+        const audio = new Audio(`assets/sounds/${name}.mp3`);
+        audio.volume = Math.max(0, Math.min(1, volume));
+        audio.play().catch(() => {});
+        return audio;
+    } catch (e) { return null; }
+}
+window.spieleAudio = spieleAudio;
+
+// Bird_2 (Garten-Eintritt) wird getrackt, damit es beim Verlassen des Gartens
+// sauber ausgefadet werden kann (statt abrupt zu cutten).
+let bird2Audio = null;
+function spieleBird2() {
+    if (bird2Audio) { bird2Audio.pause(); bird2Audio = null; }
+    bird2Audio = spieleAudio("Bird_2", 0.5);
+    if (bird2Audio) bird2Audio.addEventListener("ended", () => { bird2Audio = null; });
+}
+function fadeBird2Aus(dauer = 600) {
+    if (!bird2Audio) return;
+    const audio = bird2Audio;
+    bird2Audio = null;
+    const startVol = audio.volume;
+    const startZeit = performance.now();
+    function step(now) {
+        const t = Math.min(1, (now - startZeit) / dauer);
+        audio.volume = Math.max(0, startVol * (1 - t));
+        if (t < 1) requestAnimationFrame(step);
+        else audio.pause();
+    }
+    requestAnimationFrame(step);
+}
 
 // Konsolen-Helfer: Sound an/aus
 window.soundAnAus = (an) => { soundAn = !!an; console.log("Sound:", soundAn ? "an" : "aus"); };
@@ -1229,6 +1377,12 @@ const AUFGABEN = {
                 const neu = Math.min(aktuell + 1, 3);
                 setzeOctopusZustand(neu);
                 s.zustaende.chain_2_step = Math.max(s.zustaende.chain_2_step ?? 0, 4);
+                // Hmmmm-Sound beim ersten Mood-Advance (1→2), 500 ms nach Aufgaben-Overlay
+                // — User soll während des Lesens den zufriedenen Octopus hören.
+                if (neu === 2 && !s.zustaende.octopus_hmmm_gespielt) {
+                    s.zustaende.octopus_hmmm_gespielt = true;
+                    setTimeout(() => spieleAudio("Hmmmm_1"), 500);
+                }
                 // Exit-Animation startet erst NACH dem Schliessen des Aufgaben-Overlays
                 // (siehe schliesseOverlay) — User soll die Mood-Antwort lesen können.
             },
@@ -1285,6 +1439,12 @@ const AUFGABEN = {
                 const aktuell = s.zustaende.octopus_zustand ?? 1;
                 const neu = Math.min(aktuell + 1, 3);
                 setzeOctopusZustand(neu);
+                // Hmmmm-Sound beim ersten Mood-Advance (1→2), 500 ms nach Aufgaben-Overlay
+                // — User soll während des Lesens den zufriedenen Octopus hören.
+                if (neu === 2 && !s.zustaende.octopus_hmmm_gespielt) {
+                    s.zustaende.octopus_hmmm_gespielt = true;
+                    setTimeout(() => spieleAudio("Hmmmm_1"), 500);
+                }
                 // Exit-Animation startet erst NACH dem Schliessen des Aufgaben-Overlays
                 // (siehe schliesseOverlay) — User soll die Mood-Antwort lesen können.
             },
@@ -1892,6 +2052,7 @@ const OBJEKTE = {
                     s.zustaende.vogel_da = false;
                     aktualisiereInventar();
                     aktualisiereChain3();
+                    spieleAudio("Bird_1", 0.5);
                     zeigeOverlayText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
                     automatischSchliessen();
                 },
@@ -2056,7 +2217,7 @@ const OBJEKTE = {
                     spielstand.gegenstaende.add("messgeraet");
                     aktualisiereInventar();
                     aktualisiereChain4();
-                    spieleBurp();
+                    setTimeout(() => spieleAudio("Duck_1"), 500);
                     zeigeOverlayText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
                     automatischSchliessen();
                 },
@@ -2302,6 +2463,8 @@ function wechsleRaum(zielId) {
     figur.gehphase = 0;
     figur.ankunft = null;
     figur.richtung = eintrittsRichtung(eintritt.fu, eintritt.fv);
+    if (zielId === "garten" && vonRaum !== "garten") spieleBird2();
+    else if (zielId !== "garten" && vonRaum === "garten") fadeBird2Aus();
     speicherSpielstand();
     draw();
 }
@@ -3271,17 +3434,9 @@ function zeichneTueren() {
             // t.farbe: pro-Tür-Override (z.B. Keller-Rück-Tür in b80, analog zur Geheimtür-offen).
             fuellePolygon(t.polygon, t.farbe || FARBEN.tuer);
         }
-        const cx = t.polygon.reduce((s, pp) => s + pp[0], 0) / t.polygon.length;
-        const cy = t.polygon.reduce((s, pp) => s + pp[1], 0) / t.polygon.length;
-        if (t.label) {
-            ctx.fillStyle = FARBEN.tuerLabel;
-            ctx.font = "bold 60px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(t.label, cx, cy);
-        }
         if (!frei && !t.secret) {
             // Schloss-Icon unten an der Tür (Geheim-Türen bleiben visuell verborgen).
+            const cx = t.polygon.reduce((s, pp) => s + pp[0], 0) / t.polygon.length;
             const minY = Math.min(...t.polygon.map(p => p[1]));
             const maxY = Math.max(...t.polygon.map(p => p[1]));
             const hoehe = maxY - minY;
@@ -4616,6 +4771,7 @@ canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
 
     ensureAudio();               // Audio-Kontext beim ersten Klick initialisieren
+    if (typeof starteMusik === "function") starteMusik();  // Skip-Start-Pfad: erster Spiel-Klick startet die Musik
 
     const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
 
@@ -4867,6 +5023,7 @@ function schliesseOverlay() {
         spielstand.zustaende.octopus_da &&
         !spielstand.zustaende.octopus_exit_gestartet) {
         spielstand.zustaende.octopus_exit_gestartet = true;
+        setTimeout(() => spieleAudio("Hmmmm_1"), 500);
         setTimeout(() => animiereOctopusRaus(), 2000);
     }
 }
@@ -4939,6 +5096,8 @@ if (settingMusicBtn) settingMusicBtn.addEventListener("click", () => {
     musikAn = !musikAn;
     speicherEinstellungen();
     aktualisiereSettingsAnzeige();
+    if (musikAn) starteMusik();
+    else stoppeMusik();
 });
 if (settingResetBtn) settingResetBtn.addEventListener("click", () => {
     schliesseSettingsMenu();

@@ -11,12 +11,16 @@ Entwickler: Manuel Benz (Lehrer, wenig Programmiererfahrung). GitHub: `Manuel-Be
 ## Dateistruktur
 
 ```
-index.html        ← 2 Canvases + 2 SVG-Layer (hinten + vorne) mit Deko-Gruppen pro Raum
-style.css         ← Layout, Stage-Styling, Inventar, Drag-Preview, Octopus-Overrides
-script.js         ← Räume, Türen, Figur, Deko-Generatoren, Input/Loop, Inventar, Hindernisse, Tiefensortierung
-assets/           ← SVGs (siehe Tabelle unten)
-CLAUDE.md         ← diese Datei
+index.html           ← 2 Canvases + 2 SVG-Layer (hinten + vorne) mit Deko-Gruppen pro Raum
+style.css            ← Layout, Stage-Styling, Inventar, Drag-Preview, Octopus-Overrides
+script.js            ← Räume, Türen, Figur, Deko-Generatoren, Input/Loop, Inventar, Hindernisse, Tiefensortierung
+assets/              ← SVGs (siehe Tabelle unten) + favicon.svg (Tab-Icon: 3 Kreise gelb/rot/violett)
+assets/sounds/       ← MP3 SFX (Bird_1/Bird_2/Duck_1/Hmmmm_1/Laughing_1/Toilet_1)
+assets/music/        ← MP3 Background-Musik (Haupt_1, _2 pro Raum, Garten_3 als Outro)
+CLAUDE.md            ← diese Datei
 ```
+
+**Web Audio + `file://`:** Background-Musik nutzt `fetch` + `decodeAudioData`, was bei lokalen Files (`file:///`-URL) per CORS blockiert wird. Lokal entwickeln: `python3 -m http.server 8000` im Projektordner, dann `http://localhost:8000/`. Sound-Effekte (HTML5 `<audio>`) funktionieren auch via `file://`. GitHub Pages serviert HTTP, daher dort kein Problem.
 
 | Asset | Verwendung | Einbindung |
 |---|---|---|
@@ -146,12 +150,12 @@ Klick-Pipeline (`pointerdown`): zuerst Hindernis-Drag (nur HINDERNIS_DEBUG-Modus
 
 ## Türen
 
-Jede Tür hat `polygon`, `ziel`, `laufziel: {fu, fv}`, optional `label`/`secret`/`pfeil`/`schloss`/`akzeptiert`.
+Jede Tür hat `polygon`, `ziel`, `laufziel: {fu, fv}`, optional `secret`/`pfeil`/`schloss`/`farbe`/`akzeptiert`. Türen werden randlos gefüllt — keine Buchstaben/Labels mehr.
 
 - **Hauptraum:** A, B an hinterer Wand, L an linker Wand, **geheim** an rechter Wand (`secret: true`). Nicht freigeschaltet wandfarben (b70, unsichtbar) und von `findeTuerBei` rausgefiltert; mit `binoculars_1` im Inventar wird sie unter Nachtsicht via Phosphor-Outline (`#5fff8a` Stroke + Glow) sichtbar; nach Drop von `code_geheimtuer` (siehe Bridge) → `keller_freigeschaltet=true`, dauerhaft in `tuerGeheimOffen` (b80, dunkler als Wand) gerendert + begehbar.
 - **Büro/Badezimmer:** `zurueck` als 2D-Pfeil unten am Bildrand (`PFEIL_POLYGON`); seitliche Durchgangstür F bzw. B.
 - **Garten:** einzelne Rück-Tür auf Seitenwand (`seitenTuerPolygon(rechteWandPunkt)`, Standard-Türgrösse).
-- **Keller:** Rück-Tür auf linker Wand mit **gleichem Polygon wie die Geheimtür im Hauptraum** — `linkeWandPunkt(0.325..0.575, 0..0.4)` (kleiner als `seitenTuerPolygon`). Farbe `GRAU.b90` (eine Stufe dunkler als die b80-Wand → die Tür hebt sich subtil ab statt komplett zu verschmelzen) als Pro-Tür-Override (keine `secret`-Logik). Kein Label. Bewusster „Hidden-Door"-Stil, optisch ähnlich zur freigeschalteten Geheimtür drüben.
+- **Keller:** Rück-Tür auf linker Wand mit **gleichem Polygon wie die Geheimtür im Hauptraum** — `linkeWandPunkt(0.325..0.575, 0..0.4)` (kleiner als `seitenTuerPolygon`). Farbe `GRAU.b90` (eine Stufe dunkler als die b80-Wand → die Tür hebt sich subtil ab statt komplett zu verschmelzen) als Pro-Tür-Override (keine `secret`-Logik). Bewusster „Hidden-Door"-Stil, optisch ähnlich zur freigeschalteten Geheimtür drüben.
 
 **Türen-Schlösser:** `schloss: "<id>"` macht Tür gesperrt, bis der Schlüssel in `spielstand.freigeschalteteTueren` liegt. `zeichneSchloss()` malt ein weisses Schloss unten in der Tür (NICHT auf `secret`-Türen). Aktuell ist nur die Geheimtür gesperrt, gating-Mechanik läuft aber nicht über `schloss` sondern über `secret: true` + `keller_freigeschaltet`-Flag (siehe Bridge). Die Schloss-Mechanik kann jederzeit für andere Türen aktiviert werden.
 
@@ -881,21 +885,38 @@ Klick auf Boden, `wechsleRaum`, oder Stop wegen Hindernis verwirft `ankunft`.
 
 **Fade-Transition:** `starteRaumwechsel(zielId)` blendet `#fade`-Div schwarz ein (220 ms), ruft `wechsleRaum`, blendet aus. `wechselInGang`-Flag blockt Klicks während der Transition.
 
-## Sound (Web Audio, keine Dateien)
+## Sound (Web Audio + MP3-Files)
 
 Schrittsounds live via Web Audio API: weisser Noise-Burst durch Tiefpassfilter zum dumpfen „Thud". Vier Varianten in `SCHRITT_VARIANTEN` (220–310 Hz, 80–100 ms) round-robin + ±3 % Frequenz-Jitter pro Schritt.
 
 `audioCtx` wird beim ersten `pointerdown` via `ensureAudio()` initialisiert (Safari/Chrome starten oft `suspended` → `audioCtx.resume()`). `spieleSchritt()` feuert in `aktualisiereFigur`, wenn die Gehphase π oder 2π überquert.
 
-`spieleSpuelung()` (Chain 2): 1.6 s gefiltertes Rauschen mit Tiefpass-Sweep 1200 Hz → 250 Hz und Hüllkurve (Attack 0.1 s, Sustain 0.6 s, Decay zum Ende). Spielt beim Klick auf eine `voll`-Toilette.
+**MP3-Files** in `assets/sounds/`. Wiedergabe via `spieleAudio(name, volume=0.75)` (HTML5 Audio, frische Instanz pro Aufruf, default-Lautstärke 75 %, respektiert `soundAn`-Flag, kein Preload — Browser cached HTTP-seitig). Aktuelle Files:
+- `Bird_1.mp3` — seed_1-Drop auf Vogel (Chain 3c). Lautstärke **50 %**.
+- `Bird_2.mp3` — Raumwechsel in den Garten (nur wenn vorher nicht im Garten). Lautstärke **50 %**. Wird in Modul-Variable `bird2Audio` getrackt: bei Garten-Verlassen ruft `wechsleRaum` `fadeBird2Aus(600)` → 600 ms linearer Volume-Ramp auf 0 via requestAnimationFrame, danach `pause()`. Helpers: `spieleBird2()` (kappt vorherige Instanz) + `fadeBird2Aus(dauer=600)`.
+- `Duck_1.mp3` — muffin_1-Drop auf duck_1_keller (Chain 4, ersetzt früheren `spieleBurp()`-Aufruf an dieser Stelle). Mit **500 ms Verzögerung** nach Overlay-Öffnung.
+- `Hmmmm_1.mp3` — Octopus-Mood-Advance, spielt zwei Mal pro Run:
+  - (a) **Erstes Mal** beim 1→2-Transition, 500 ms NACH Öffnen des Aufgaben-Belohnungs-Overlays (im Callback von `chain_2_octopus`/`chain_3_pizza`, je nachdem welche Aufgabe zuerst gelöst wurde). Flag `octopus_hmmm_gespielt`. User hört Hmm während des Lesens der „mood improved"-Belohnungstext.
+  - (b) **Zweites Mal** beim Erreichen von state=3 in `schliesseOverlay`, 500 ms NACH Schliessen des Overlays. Flag `octopus_exit_gestartet`. 1500 ms später startet zusätzlich die Exit-Animation (Total: Overlay zu → 500 ms Hmmm → 2000 ms Exit-Animation).
+- `Laughing_1.mp3` — `skelettLachen()` (Chain 5, drei_kreise → painting_2). Mit **500 ms Verzögerung** nach Skelett-Animationsstart.
+- `Toilet_1.mp3` — `spieleSpuelung()` (Klick auf voll-Toilette). Web-Audio-Synth wurde durch MP3 ersetzt; Funktionsname bleibt für Backwards-Compat.
 
-`spieleBurp()` (Chain 4): kurzer 0.55 s Rauschen mit Tiefpass-Sweep 320 Hz → 80 Hz, Q=6 (resonant), schnelle Pulse-Hüllkurve. Klingt nach Rülpsen — spielt nach Muffin-Drop auf duck_1_keller.
+`spieleBurp()` (Chain 4, Web Audio): kurzer 0.55 s Rauschen mit Tiefpass-Sweep 320 Hz → 80 Hz, Q=6 (resonant), schnelle Pulse-Hüllkurve. **Aktuell ungenutzt** (Duck_1.mp3 hat den Burp-Sound übernommen), Funktion bleibt als Konsolen-Helfer verfügbar.
 
-`spieleTon(freq, dauer=0.4)` (Chain 5): reiner Sinuston mit weicher Hüllkurve (Attack 0.02 s → Sustain → Release 0.13 s, Peak gain 0.25). Wird für die 3 farbigen Bürobild-Kreise genutzt: yellow=C4 (261.63 Hz), red=E4 (329.63 Hz), violet=G4 (392.00 Hz) — Dur-Akkord, harmonisch.
+`spieleTon(freq, dauer=0.4)` (Chain 5, Web Audio): reiner Sinuston mit weicher Hüllkurve (Attack 0.02 s → Sustain → Release 0.13 s, Peak gain 0.25). Wird für die 3 farbigen Bürobild-Kreise genutzt: yellow=C4 (261.63 Hz), red=E4 (329.63 Hz), violet=G4 (392.00 Hz) — Dur-Akkord, harmonisch.
 
-Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`, `spieleTon(freq)`.
+Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `spieleBurp()`, `spieleTon(freq)`, `spieleAudio("Bird_1")` etc.
 
-**Sound-/Musik-Toggle** im Settings-Menü (Zahnrad unten rechts) togglet `soundAn` (alle SFX) bzw. `musikAn` (Stub). Beide werden in `localStorage` unter `SETTINGS_KEY` persistiert (separat vom Spielstand → Reset löscht Sound-Vorlieben NICHT). `musikAn` ist aktuell ein **Platzhalter** ohne Implementierung — siehe Persistenz-Sektion.
+**Sound-/Musik-Toggle** im Settings-Menü (Zahnrad unten rechts) togglet `soundAn` (alle SFX) bzw. `musikAn` (Background-Musik). Beide werden in `localStorage` unter `SETTINGS_KEY` persistiert (separat vom Spielstand → Reset löscht Sound-Vorlieben NICHT). `musikAn` Default `true`.
+
+**Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 25 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
+- **Intro** (`Haupt_1`): startet beim Klick auf einen Start-Screen-Button (Continue / Start over / Begin adventure → `verstecksStartScreen()` → `starteMusik()`). Spielt einmal komplett durch.
+- **Loop** (`<Raum>_2`-Files, je 8 Takte): ~300 ms vor Track-Ende (`MUSIK_LOOKAHEAD`) liest `decideUndPlane()` den aktuellen Raum (`aktuellerRaum`) und plant das passende `_2` (`Haupt_2`/`Buero_2`/`Badezimmer_2`/`Garten_2`/`Keller_2`) exakt am Endezeitpunkt des laufenden Tracks (`source.start(endTime)`) → kein hörbarer Gap. Raumwechsel mid-Loop wirkt sich erst beim Decision-Point aus — die laufenden 8 Takte spielen aus.
+- **Outro** (`Garten_3`): wenn `chain_7_geoeffnet === true` (Schatztruhe geöffnet → Sieg-Overlay) und Decision-Point für nächsten Track läuft, wird `Garten_3` statt `Garten_2` geplant. Danach Phase `done`, kein weiteres Audio.
+
+**Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.25 = 25 %) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
+
+Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. `_1`/`_3`-Versionen pro Raum existieren als Files in `assets/music/` (Intros/Outros pro Raum), aktuell nur `Haupt_1` und `Garten_3` aktiv genutzt — die anderen sind Reserve.
 
 ## Input / Loop
 
