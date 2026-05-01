@@ -40,6 +40,7 @@ CLAUDE.md         ← diese Datei
 | Pickel *(virtuell)* | Spitzhacke (brauner Holzgriff + grauer Doppelspitzen-Metallkopf). **Seit Vereinfachung von Chain 5 nicht mehr als Bühnen-Element** — landet direkt nach `drei_kreise`-Drop ins Inventar. Story-Text im Drop-Callback erwähnt das Geschenk vom Skelett. | nur als Inventar-Icon (Inline-SVG, randlos) |
 | `chest_1.svg` | Schatztruhe (Chain 7) — vergraben in der Gartenmitte, sichtbar nach Schaufel + Pickel-Drop auf gartenmitte_grab | `<image href>` (war historisch inline im Keller; mit Chain 7 in den Garten verschoben + auf Black-Box-`<image>` umgestellt → kein Gradient-Klon-Risiko) |
 | `hole_1.svg` | Loch in der Gartenmitte (Chain 7) — User-gezeichnet, 4 Innen-Wände (back, front, links, rechts) mit eingebauter Perspektive. viewBox 288×168 mit Padding rundherum. | `<image href>` |
+| `krone.svg` | Krone im Sieg-Overlay — User-gezeichnet, viewBox 300×260: Trapez-Ring + Highlight-Streifen + 5 Zacken + 5 Edelsteine an Zackenspitzen + zentraler Saphir mit Highlight. Randlos. | `<image class="krone" href>` (CSS-Pulse-Animation auf `<image>`) |
 | Loch *(virtuell)* | Ausgehobenes Grab in der Gartenmitte (`<g id="chain_7_grab">`) — `hole_1.svg` (User-gezeichnet, 4 Wände + Perspektive eingebaut) als `<image>` mit `filter="url(#grell-mild)"`. Position so, dass die sichtbare Rim mit dem perspektivischen Boden-Trapez übereinstimmt (bot-rim y=786 von x=581..1020, top-rim y=684 von x≈621..980). data-y-fuss=786. Sichtbar nach `chain_7_loch_offen=true`. Truhe `chest_1.svg` sitzt HINTER dem Loch (nicht drin), x=715 y=598. | `<image href>` + Inline-SVG-Gruppe |
 | `flower_1.svg`, `flower_3.svg` | Innen-Blumen vorne-links im Garten (überlappen, flower_3 DOM-vor flower_1) | Inline-SVG |
 | `flower_2.svg` | Vorne-rechts im Garten | Inline-SVG (mit `f2_`-Prefix) |
@@ -721,7 +722,7 @@ Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overl
 
 **Inhalt:**
 - **Feuerwerk-Layer** (`#sieg-fireworks`): 6 Bursts an verschiedenen Positionen (gold/rot/türkis/grün/pink/gelb), jeder mit 12 Partikeln à 30°, gestaffelte Delays. CSS-Keyframe-Animation `firework-burst` 1.6 s endlos. Pro Aufruf neu via `spawneFireworks()` befüllt.
-- **Schatz-SVG** (`#sieg-treasure`, viewBox 0 0 400 260): Münzhaufen (gestaffelte gold-Ellipsen + Einzelmünzen, randlos) + Krone (Trapez-Ring + 5 schmale Zacken (Basis je 14 px, central tallest), 5 Edelsteine an den Spitzen, zentraler Saphir, alle randlos). CSS-Animationen: `krone-pulse` (sanftes Atem-Pulse 2.4 s), `sparkle-twinkle` (4 Funkelsterne, gestaffelt).
+- **Schatz-SVG** (`#sieg-treasure`, viewBox 0 0 400 260): Münzhaufen (gestaffelte gold-Ellipsen + Einzelmünzen, randlos) + Krone als externes Asset `assets/krone.svg` via `<image class="krone" href>` x=100 y=0 width=200 height=173. CSS-Animationen: `krone-pulse` (sanftes Atem-Pulse 2.4 s, greift über class="krone" auf das `<image>`), `sparkle-twinkle` (4 Funkelsterne, gestaffelt).
 - **Headline** „You found the treasure!"
 - **2 Buttons:** „Play again" → `siegPlayAgain()` (`location.reload()`) · „End game" → `siegEndGame()` (Box-Inhalt durch „Thanks for playing!" ersetzt).
 

@@ -3182,28 +3182,9 @@
                         <circle cx="100" cy="232" r="9" fill="#f5d068"/>
                         <circle cx="305" cy="234" r="11" fill="#f0c850"/>
                     </g>
-                    <!-- Krone (vorne, mittig) — schmale Zacken, alle Ränder = Fill (randlos). -->
-                    <g class="krone">
-                        <!-- Kronenring (Trapez) -->
-                        <path d="M130 130 L270 130 L260 175 L140 175 Z" fill="#e8b840"/>
-                        <!-- Hervorhebung am Ring (heller goldener Streifen) -->
-                        <path d="M140 140 L260 140 L256 152 L144 152 Z" fill="#f5d068"/>
-                        <!-- 5 schmale Zacken (Basis je 14 px), central deutlich höher -->
-                        <path d="M135 130 L142 95 L149 130 Z" fill="#e8b840"/>
-                        <path d="M168 130 L175 88 L182 130 Z" fill="#f0c850"/>
-                        <path d="M203 130 L210 66 L217 130 Z" fill="#e8b840"/>
-                        <path d="M238 130 L245 88 L252 130 Z" fill="#f0c850"/>
-                        <path d="M271 130 L278 95 L285 130 Z" fill="#e8b840"/>
-                        <!-- Edelsteine an den Zackenspitzen — randlos -->
-                        <circle cx="142" cy="92" r="5" fill="#e63946"/>
-                        <circle cx="175" cy="85" r="5" fill="#3a86ff"/>
-                        <circle cx="210" cy="62" r="7" fill="#52b788"/>
-                        <circle cx="245" cy="85" r="5" fill="#9d4edd"/>
-                        <circle cx="278" cy="92" r="5" fill="#e63946"/>
-                        <!-- Zentraler Edelstein im Ring -->
-                        <ellipse cx="200" cy="155" rx="13" ry="9" fill="#3a86ff"/>
-                        <ellipse cx="200" cy="152" rx="5.5" ry="3" fill="#a8d0ff"/>
-                    </g>
+                    <!-- Krone (User-Asset, vorne mittig) — externes SVG.
+                         class="krone" greift weiterhin die Krone-Pulse-Animation in style.css. -->
+                    <image class="krone" href="assets/krone.svg?v=1" x="100" y="0" width="200" height="173" preserveAspectRatio="xMidYMid meet"/>
                     <!-- Funkel-Sterne um die Krone (CSS-Animation) -->
                     <g class="sparkles">
                         <path class="sparkle s1" d="M70 60 L73 76 L89 79 L73 82 L70 98 L67 82 L51 79 L67 76 Z" fill="#ffe680"/>
