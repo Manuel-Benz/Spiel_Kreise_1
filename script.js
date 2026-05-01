@@ -992,6 +992,13 @@ const MUSIK_LOOP_PRO_RAUM = {
 };
 const MUSIK_FILES = ["Haupt_1", "Haupt_2", "Buero_2", "Badezimmer_2", "Garten_2", "Keller_2", "Garten_3"];
 const MUSIK_LOOKAHEAD = 0.30; // s vor Track-Ende → Raum lesen + nächsten Track planen.
+// MP3-Encoder fügt am Anfang/Ende jedes Files Padding-Samples ein (~1100 Leading +
+// ~1152 Trailing = ~26 ms + ~26 ms bei 44.1 kHz). Selbst mit sample-genauem
+// Scheduling hörst du das als kleine Pause. Lösung: nächsten Track früher starten,
+// damit das Trailing-Padding des aktuellen mit dem Leading-Padding des nächsten
+// überlappt (beides Stille → unhörbarer Übergang). Wert empirisch tunen, wenn
+// die Files anders encoded sind.
+const MP3_PADDING_KOMPENSATION = 0.08;
 
 let musikBuffers = {};         // name → AudioBuffer (cached)
 let musikBufferPromises = {};  // name → Promise<AudioBuffer>
@@ -1042,7 +1049,9 @@ async function spieleTrack(name, startTime) {
     const t = Math.max(startTime, audioCtx.currentTime);
     src.start(t);
     musikSource = src;
-    const endTime = t + buffer.duration;
+    // Für die Übergangs-Planung: virtuelles Track-Ende leicht VOR dem realen Buffer-Ende,
+    // damit der nächste Track früh startet und das MP3-Padding überlappt.
+    const endTime = t + buffer.duration - MP3_PADDING_KOMPENSATION;
     const decideMs = Math.max(0, (endTime - MUSIK_LOOKAHEAD - audioCtx.currentTime) * 1000);
     if (musikTimer) clearTimeout(musikTimer);
     musikTimer = setTimeout(() => decideUndPlane(endTime), decideMs);

@@ -916,6 +916,8 @@ Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `s
 
 **Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.25 = 25 %) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
 
+**MP3-Padding-Workaround** (`MP3_PADDING_KOMPENSATION = 0.08` s): MP3-Encoder fügen am Anfang/Ende jedes Files Padding-Samples ein (~1100 Leading + ~1152 Trailing = ~26 ms je). Selbst mit sample-genauem Scheduling hört man dadurch eine kleine Pause zwischen Tracks. Workaround: virtuelles Track-Ende = `buffer.duration - MP3_PADDING_KOMPENSATION` → nächster Track startet ~80 ms vor realem Buffer-Ende, das Trailing-Padding des aktuellen überlappt mit dem Leading-Padding des nächsten (beides Stille). Falls Files mit anderem Encoder kodiert werden, Wert empirisch tunen.
+
 Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. `_1`/`_3`-Versionen pro Raum existieren als Files in `assets/music/` (Intros/Outros pro Raum), aktuell nur `Haupt_1` und `Garten_3` aktiv genutzt — die anderen sind Reserve.
 
 ## Input / Loop
