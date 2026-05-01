@@ -3928,6 +3928,17 @@ function loop() {
 const gameStage = document.getElementById("game-stage");
 const STAGE_PADDING = 0; // Stage füllt den Viewport voll aus (16:9-Letterbox per body-bg)
 
+// DPR-Cap: auf Retina-iPads ist devicePixelRatio=2 → 4× so viele Pixel wie nötig.
+// Mit 1.5 bleiben Linien noch scharf, aber Canvas-Render-Last sinkt deutlich.
+// Per Konsole zur Laufzeit anpassbar via setzeDprCap(N) zum Vergleichen.
+let dprCap = 1.5;
+function setzeDprCap(n) {
+    dprCap = n;
+    resizeCanvas();
+    console.log(`DPR-Cap = ${n} (effektiv ${Math.min(window.devicePixelRatio || 1, n)})`);
+}
+window.setzeDprCap = setzeDprCap;
+
 function resizeCanvas() {
     // Stage-Grösse aus Viewport berechnen (16:9 einpassen)
     const availW = window.innerWidth - STAGE_PADDING;
@@ -3943,8 +3954,8 @@ function resizeCanvas() {
     gameStage.style.width = stageW + "px";
     gameStage.style.height = stageH + "px";
 
-    // Canvas-interne Auflösung (DPR-aware) — beide Canvases
-    const dpr = window.devicePixelRatio || 1;
+    // Canvas-interne Auflösung (DPR-aware, gecappt) — beide Canvases
+    const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
     const pxW = Math.round(stageW * dpr);
     const pxH = Math.round(stageH * dpr);
     const scale = pxW / LOGICAL_WIDTH;

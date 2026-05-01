@@ -62,7 +62,7 @@ CLAUDE.md         ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=46`, `script.js?v=239`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=46`, `script.js?v=241`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -84,6 +84,8 @@ function draw() {
 ```
 
 `resizeCanvas()` setzt beide Canvases auf dieselbe DPR-aware Pixelgrösse. Klicks landen nur auf `#game-canvas`; `#figure-canvas` und beide SVGs haben `pointer-events: none`.
+
+**DPR-Cap (`dprCap`, Default 1.5):** `devicePixelRatio` wird via `Math.min(window.devicePixelRatio || 1, dprCap)` gedeckelt — auf Retina-iPads (DPR=2) sonst 4× so viele Pixel zu rendern wie nötig. Bei 1.5 bleiben Linien noch scharf, Canvas-Render-Last sinkt deutlich. Konsole-Helper: `setzeDprCap(N)` (z.B. 1, 1.5, 2) zum Vergleichen ohne Reload.
 
 ## Koordinatensystem & Perspektive
 
@@ -369,6 +371,7 @@ Architektur-Problem: Der Figur-Canvas liegt fix zwischen den SVG-Ebenen. Damit P
 1. Jede Pflanze (und Tisch1 + Lavalampe) hat ein `data-y-fuss="…"`-Attribut.
 2. `klonePflanzenVorne()` läuft einmal beim Start (via `baueRaumDeko()`): für jede `<g data-raum>` in der Rück-Ebene wird eine gleichnamige Gruppe in der Front-Ebene erzeugt, **inklusive `filter`-Attribut** (sonst leuchtet der saturate-#grell-Effekt nur in der Rück-Ebene und Möbel sehen heller aus, sobald die Figur dahintersteht). ALLE `[data-y-fuss]`-Elemente werden hineingeklont.
 3. `aktualisierePflanzenTiefe()` läuft am Ende jedes `draw()`:
+   - **Frame-Skip-Cache:** Modul-Variable `letzteToggleFv` merkt sich die zuletzt zum Togglen verwendete `figur.fv`. Wenn `Math.abs(figur.fv - letzteToggleFv) < 0.001`, returnt die Funktion früh — bei stillstehender Figur (~80–95 % der Frames) sparen wir ~130 DOM-Reflows pro Frame (50 Kerzen + 15 Möbel × 2 Layer). Initial NaN, damit der erste Aufruf immer durchläuft. Cache braucht keine Invalidierung bei Raumwechsel: bei gleichem `figur.fv` wären die Display-Werte identisch (auch raumübergreifend), und der `<g data-raum>`-Wrapper im inaktiven Raum dominiert ohnehin via `display:none`.
    - Für jedes `[data-y-fuss]` in Rück-Ebene: `display: none`, wenn `figur.fv > pflanze.fv`. Sonst sichtbar.
    - In Front-Ebene umgekehrt.
 
