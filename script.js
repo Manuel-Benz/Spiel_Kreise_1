@@ -690,10 +690,10 @@ window.aktualisiereChain7 = aktualisiereChain7;
 // (Spiel neu starten via Reload) automatisch verworfen — Module-State ist frisch.
 const CHAIN_7_HINDERNIS = {
     spline: [
-        { fu: 0.42, fv: 0.45 },
-        { fu: 0.58, fv: 0.45 },
-        { fu: 0.58, fv: 0.65 },
-        { fu: 0.42, fv: 0.65 },
+        { fu: 0.34, fv: 0.38 },
+        { fu: 0.66, fv: 0.38 },
+        { fu: 0.66, fv: 0.72 },
+        { fu: 0.34, fv: 0.72 },
     ],
 };
 let chain_7_hindernis_aktiv = false;
@@ -3783,8 +3783,6 @@ const STRAEUCHER_GARTEN = [
     { fu: 0.72, fv: 0.15, bw: 88, v: 1 },
     { fu: 0.88, fv: 0.20, bw: 72, v: 3 },
     { fu: 0.15, fv: 0.42, bw: 71, v: 1 },
-    { fu: 0.38, fv: 0.38, bw: 68, v: 0 },
-    { fu: 0.62, fv: 0.40, bw: 72, v: 2 },
     { fu: 0.85, fv: 0.44, bw: 92, v: 3 },
     { fu: 0.18, fv: 0.72, bw: 87, v: 2 },
     { fu: 0.40, fv: 0.82, bw: 69, v: 0 },

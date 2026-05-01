@@ -1428,26 +1428,26 @@
                     <!-- Chain 7: Ausgehobenes Grab in der Gartenmitte. Initial via class
                          "sanitar-aus" versteckt; aktualisiereChain7() zeigt es, sobald
                          Schaufel + Pickel auf gartenmitte_grab gedroppt wurden.
-                         Eckpunkte sind aus bodenPunkt(fu, fv) berechnet → echtes Boden-
-                         Trapez im Fluchtpunkt-Schema des Raumes (Front-Kante breiter,
-                         Hinterkante schmaler). Loch-Bereich ca. fu 0.34..0.66, fv 0.38..0.72
-                         (=  ~440 px breit vorne, ~374 px hinten). data-y-fuss=786 (Front-
-                         Edge des sichtbaren Lochs). Truhe wurde aus dem Keller hierher
-                         verschoben (jetzt `<image>` statt Inline → kein Gradient-Klon-Bug). -->
+                         Loch ist ein perspektivisches Trapez (fu 0.34..0.66, fv 0.38..0.72)
+                         mit 4 Innen-Wänden + Boden — keine Umrandung, keine Erdklumpen.
+                         Lichtquelle oben-links: linke Wand heller, rechte dunkler; Front-
+                         Wand hell (näher zur Oberfläche), Back-Wand dunkler. data-y-fuss=786
+                         (Front-Edge des Lochs). Truhe sitzt HINTER dem Loch (nicht drin),
+                         Bottom-Edge an der hinteren Rim-Höhe y=684. -->
                     <g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">
-                        <!-- Erdwall (heller Sand-Rand, ~8 px aussen am Loch) -->
-                        <polygon points="573,794 1028,794 995,676 605,676" fill="#8b6f47" stroke="#5a3f24" stroke-width="2"/>
-                        <!-- Loch-Öffnung — perspektivisches Trapez auf dem Boden -->
-                        <polygon points="581,786 1020,786 987,684 613,684" fill="#1a0d04"/>
-                        <!-- Tiefen-Indikator: inneres, fast schwarzes Trapez kleiner + nach
-                             hinten versetzt — simuliert den Boden des Lochs in der Tiefe. -->
-                        <polygon points="673,735 927,735 919,696 681,696" fill="#050201"/>
-                        <!-- Erdklumpen am Rand (Aushub-Spuren) -->
-                        <ellipse cx="585" cy="793" rx="20" ry="7" fill="#5a3f24"/>
-                        <ellipse cx="1015" cy="794" rx="22" ry="8" fill="#5a3f24"/>
-                        <!-- Schatztruhe sitzt im Loch. Lid/Bänder gucken oberhalb des hinteren
-                             Lochrandes heraus, Body ist im Loch. Asset chest_1.svg als image. -->
-                        <image id="chest_1" href="assets/chest_1.svg?v=1" x="700" y="690" width="200" height="89" preserveAspectRatio="none" filter="url(#grell-mild)"/>
+                        <!-- Front-Wand (zwischen outer-front und inner-front): hell braun -->
+                        <polygon points="581,786 1020,786 902,748 700,748" fill="#9c7548"/>
+                        <!-- Back-Wand (zwischen outer-back und inner-back): dunkel braun -->
+                        <polygon points="613,684 987,684 884,720 716,720" fill="#4a3522"/>
+                        <!-- Linke Wand (Lichtseite): heller -->
+                        <polygon points="581,786 700,748 716,720 613,684" fill="#b08856"/>
+                        <!-- Rechte Wand (Schattenseite): dunkler -->
+                        <polygon points="1020,786 987,684 884,720 902,748" fill="#5a3f24"/>
+                        <!-- Boden des Lochs: sehr dunkel -->
+                        <polygon points="700,748 902,748 884,720 716,720" fill="#2a1c10"/>
+                        <!-- Schatztruhe HINTER dem Loch — Bottom auf hinterer Rim-Höhe (y=684).
+                             Etwas kleiner als die ehemalige In-Loch-Variante (Perspektive: weiter weg). -->
+                        <image id="chest_1" href="assets/chest_1.svg?v=1" x="715" y="608" width="170" height="76" preserveAspectRatio="none" filter="url(#grell-mild)"/>
                     </g>
                 </g>
                 <g data-raum="keller" style="display:none" filter="url(#grell)">
@@ -3291,6 +3291,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=250"></script>
+    <script src="script.js?v=251"></script>
 </body>
 </html>
