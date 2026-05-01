@@ -191,10 +191,10 @@ const RAEUME = {
 
 let aktuellerRaum = "haupt";
 
-// Standard-Eintrittsposition in jedem Raum (fu, fv) — für Phase 1 einheitlich Mitte-vorne.
+// Standard-Eintrittsposition in jedem Raum (fu, fv) — einheitlich Mitte-vorne.
 const RAUM_EINTRITT = { fu: 0.5, fv: 0.3 };
 
-// ---------- Spielstand (Phase 2) ----------
+// ---------- Spielstand ----------
 // Persistenter Zustand: gelöste Aufgaben, freigeschaltete Schlüssel, gefundene Werte.
 // Jede Tür kann optional ein `schloss: "<schluessel-id>"` haben — sie ist dann verschlossen,
 // bis der passende Schlüssel in `freigeschalteteTueren` liegt.
@@ -202,7 +202,7 @@ const spielstand = {
     geloesteAufgaben: new Set(),
     freigeschalteteTueren: new Set(),
     inventar: {},
-    gegenstaende: new Set(),   // Phase 6: aufgenommene Gegenstände (Set von IDs aus GEGENSTAENDE)
+    gegenstaende: new Set(),   // aufgenommene Gegenstände (Set von IDs aus GEGENSTAENDE)
     // Chain 6: linkes Sammel-Inventar für die 3 Schlüsselteile + Leim. Items darin sind
     // NICHT interaktiv (kein Drag, Klick zeigt nur einen Hinweis). Sobald alle 4 drin sind,
     // verschmelzen sie zu `vereinter_schluessel` im rechten Inventar.
@@ -1351,7 +1351,7 @@ window.soundTest = async () => {
     console.log("Fertig.");
 };
 
-// ---------- Aufgaben (Phase 3) ----------
+// ---------- Aufgaben ----------
 // Jede Aufgabe: { typ?, frage, formel?, fragetext?, pi_hinweis?, loesung|optionen, toleranz?, bei_richtig? }
 // - typ: "zahl" (default) oder "multiple_choice"
 // - frage/fragetext dürfen Strings oder Funktionen (spielstand) => string sein,
@@ -4369,7 +4369,7 @@ function baueRaumDeko() {
     klonePflanzenVorne();
 }
 
-// ---------- Tiefensortierung für Pflanzen (Phase 7) ----------
+// ---------- Tiefensortierung für Pflanzen ----------
 // Jede Pflanze mit `data-fv` im SVG-Layer wird in eine zweite SVG-Ebene geklont, die ÜBER
 // dem Figur-Canvas liegt. Pro Frame entscheidet `aktualisierePflanzenTiefe()`, welche Ebene
 // die Pflanze zeigt: ist die Figur tiefer im Raum als die Pflanze (figur.fv > pflanze.fv),
@@ -4539,7 +4539,7 @@ function canvasZuLogisch(clientX, clientY) {
     ];
 }
 
-// ---------- Raumwechsel mit Fade-Transition (Phase 5) ----------
+// ---------- Raumwechsel mit Fade-Transition ----------
 
 const fadeEl = document.getElementById("fade");
 const FADE_MS = 220;
@@ -4976,7 +4976,7 @@ canvas.addEventListener("contextmenu", (e) => {
     draw();
 });
 
-// ---------- Overlay (Phase 2 Info-Text + Phase 3 Aufgaben-UI) ----------
+// ---------- Overlay (Info-Text + Aufgaben-UI) ----------
 
 const overlayEl = document.getElementById("overlay");
 const overlayInhaltEl = document.getElementById("overlay-inhalt");
@@ -5236,7 +5236,7 @@ function zeigeFormelbuch() {
 
 window.zeigeFormelbuch = zeigeFormelbuch;
 
-// ---------- Inventar (Phase 6) ----------
+// ---------- Inventar ----------
 // Gegenstände können im Raum aufgenommen werden (Klick auf Objekt mit `aufnehmen`),
 // erscheinen dann als Icon rechts oben im Inventar und können per Drag & Drop auf
 // andere Objekte oder Türen gezogen werden (Drop-Target hat `akzeptiert[id]`).
