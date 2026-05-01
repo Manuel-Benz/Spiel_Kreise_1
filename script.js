@@ -939,178 +939,6 @@ function verstecksStartScreen() {
 
 window.zeigeStartScreen = zeigeStartScreen;
 
-// ---------- Dev-Helpers: chainN()-Funktionen für die Konsole ----------
-// Versetzt den Spielstand in den Zustand „Chain N erledigt" — nützlich zum Testen
-// einzelner Spätspielszenen, ohne alle Vorbedingungen manuell zu spielen. Verändert
-// nur Flags + Inventar; visuelle Zustände werden über die aktualisiere*-Helper
-// nachgezogen. KEINE Aufgaben-Overlays/Auto-Close-Effekte werden ausgelöst.
-function chain1() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.chain_1_step = 5;
-    z.cupboard_1_offen = true;
-    spielstand.geloesteAufgaben.add("chain_1_kuchen");
-    spielstand.geloesteAufgaben.add("chain_1_schloss");
-    spielstand.geloesteAufgaben.add("chain_1_pi");
-    spielstand.gegenstaende.add("code_geheimtuer");
-    spielstand.inventar.keller_code = 355113;
-    aktualisiereInventar();
-    aktualisiereCupboard1();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Chain 1 ✓ — Formelbuch, Schrank offen, Code-Tag im Inventar.");
-}
-function chain2() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.chain_2_step = 4;
-    z.toilette_2 = 2;
-    z.toilette_2_voll = true;
-    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
-    spielstand.geloesteAufgaben.add("chain_2_octopus");
-    aktualisiereInventar();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Chain 2 ✓ — Octopus-Mood +1.");
-}
-function chain3() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.wolke_zentral_weg = true;
-    z.vogel_da = false;
-    z.schlauch_genommen = true;
-    z.flower_1_gegossen = true;
-    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
-    spielstand.geloesteAufgaben.add("chain_3_schlauch");
-    spielstand.geloesteAufgaben.add("chain_3_pizza");
-    aktualisiereInventar();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Chain 3 ✓ — Octopus-Mood +1.");
-}
-function bridge() {
-    const z = spielstand.zustaende;
-    z.octopus_zustand = 3;
-    z.octopus_da = false;
-    z.toilette_1 = 2;
-    z.binoculars_genommen = true;
-    z.keller_freigeschaltet = true;
-    if (typeof deaktiviereNachtsicht === "function") deaktiviereNachtsicht();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Bridge ✓ — Keller freigeschaltet.");
-}
-function chain4() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.duck_im_keller = true;
-    z.duck_gefuettert = true;
-    z.teppich_gemessen = true;
-    spielstand.geloesteAufgaben.add("chain_4_teppich");
-    spielstand.gegenstaende.add("schaufel");
-    aktualisiereInventar();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Chain 4 ✓ — Schaufel im Inventar.");
-}
-function chain5() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.bild_kreise_geloest = true;
-    z.bild_kreise_im_keller = true;
-    z.chain_5_step = 4;
-    spielstand.geloesteAufgaben.add("chain_5_kreise");
-    spielstand.gegenstaende.add("pickel");
-    aktualisiereInventar();
-    aktualisiereSanitaer();
-    draw();
-    console.log("Chain 5 ✓ — Pickel im Inventar.");
-}
-function chain6() {
-    spielstand.zustaende.formelbuch_gefunden = true;
-    spielstand.geloesteAufgaben.add("chain_6_sektor");
-    spielstand.geloesteAufgaben.add("chain_6_bogen");
-    spielstand.geloesteAufgaben.add("chain_6_umfang");
-    spielstand.geloesteAufgaben.add("chain_6_flaeche");
-    spielstand.linkesInventar.clear();
-    spielstand.gegenstaende.add("vereinter_schluessel");
-    aktualisiereInventar();
-    if (typeof aktualisiereLinkesInventar === "function") aktualisiereLinkesInventar();
-    draw();
-    console.log("Chain 6 ✓ — vereinter Schlüssel im Inventar.");
-}
-function chain7() {
-    const z = spielstand.zustaende;
-    z.formelbuch_gefunden = true;
-    z.chain_7_schaufel_gedroppt = true;
-    z.chain_7_pickel_gedroppt = true;
-    z.chain_7_loch_offen = true;
-    if (!chain_7_hindernis_aktiv) {
-        HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
-        chain_7_hindernis_aktiv = true;
-    }
-    spielstand.gegenstaende.add("vereinter_schluessel");
-    aktualisiereInventar();
-    aktualisiereChain7();
-    draw();
-    console.log("Chain 7 ✓ — Loch offen, Schlüssel im Inventar. Drop ihn auf die Truhe für den Sieg.");
-}
-window.chain1 = chain1;
-window.chain2 = chain2;
-window.chain3 = chain3;
-window.bridge = bridge;
-window.chain4 = chain4;
-window.chain5 = chain5;
-window.chain6 = chain6;
-window.chain7 = chain7;
-
-// ---------- Kombinations-Helper: chain12(), chain134(), chain143(), chain1234567(), … ----------
-// Beliebige Subsets der Chains 1..7 in beliebiger Ziffernreihenfolge im Funktionsnamen.
-// Ausführung läuft IMMER in numerisch sortierter Reihenfolge (Reihenfolge zwischen den
-// chainN-Helpern ist ohnehin egal, das Endresultat ist gleich). Generiert ~13 700
-// Permutationen — JS-Objekt-Lookup ist O(1), kein Performance-Problem.
-(function generateChainKombis() {
-    const ziffern = ["1", "2", "3", "4", "5", "6", "7"];
-    const alleSubsets = [];
-    // Alle nichtleeren Subsets via Bitmask
-    for (let mask = 1; mask < 128; mask++) {
-        const subset = [];
-        for (let i = 0; i < 7; i++) if (mask & (1 << i)) subset.push(ziffern[i]);
-        if (subset.length >= 2) alleSubsets.push(subset);
-    }
-    function permutationen(arr) {
-        if (arr.length <= 1) return [arr.slice()];
-        const result = [];
-        for (let i = 0; i < arr.length; i++) {
-            const rest = arr.slice(0, i).concat(arr.slice(i + 1));
-            for (const p of permutationen(rest)) {
-                result.push([arr[i], ...p]);
-            }
-        }
-        return result;
-    }
-    for (const subset of alleSubsets) {
-        // Ausführung in numerisch sortierter Reihenfolge — eine geteilte Closure für alle
-        // Permutationen desselben Subsets, damit nicht ~14 k Closures im Speicher sitzen.
-        const sorted = subset.slice().sort();
-        const fn = () => {
-            for (const d of sorted) {
-                const helper = window[`chain${d}`];
-                if (typeof helper === "function") helper();
-            }
-            // Auto-Bridge: Chains 1+2+3 zusammen bedeuten Keller freigeschaltet
-            if (sorted.includes("1") && sorted.includes("2") && sorted.includes("3")) {
-                if (typeof bridge === "function") bridge();
-            }
-        };
-        // Alle Permutationen des Subsets als Funktionsname registrieren
-        for (const perm of permutationen(subset)) {
-            window[`chain${perm.join("")}`] = fn;
-        }
-    }
-    console.log("chainNNN()-Helper bereit. Beispiele: chain134(), chain143(), chain12(), chain1234567().");
-})();
-
 // ---------- Chain 3 / Bridge: Nachtsicht ----------
 // Togglt die Body-Klasse `nachtsicht` → SVG-Filter `url(#nachtsicht)` auf die drei
 // statischen Render-Layer (Single-Pass feColorMatrix, siehe CLAUDE.md).
@@ -2608,7 +2436,6 @@ const HINDERNISSE = {
 };
 window.HINDERNISSE = HINDERNISSE;
 
-// ---------- Form-Helper: Type-Dispatch zwischen Kreis/Ellipse/Viereck ----------
 // ---------- Spline-Hindernisse: kubische Bezier-Kette entlang Vertex-Liste ----------
 // Datenformat: { spline: [{ fu, fv, hIn?: {du, dv}, hOut?: {du, dv} }, ...] }
 // Edge i geht von vertex[i] zu vertex[(i+1) % n], mit Kontrollpunkten:
@@ -5739,3 +5566,173 @@ window.aktualisiereLinkesInventar = aktualisiereLinkesInventar;
 
 // Initial: leeres Sammel-Inventar rendern (versteckt).
 aktualisiereLinkesInventar();
+
+// ---------- Dev-Helpers (nur Konsole) ----------
+// chainN()-Funktionen: Spielstand auf „Chain N erledigt" springen für Tests, ohne alle
+// Vorbedingungen manuell zu spielen. Verändert nur Flags + Inventar; visuelle Zustände
+// werden über die aktualisiere*-Helper nachgezogen. Keine Aufgaben-Overlays.
+function chain1() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_1_step = 5;
+    z.cupboard_1_offen = true;
+    spielstand.geloesteAufgaben.add("chain_1_kuchen");
+    spielstand.geloesteAufgaben.add("chain_1_schloss");
+    spielstand.geloesteAufgaben.add("chain_1_pi");
+    spielstand.gegenstaende.add("code_geheimtuer");
+    spielstand.inventar.keller_code = 355113;
+    aktualisiereInventar();
+    aktualisiereCupboard1();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 1 ✓ — Formelbuch, Schrank offen, Code-Tag im Inventar.");
+}
+function chain2() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_2_step = 4;
+    z.toilette_2 = 2;
+    z.toilette_2_voll = true;
+    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
+    spielstand.geloesteAufgaben.add("chain_2_octopus");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 2 ✓ — Octopus-Mood +1.");
+}
+function chain3() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.wolke_zentral_weg = true;
+    z.vogel_da = false;
+    z.schlauch_genommen = true;
+    z.flower_1_gegossen = true;
+    z.octopus_zustand = Math.min(3, (z.octopus_zustand ?? 1) + 1);
+    spielstand.geloesteAufgaben.add("chain_3_schlauch");
+    spielstand.geloesteAufgaben.add("chain_3_pizza");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 3 ✓ — Octopus-Mood +1.");
+}
+function bridge() {
+    const z = spielstand.zustaende;
+    z.octopus_zustand = 3;
+    z.octopus_da = false;
+    z.toilette_1 = 2;
+    z.binoculars_genommen = true;
+    z.keller_freigeschaltet = true;
+    if (typeof deaktiviereNachtsicht === "function") deaktiviereNachtsicht();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Bridge ✓ — Keller freigeschaltet.");
+}
+function chain4() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.duck_im_keller = true;
+    z.duck_gefuettert = true;
+    z.teppich_gemessen = true;
+    spielstand.geloesteAufgaben.add("chain_4_teppich");
+    spielstand.gegenstaende.add("schaufel");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 4 ✓ — Schaufel im Inventar.");
+}
+function chain5() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.bild_kreise_geloest = true;
+    z.bild_kreise_im_keller = true;
+    z.chain_5_step = 4;
+    spielstand.geloesteAufgaben.add("chain_5_kreise");
+    spielstand.gegenstaende.add("pickel");
+    aktualisiereInventar();
+    aktualisiereSanitaer();
+    draw();
+    console.log("Chain 5 ✓ — Pickel im Inventar.");
+}
+function chain6() {
+    spielstand.zustaende.formelbuch_gefunden = true;
+    spielstand.geloesteAufgaben.add("chain_6_sektor");
+    spielstand.geloesteAufgaben.add("chain_6_bogen");
+    spielstand.geloesteAufgaben.add("chain_6_umfang");
+    spielstand.geloesteAufgaben.add("chain_6_flaeche");
+    spielstand.linkesInventar.clear();
+    spielstand.gegenstaende.add("vereinter_schluessel");
+    aktualisiereInventar();
+    if (typeof aktualisiereLinkesInventar === "function") aktualisiereLinkesInventar();
+    draw();
+    console.log("Chain 6 ✓ — vereinter Schlüssel im Inventar.");
+}
+function chain7() {
+    const z = spielstand.zustaende;
+    z.formelbuch_gefunden = true;
+    z.chain_7_schaufel_gedroppt = true;
+    z.chain_7_pickel_gedroppt = true;
+    z.chain_7_loch_offen = true;
+    if (!chain_7_hindernis_aktiv) {
+        HINDERNISSE.garten.push(CHAIN_7_HINDERNIS);
+        chain_7_hindernis_aktiv = true;
+    }
+    spielstand.gegenstaende.add("vereinter_schluessel");
+    aktualisiereInventar();
+    aktualisiereChain7();
+    draw();
+    console.log("Chain 7 ✓ — Loch offen, Schlüssel im Inventar. Drop ihn auf die Truhe für den Sieg.");
+}
+window.chain1 = chain1;
+window.chain2 = chain2;
+window.chain3 = chain3;
+window.bridge = bridge;
+window.chain4 = chain4;
+window.chain5 = chain5;
+window.chain6 = chain6;
+window.chain7 = chain7;
+
+// Kombinations-Helper: chain12(), chain134(), chain143(), chain1234567(), …
+// Beliebige Subsets der Chains 1..7 in beliebiger Ziffernreihenfolge im Funktionsnamen.
+// Ausführung läuft IMMER in numerisch sortierter Reihenfolge. Generiert ~13 700
+// Permutationen — JS-Objekt-Lookup ist O(1), kein Performance-Problem.
+(function generateChainKombis() {
+    const ziffern = ["1", "2", "3", "4", "5", "6", "7"];
+    const alleSubsets = [];
+    // Alle nichtleeren Subsets via Bitmask
+    for (let mask = 1; mask < 128; mask++) {
+        const subset = [];
+        for (let i = 0; i < 7; i++) if (mask & (1 << i)) subset.push(ziffern[i]);
+        if (subset.length >= 2) alleSubsets.push(subset);
+    }
+    function permutationen(arr) {
+        if (arr.length <= 1) return [arr.slice()];
+        const result = [];
+        for (let i = 0; i < arr.length; i++) {
+            const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+            for (const p of permutationen(rest)) {
+                result.push([arr[i], ...p]);
+            }
+        }
+        return result;
+    }
+    for (const subset of alleSubsets) {
+        // Ausführung in numerisch sortierter Reihenfolge — eine geteilte Closure für alle
+        // Permutationen desselben Subsets, damit nicht ~14 k Closures im Speicher sitzen.
+        const sorted = subset.slice().sort();
+        const fn = () => {
+            for (const d of sorted) {
+                const helper = window[`chain${d}`];
+                if (typeof helper === "function") helper();
+            }
+            // Auto-Bridge: Chains 1+2+3 zusammen bedeuten Keller freigeschaltet
+            if (sorted.includes("1") && sorted.includes("2") && sorted.includes("3")) {
+                if (typeof bridge === "function") bridge();
+            }
+        };
+        // Alle Permutationen des Subsets als Funktionsname registrieren
+        for (const perm of permutationen(subset)) {
+            window[`chain${perm.join("")}`] = fn;
+        }
+    }
+    console.log("chainNNN()-Helper bereit. Beispiele: chain134(), chain143(), chain12(), chain1234567().");
+})();
