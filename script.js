@@ -1643,14 +1643,15 @@ const AUFGABEN = {
 };
 
 // Chain 6 — Sammel-Helper: legt einen Schlüsselteil bzw. den Leim ins LINKE Inventar.
-// Wenn nach diesem Add alle vier Teile da sind, startet 5 s nach Auto-Close des
-// Belohnungs-Overlays die Combine-Animation (kombiniereSchluessel). Der Delay gibt dem
-// Spieler Zeit, die Belohnungs-Antwort zu lesen, bevor die Animation einsetzt.
+// Wenn nach diesem Add alle vier Teile da sind, startet 4 s nach Lösen der 4. Aufgabe
+// die Combine-Animation (kombiniereSchluessel). Der Delay gibt dem Spieler Zeit, die
+// Belohnungs-Antwort zu lesen — die läuft jetzt im Hintergrund, da Overlays seit der
+// Auto-Close-Deaktivierung manuell geschlossen werden müssen.
 function sammleSchluesselteil(id) {
     spielstand.linkesInventar.add(id);
     aktualisiereLinkesInventar();
     if (spielstand.linkesInventar.size === 4) {
-        setTimeout(() => kombiniereSchluessel(), 5000);
+        setTimeout(() => kombiniereSchluessel(), 4000);
     }
 }
 
@@ -1721,16 +1722,19 @@ const OBJEKTE = {
                        && !s.zustaende.duck_gefuettert,
         },
         // Chain 6: plant_tulpe (vorne-links, fu=0.15, fv=0.12) — Klick öffnet Formel-Erkennungs-
-        // Aufgabe (Umfang). Polygon deckt den sichtbaren Tulpen-Footprint (transform anchor 95.2,884
-        // mit scale 0.30 → 154 × 154 px nach oben). laufziel knapp daneben, ausserhalb des
-        // tulpe-Hindernisses (HINDERNISSE.haupt[2]: fu=-0.01..0.08, fv=0.02..0.18).
+        // Aufgabe (Umfang). Polygon deckt jetzt die GANZE sichtbare Tulpe (Blüte + Stengel + Topf,
+        // y≈740..894). laufziel knapp daneben, ausserhalb des tulpe-Hindernisses
+        // (HINDERNISSE.haupt[2]: fu=-0.01..0.08, fv=0.02..0.18).
         {
             id: "chain_6_tulpe",
-            // Polygon bewusst auf den Topf+Stengel-Bereich (y≥840) beschränkt, damit es klar
-            // unterhalb der L-Tür-Bottom-Linie liegt — sonst würde der pointerdown-Handler
-            // (Türen vor Objekten) den Klick als Garten-Tür interpretieren. Asset wurde
-            // dafür leicht nach unten verschoben (translate y=884 → 894 in index.html).
-            polygon: [[20, 840], [175, 840], [175, 895], [20, 895]],
+            // Polygon überlappt absichtlich mit dem L-Tür-Trapez (Bottom-Front bei x≤67.5,
+            // y≤832.5). Der `vorTueren: true`-Flag sorgt dafür, dass dieses Objekt im
+            // pointerdown- und pointermove-Handler VOR den Türen geprüft wird → Klick auf die
+            // Tulpe öffnet die Aufgabe statt die Garten-Tür. Asset (y≈740..894) wurde dafür
+            // historisch um 10 px nach unten verschoben (translate y=884 → 894 in index.html);
+            // der Shift ist mit der Prio-Lösung nicht mehr nötig, schadet aber auch nicht.
+            polygon: [[15, 730], [180, 730], [180, 895], [15, 895]],
+            vorTueren: true,
             laufziel: { fu: 0.13, fv: 0.04 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden
                        && !s.linkesInventar.has("schluesselteil_3"),
@@ -4553,7 +4557,25 @@ function findeObjektBei(x, y) {
     }
     return null;
 }
+// Sucht aktive Objekte mit `vorTueren: true` — werden im pointerdown- und pointermove-
+// Handler VOR `findeTuerBei` geprüft, damit das Objekt-Polygon die Tür schlägt, falls
+// sie sich überschneiden. Genutzt für chain_6_tulpe (Tulpen-Klick vor L-Tür).
+function findePrioObjektBei(x, y) {
+    const objekte = OBJEKTE[aktuellerRaum] || [];
+    for (const obj of objekte) {
+        if (obj.vorTueren && objektIstAktiv(obj) && istInPolygon(x, y, obj.polygon)) return obj;
+    }
+    return null;
+}
 function findeTuerBei(x, y) {
+    // Vorrang-Objekte (`vorTueren: true`) blockieren Türen im Überlapp — UNABHÄNGIG vom
+    // `aktiv`-State. So bleibt die L-Tür auch dann unklickbar, wenn die Tulpe (Chain 6)
+    // noch nicht freigeschaltet ist (vor Formelbuch). Sonst wirkt das Hitfeld der Tür im
+    // Tulpen-Bereich verwirrend, bevor das Spiel die Tulpe als Pickup-Stelle bewirbt.
+    const objekte = OBJEKTE[aktuellerRaum] || [];
+    for (const obj of objekte) {
+        if (obj.vorTueren && istInPolygon(x, y, obj.polygon)) return null;
+    }
     for (const t of RAEUME[aktuellerRaum].tueren) {
         // Geheimtür im Hauptraum nur klickbar, wenn entweder schon freigeschaltet
         // (permanent sichtbar) oder Spieler trägt binoculars_1 (Nachtsicht zeigt Outline).
@@ -4793,6 +4815,25 @@ canvas.addEventListener("pointerdown", (e) => {
         return;
     }
 
+    // 0.5) Prio-Objekte — vor den Türen geprüft (z.B. Tulpe vor L-Tür). Erfolgt VOR der
+    // Tür-Prüfung, damit ein überlappendes Klick-Polygon die Tür „aussticht".
+    const prioObj = findePrioObjektBei(x, y);
+    if (prioObj) {
+        const z = prioObj.laufziel || null;
+        const aktion = () => {
+            if (prioObj.aufnehmen) nimmAufGegenstand(prioObj);
+            else if (prioObj.aufgabe) zeigeAufgabe(prioObj.aufgabe);
+            else if (typeof prioObj.aktion === "function") prioObj.aktion(spielstand);
+        };
+        if (z) {
+            setzeFigurZiel(z.fu, z.fv);
+            figur.ankunft = aktion;
+        } else {
+            aktion();
+        }
+        return;
+    }
+
     // 1) Türen — zuerst hinlaufen, dann Aktion
     const tuer = findeTuerBei(x, y);
     if (tuer) {
@@ -4855,7 +4896,8 @@ canvas.addEventListener("pointermove", (e) => {
     }
     const [x, y] = canvasZuLogisch(e.clientX, e.clientY);
     const ueberGriff = findeHindernisGriffBei(x, y);
-    const ueber = findeTuerBei(x, y) || findeObjektBei(x, y);
+    // Prio-Objekte (vorTueren) zuerst, damit Cursor:pointer auch im Tür-Überlapp greift.
+    const ueber = findePrioObjektBei(x, y) || findeTuerBei(x, y) || findeObjektBei(x, y);
     canvas.style.cursor = ueberGriff ? "grab" : (ueber ? "pointer" : "default");
 });
 
@@ -4978,12 +5020,12 @@ function clearSchliessenTimer() {
         schliessenTimeoutId = null;
     }
 }
-function automatischSchliessen(ms = 4000) {
+// Auto-Close ist global deaktiviert (User-Entscheidung): Overlays bleiben offen, bis sie
+// per ×, Esc oder Backdrop-Klick geschlossen werden. Funktion bleibt als No-op erhalten,
+// damit alle ~17 Call-Sites unverändert weiter funktionieren — und ein eventuell laufender
+// Timer (z.B. wenn Auto-Close je wieder aktiviert wird) wird sicherheitshalber gecancelt.
+function automatischSchliessen(_ms = 4000) {
     clearSchliessenTimer();
-    schliessenTimeoutId = setTimeout(() => {
-        schliessenTimeoutId = null;
-        schliesseOverlay();
-    }, ms);
 }
 
 // Einfacher Info-Text (z.B. "Tür verschlossen.")
@@ -5130,6 +5172,36 @@ document.addEventListener("keydown", (e) => {
     if (resetOverlayEl && !resetOverlayEl.hidden) { schliesseResetDialog(); return; }
     if (settingsMenuEl && !settingsMenuEl.hidden) { schliesseSettingsMenu(); return; }
 });
+
+// ---------- Fullscreen-Button (unten rechts neben Zahnrad) ----------
+// Togglet document.documentElement-Fullscreen. Ein einzelnes Icon (4 Ecken nach
+// aussen) bleibt im Kreis stehen; nur aria-label/title wechseln mit dem State.
+// Bei Browsern ohne Fullscreen-API (iPhone Safari) wird der Button ausgeblendet.
+const fullscreenBtn = document.getElementById("fullscreen-button");
+if (fullscreenBtn) {
+    const apiSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    if (!apiSupported) {
+        fullscreenBtn.hidden = true;
+    } else {
+        const istFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const aktualisiereFsLabel = () => {
+            const label = istFullscreen() ? "Exit fullscreen" : "Fullscreen";
+            fullscreenBtn.setAttribute("aria-label", label);
+            fullscreenBtn.setAttribute("title",       label);
+        };
+        fullscreenBtn.addEventListener("click", () => {
+            const el = document.documentElement;
+            if (istFullscreen()) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            } else {
+                (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+            }
+        });
+        document.addEventListener("fullscreenchange",       aktualisiereFsLabel);
+        document.addEventListener("webkitfullscreenchange", aktualisiereFsLabel);
+        aktualisiereFsLabel();
+    }
+}
 
 // ---------- Formelbuch ----------
 // Wird aus dem Hauptregal heraus geöffnet (Klick auf die 5 Bücher rechts in regal-4 → siehe

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=49">
+    <link rel="stylesheet" href="style.css?v=52">
     <script>
         // Skip-Flag synchron prüfen vor Body-Parse: damit der Startscreen-Overlay im
         // "Start over"-Pfad nicht 1 Frame aufblitzt, bevor JS ihn versteckt. Konsumiert
@@ -3144,11 +3144,18 @@
             <!-- Chain 6: linkes Sammel-Inventar (Schlüsselteile + Leim). NICHT interaktiv —
                  Klick auf einen Slot zeigt nur einen Hinweis. Wird ausgeblendet, solange leer. -->
             <div id="inventar-links" hidden></div>
-            <!-- Settings-Zahnrad: unten rechts, klein. Öffnet das Settings-Menü darunter
-                 (Sound/Musik on-off + Reset). -->
+            <!-- Settings-Zahnrad: unten rechts, links neben dem Fullscreen-Button. Öffnet
+                 das Settings-Menü darunter (Sound/Musik on-off + Reset). -->
             <button id="reset-button" type="button" aria-label="Settings" title="Settings">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94 0 .31.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+            </button>
+            <!-- Fullscreen-Button: ganz rechts unten. Togglet document.documentElement-Fullscreen.
+                 Bei Browsern ohne Fullscreen-API (iPhone Safari) per JS ausgeblendet. -->
+            <button id="fullscreen-button" type="button" aria-label="Fullscreen" title="Fullscreen">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="currentColor" d="M5 5h5V3H3v7h2V5zm14 0v5h2V3h-7v2h5zM5 19v-5H3v7h7v-2H5zm14 0h-5v2h7v-7h-2v5z"/>
                 </svg>
             </button>
             <!-- Settings-Menü, oberhalb des Zahnrads. Drei Einträge: Sound on/off,
@@ -3335,6 +3342,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=272"></script>
+    <script src="script.js?v=277"></script>
 </body>
 </html>
