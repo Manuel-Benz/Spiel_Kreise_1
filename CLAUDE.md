@@ -1073,7 +1073,7 @@ Diese Funktionen verändern nur Flags + Inventar; visuelle Zustände werden übe
 
 ## Git-Workflow
 
-Remote: `https://github.com/Manuel-Benz/Spiel_Kreise_1`. Solo auf `main`.
+Remote: `https://github.com/Manuel-Benz/Spiel_Kreise_1` (öffentlich). Solo auf `main`.
 
 Nach jedem Schritt:
 ```bash
@@ -1085,3 +1085,17 @@ git push
 ```
 
 `git pull` ist nur nötig, wenn auf github.com direkt editiert wurde oder von einem anderen Rechner kommend.
+
+## Deployment (GitHub Pages)
+
+Live-URL: **https://manuel-benz.github.io/Spiel_Kreise_1/**
+
+Auto-Deploy: jeder `git push` auf `main` triggert einen neuen Pages-Build (~1–2 Min Wartezeit, dann live). Keine zusätzlichen Schritte. Build-Status in der Konsole prüfbar mit:
+```bash
+gh api repos/Manuel-Benz/Spiel_Kreise_1/pages --jq '{status, html_url}'
+# status: "building" | "built" | "errored"
+```
+
+GitHub Pages serviert via HTTPS → Background-Musik (`fetch` + `decodeAudioData`) funktioniert dort problemlos, ohne lokalen HTTP-Server.
+
+Voraussetzung war: Repo auf **public** stellen (Free-Plan unterstützt Pages nur für öffentliche Repos). Falls je wieder auf privat umgestellt werden soll, muss vorher Pages deaktiviert oder auf einen anderen Hoster (Netlify/Vercel) migriert werden.
