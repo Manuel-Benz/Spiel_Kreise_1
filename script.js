@@ -120,7 +120,7 @@ const RAEUME = {
                       s.zustaende.keller_freigeschaltet = true;
                       deaktiviereNachtsicht();
                       aktualisiereInventar();
-                      zeigeOverlayText("The keypad clicks open. The hatch to the cellar swings free.");
+                      zeigeStoryText("The keypad clicks open. The hatch to the cellar swings free.");
                       automatischSchliessen();
                       draw();
                   },
@@ -255,6 +255,7 @@ const spielstand = {
         bild_kreise_replay_aktiv: false,  // sperrt Klicks während Replay
         bild_kreise_geloest: false,       // MC gelöst → drei_kreise im Inventar; Bürobild-Kreise versteckt
         bild_kreise_im_keller: false,     // drei_kreise auf painting_2 gedroppt → Overlay sichtbar
+        bild_kreise_hinweis_gesehen: false, // Erstklick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Hint („Good things come in threes."); Klick selbst zählt nicht. Persistiert, damit der Hint pro Spielstand nur einmal kommt.
         // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte
         // → Truhe ausheben → mit Schlüssel öffnen → Sieg-Overlay (Feuerwerk + Schatz).
         // Reihenfolge Schaufel/Pickel egal; Loch öffnet sich nach beiden Drops.
@@ -631,10 +632,25 @@ const KREIS_SEQUENZ_KORREKT = ["yellow", "red", "violet"];
 // Klick-Handler eines Bild-Kreises (gelb/rot/violett). Spielt Ton, fügt Farbe in die Sequenz
 // ein. Nach 3 Klicks kurz warten, dann Replay (immer — auch bei falscher Eingabe gibt's
 // akustisches Feedback) und je nach Korrektheit Aufgabe öffnen oder Sequenz zurücksetzen.
+//
+// Sonderfälle:
+//   • Erstklick auf irgendeinen der drei Kreise → Story-Hint „Good things come in threes."
+//     zeigt sich, der Klick selbst wird verworfen (kein Ton, keine Sequenz). Spieler
+//     schliesst den Hint und kann dann normal eingeben. Pro Spielstand nur einmal.
+//   • In einer 3er-Sequenz darf jede Farbe nur einmal vorkommen — Wiederholungs-Klicks
+//     werden ignoriert (kein Ton, kein zweiter Eintrag).
 function kreisGedrueckt(farbe) {
     const z = spielstand.zustaende;
     if (z.bild_kreise_replay_aktiv) return;       // Klicks während Replay ignorieren
     if (z.bild_kreise_geloest) return;            // Aufgabe schon gelöst
+    if (!z.bild_kreise_hinweis_gesehen) {
+        // Erstklick: Hint zeigen, Klick selbst verwerfen.
+        z.bild_kreise_hinweis_gesehen = true;
+        speicherSpielstand();
+        zeigeStoryText("Good things come in threes.");
+        return;
+    }
+    if (z.bild_kreise_sequenz.includes(farbe)) return; // Once-per-Sequenz: Farbe schon dabei.
     spieleTon(KREIS_FREQ[farbe]);
     z.bild_kreise_sequenz.push(farbe);
     if (z.bild_kreise_sequenz.length >= 3) {
@@ -719,12 +735,16 @@ function oeffneGrab(werkzeug) {
         }
         aktualisiereChain7();
         draw();
-        zeigeOverlayText("You break through the soil and uncover a wooden chest in the hole.");
+        // Freudentanz der Figur erst NACH Schliessen des Story-Overlays starten — dann hat
+        // der Spieler den Beat gelesen und kann sich auf die Animation konzentrieren.
+        // schliesseOverlay() prüft das Flag und ruft starteTanz() auf.
+        tanzGeplant = true;
+        zeigeStoryText("You break through the soil and uncover a wooden chest in the hole.");
         automatischSchliessen();
     } else {
         // Erstes Werkzeug — kurze Bestätigung, damit der User sieht, dass etwas passiert.
         const fehlt = z.chain_7_schaufel_gedroppt ? "pickaxe" : "trowel";
-        zeigeOverlayText(`You start breaking up the soil — but you also need a ${fehlt}.`);
+        zeigeStoryText(`You start breaking up the soil — but you also need a ${fehlt}.`);
         automatischSchliessen();
     }
 }
@@ -982,7 +1002,7 @@ let musikAn = true;
 //
 // Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
 // am Decision-Point keine Netzwerk-Latenz zuschlägt.
-const MUSIK_VOLUME = 0.25;
+const MUSIK_VOLUME = 0.15;
 const MUSIK_LOOP_PRO_RAUM = {
     haupt:      "Haupt_2",
     buero:      "Buero_2",
@@ -1025,6 +1045,41 @@ function initMusikGain() {
     musikGainNode = audioCtx.createGain();
     musikGainNode.gain.value = MUSIK_VOLUME;
     musikGainNode.connect(audioCtx.destination);
+}
+
+// ---- Proximity-Fade: Bürobild (Chain 5) ----
+// Wenn die Figur sich dem Bürobild im Büro nähert, fadet die Hintergrundmusik
+// proportional zur Distanz aus — die C/E/G-Töne der Sequenz stehen so klar im
+// Vordergrund, ohne harmonisch mit der Loop-Musik zu kollidieren. Beim Weglaufen
+// kommt die Musik wieder zurück. Ausserhalb des Büros oder nach Lösen der
+// Aufgabe (bild_kreise_geloest) ist der Multiplikator immer 1.
+//
+// Anker-Punkt = Boden-Position direkt vor der linken Wand, in Tiefe der Bildmitte
+// (BUERO_BILD.rahmen umfasst Wand-u 0.0875..0.6425; Mitte ≈ 0.365 → floor fv 0.36).
+// PROXIMITY_NEAR/FAR sind in (fu, fv)-Distanz; bei Bedarf in der Konsole tunbar.
+const BUEROBILD_ANKER = { fu: 0.12, fv: 0.36 };
+const PROXIMITY_NEAR = 0.10;  // Distanz, ab der die Musik komplett stumm ist
+const PROXIMITY_FAR  = 0.30;  // Distanz, ab der die Musik voll spielt
+let proximityLastMult = 1;
+
+function aktualisiereMusikProximity() {
+    if (!musikGainNode || !audioCtx) return;
+    let mult = 1.0;
+    if (aktuellerRaum === "buero" && !spielstand.zustaende.bild_kreise_geloest) {
+        const dfu = figur.fu - BUEROBILD_ANKER.fu;
+        const dfv = figur.fv - BUEROBILD_ANKER.fv;
+        const dist = Math.sqrt(dfu * dfu + dfv * dfv);
+        if (dist <= PROXIMITY_NEAR) mult = 0;
+        else if (dist >= PROXIMITY_FAR) mult = 1;
+        else mult = (dist - PROXIMITY_NEAR) / (PROXIMITY_FAR - PROXIMITY_NEAR);
+    }
+    // Nur scheduleen, wenn sich der Zielwert merklich geändert hat — spart Web-Audio-
+    // Calls bei stillstehender Figur. setTargetAtTime mit timeConstant 0.15s gibt einen
+    // sanften exponentiellen Glide statt Sprünge (95 % der Distanz nach ~0.45 s).
+    if (Math.abs(mult - proximityLastMult) > 0.01) {
+        proximityLastMult = mult;
+        musikGainNode.gain.setTargetAtTime(MUSIK_VOLUME * mult, audioCtx.currentTime, 0.15);
+    }
 }
 
 function naechsterLoopName() {
@@ -1351,7 +1406,8 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             gegenstand: "schluessel_buero",
-            belohnung_text: "Correct! You found a key — it's now in your inventory.",
+            belohnung_text: "Correct!",
+            story_text: "You found a key — it's now in your inventory.",
             callback: (s) => { s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 1); },
         },
     },
@@ -1372,12 +1428,14 @@ const AUFGABEN = {
         bei_richtig: {
             // Mood-Advance: octopus_zustand +1 (max 3), Exit-Animation bei state 3.
             // Symmetrisch zu chain_3_pizza — Reihenfolge der beiden Chains egal.
-            // belohnung_text als Funktion → POST-callback ausgewertet.
-            belohnung_text: (s) => {
+            // story_text als Funktion → POST-callback ausgewertet, differenziert sich
+            // nach octopus_zustand (2 vs. 3).
+            belohnung_text: "Correct!",
+            story_text: (s) => {
                 if (s.zustaende.octopus_zustand === 3) {
-                    return "Correct! The octopus, fully content now, slides off with a happy gurgle.";
+                    return "The octopus, fully content now, slides off with a happy gurgle.";
                 }
-                return "Correct! The octopus' mood has improved, but it is not quite happy yet.";
+                return "The octopus' mood has improved, but it is not quite happy yet.";
             },
             callback: (s) => {
                 verbrauche("animal_3_3");
@@ -1415,7 +1473,8 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             gegenstand: "gartenschlauch",
-            belohnung_text: "Correct! You take the garden hose with you.",
+            belohnung_text: "Correct!",
+            story_text: "You take the garden hose with you.",
             callback: (s) => {
                 s.zustaende.schlauch_genommen = true;
                 aktualisiereChain3();
@@ -1436,11 +1495,13 @@ const AUFGABEN = {
         toleranz: 0.05,
         pi_hinweis: true,
         bei_richtig: {
-            belohnung_text: (s) => {
+            // story_text als Funktion → differenziert sich nach octopus_zustand (2 vs. 3).
+            belohnung_text: "Correct!",
+            story_text: (s) => {
                 if (s.zustaende.octopus_zustand === 3) {
-                    return "Correct! The octopus pockets the coins, gives a satisfied gurgle, and slides away.";
+                    return "The octopus pockets the coins, gives a satisfied gurgle, and slides away.";
                 }
-                return "Correct! The octopus pockets the coins and looks a touch more cheerful, but isn't quite satisfied yet.";
+                return "The octopus pockets the coins and looks a touch more cheerful, but isn't quite satisfied yet.";
             },
             callback: (s) => {
                 verbrauche("goldene_muenzen");
@@ -1475,7 +1536,8 @@ const AUFGABEN = {
             // gegenstand "code_geheimtuer" ist das sichtbare Tag-Icon im Inventar.
             inventar: { keller_code: 355113 },
             gegenstand: "code_geheimtuer",
-            belohnung_text: "Correct! In the lamplight the writing becomes readable — the note shows the code for a secret door: 355113.",
+            belohnung_text: "Correct!",
+            story_text: "In the lamplight the writing becomes readable — the note shows the code for a secret door: 355113.",
             callback: (s) => {
                 s.zustaende.chain_1_step = Math.max(s.zustaende.chain_1_step, 5);
                 s.gegenstaende.delete("zettel");
@@ -1504,7 +1566,8 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             gegenstand: "drei_kreise",
-            belohnung_text: "Correct! R = r·√2 — the area scales with the square of the radius. The three circles peel off the painting.",
+            belohnung_text: "Correct! R = r·√2 — the area scales with the square of the radius.",
+            story_text: "The three circles peel off the painting.",
             callback: (s) => {
                 s.zustaende.bild_kreise_geloest = true;
                 s.zustaende.chain_5_step = Math.max(s.zustaende.chain_5_step ?? 0, 1);
@@ -1525,10 +1588,9 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             gegenstand: "schaufel",
-            // Mathe-Lösung + Schaufel-Fund-Story in einem einzigen Overlay (kein zweites
-            // Pop-up mehr nach Schliessen). Der Auto-Close in gewaehrenBelohnung ist
-            // bewusst lang genug, damit der zusätzliche Story-Satz lesbar bleibt.
-            belohnung_text: "Correct! The area of the outermost ring is 5966 cm². Lifting a corner of the rug, you find a flat trowel hidden underneath.",
+            // Mathe-Lösung im grünen Feedback, Schaufel-Fund als Story-Karte darunter.
+            belohnung_text: "Correct! The area of the outermost ring is 5966 cm².",
+            story_text: "Lifting a corner of the rug, you find a flat trowel hidden underneath.",
             callback: (s) => {
                 verbrauche("messgeraet");
                 s.zustaende.teppich_gemessen = true;
@@ -1551,7 +1613,8 @@ const AUFGABEN = {
             { katex: "A = \\alpha \\cdot \\pi r^2" },
         ],
         bei_richtig: {
-            belohnung_text: "Correct! Behind the creature you spot a key fragment — it joins your collection on the left.",
+            belohnung_text: "Correct!",
+            story_text: "Behind the creature you spot a key fragment — it joins your collection on the left.",
             callback: () => sammleSchluesselteil("schluesselteil_1"),
         },
     },
@@ -1565,7 +1628,8 @@ const AUFGABEN = {
             { katex: "b = \\alpha \\cdot 2\\pi r" },
         ],
         bei_richtig: {
-            belohnung_text: "Correct! Tucked behind the books you find another key fragment.",
+            belohnung_text: "Correct!",
+            story_text: "Tucked behind the books you find another key fragment.",
             callback: () => sammleSchluesselteil("schluesselteil_2"),
         },
     },
@@ -1579,7 +1643,8 @@ const AUFGABEN = {
             { katex: "U = 2 r^2" },
         ],
         bei_richtig: {
-            belohnung_text: "Correct! Among the tulip's petals you discover a key fragment.",
+            belohnung_text: "Correct!",
+            story_text: "Among the tulip's petals you discover a key fragment.",
             callback: () => sammleSchluesselteil("schluesselteil_3"),
         },
     },
@@ -1593,7 +1658,8 @@ const AUFGABEN = {
             { katex: "A = \\pi r" },
         ],
         bei_richtig: {
-            belohnung_text: "Correct! Inside the middle drawer you find a small tube of glue.",
+            belohnung_text: "Correct!",
+            story_text: "Inside the middle drawer you find a small tube of glue.",
             callback: () => sammleSchluesselteil("leim"),
         },
     },
@@ -1612,7 +1678,8 @@ const AUFGABEN = {
             { katex: "2\\pi" },
         ],
         bei_richtig: {
-            belohnung_text: "Correct! 90° = π/2 rad. Click — the key fits. The left cabinet door creaks open.",
+            belohnung_text: "Correct! 90° = π/2 rad.",
+            story_text: "Click — the key fits. The left cabinet door creaks open.",
             callback: () => {
                 // Schrank wird hier geöffnet (statt direkt im Drop-Callback) — der
                 // Schlüssel wurde bereits beim Drop verbraucht.
@@ -1625,7 +1692,6 @@ const AUFGABEN = {
     bonus_sonne: {
         typ: "multiple_choice",
         frage: "You admire the sun. Its radius is r = 696 000 km. What is its circumference?",
-        formel: "U = 2 \\pi r",
         pi_hinweis: true,
         optionen: [
             { katex: "U = 4\\,370\\,880\\ \\mathrm{km}", korrekt: true },   // 2 · 3.14 · 696 000
@@ -1667,7 +1733,7 @@ function kombiniereSchluessel() {
         spielstand.gegenstaende.add("vereinter_schluessel");
         aktualisiereLinkesInventar();
         aktualisiereInventar();
-        zeigeOverlayText("The three key fragments and the glue fuse into one complete key.\nIt's now in your inventory.");
+        zeigeStoryText("The three key fragments and the glue fuse into one complete key.\nIt's now in your inventory.");
         automatischSchliessen();
     }, 2800);
 }
@@ -1793,7 +1859,7 @@ const OBJEKTE = {
                 aktualisiereInventar();
                 aktualisiereCupboard1();
                 draw();
-                zeigeOverlayText("You take a crumpled note. It's barely legible.");
+                zeigeStoryText("You take a crumpled note. It's barely legible.");
                 automatischSchliessen();
             },
         },
@@ -1964,7 +2030,7 @@ const OBJEKTE = {
                     spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 2);
                     setzeToilette2Voll(true);
                     aktualisiereInventar();
-                    zeigeOverlayText("You tip the fish into the toilet.\nThe glass is now empty.");
+                    zeigeStoryText("You tip the fish into the toilet.\nThe glass is now empty.");
                     automatischSchliessen();
                 },
             },
@@ -1987,7 +2053,7 @@ const OBJEKTE = {
                     spielstand.gegenstaende.add("animal_3_3");
                     spielstand.zustaende.chain_2_step = Math.max(spielstand.zustaende.chain_2_step ?? 0, 3);
                     aktualisiereInventar();
-                    zeigeOverlayText("You fill the glass with water from the bathtub.");
+                    zeigeStoryText("You fill the glass with water from the bathtub.");
                     automatischSchliessen();
                 },
             },
@@ -2044,7 +2110,7 @@ const OBJEKTE = {
                 spielstand.zustaende.vogel_da = true;
                 aktualisiereChain3();
                 draw();
-                zeigeOverlayText("As the cloud drifts apart, a bird becomes visible behind it.");
+                zeigeStoryText("As the cloud drifts apart, a bird becomes visible behind it.");
                 automatischSchliessen();
             },
         },
@@ -2066,7 +2132,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain3();
                     spieleAudio("Bird_1", 0.5);
-                    zeigeOverlayText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
+                    zeigeStoryText("The bird gobbles up the seed, drops a few golden coins for you, and flies off.");
                     automatischSchliessen();
                 },
             },
@@ -2100,7 +2166,7 @@ const OBJEKTE = {
                     spielstand.gegenstaende.add("seed_1");
                     aktualisiereInventar();
                     aktualisiereChain3();
-                    zeigeOverlayText("You water the flower. It grows in a flash and offers you a seed.");
+                    zeigeStoryText("You water the flower. It grows in a flash and offers you a seed.");
                     automatischSchliessen();
                 },
             },
@@ -2182,7 +2248,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain4();
                     draw();
-                    zeigeOverlayText("You lay the rubber duck between the two chains.\nIt seems trapped.");
+                    zeigeStoryText("You lay the rubber duck between the two chains.\nIt seems trapped.");
                     automatischSchliessen();
                 },
             },
@@ -2207,7 +2273,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain5();
                     skelettLachen();
-                    zeigeOverlayText("The three circles slip onto the painting and complete it.\nThe skeleton bursts into laughter and gives you a pickaxe as thanks.");
+                    zeigeStoryText("The three circles slip onto the painting and complete it.\nThe skeleton bursts into laughter and gives you a pickaxe as thanks.");
                     automatischSchliessen();
                 },
             },
@@ -2231,7 +2297,7 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     aktualisiereChain4();
                     setTimeout(() => spieleAudio("Duck_1"), 500);
-                    zeigeOverlayText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
+                    zeigeStoryText("The duck gulps down the muffin, lets out a loud BURP,\nand spits out a measuring device.");
                     automatischSchliessen();
                 },
             },
@@ -2437,6 +2503,22 @@ function gewaehrenBelohnung(id, feedbackEl) {
     const text = typeof b.belohnung_text === "function" ? b.belohnung_text(spielstand) : b.belohnung_text;
     feedbackEl.textContent = text || "Correct!";
     feedbackEl.className = "feedback richtig";
+
+    // story_text (optional) wird als eigene Story-Karte UNTER dem grünen Math-Feedback
+    // gerendert — Tinten-Marineblau auf cream-Hintergrund, italic, serif. So bleibt der
+    // narrative Beat ("...you find a flat trowel hidden underneath.") klar getrennt von
+    // der mathematischen Bestätigung ("Correct! Area = 5966 cm²."). Auch als Funktion
+    // zulässig (POST-callback ausgewertet, analog zu belohnung_text).
+    const storyTextRaw = typeof b.story_text === "function" ? b.story_text(spielstand) : b.story_text;
+    if (storyTextRaw) {
+        // Vorhandene Story-Karte aus früherem Aufruf entfernen (falls Aufgabe re-render).
+        const altStory = feedbackEl.parentElement?.querySelector(".story-karte");
+        if (altStory) altStory.remove();
+        const storyEl = document.createElement("div");
+        storyEl.className = "story-karte";
+        storyEl.textContent = storyTextRaw;
+        feedbackEl.insertAdjacentElement("afterend", storyEl);
+    }
 
     speicherSpielstand();
     draw();
@@ -3023,6 +3105,69 @@ const GEHPHASE_SCHRITT = 0.36;
 const BEIN_HUB = 0.22;
 const FIGUR_SKALA = 0.95;
 
+// ---- Tanz-Animation (Chain 7: Truhe ausgegraben → Figur freut sich) ----
+// Zeitbasiert (performance.now()-Stempel), damit die Hop-Frequenz framerate-unabhängig
+// bleibt. Während des Tanzes überspringt aktualisiereFigur die Walking-Logik und
+// zeichneFigur rendert eine Bounce-/Arme-hoch-Pose. Tanz endet automatisch nach
+// TANZ_DAUER_MS oder vorzeitig, sobald der Spieler woandershin klickt (Ziel != Position).
+const TANZ_DAUER_MS = 3500;
+const TANZ_HOP_HZ = 2.4;        // Hops pro Sekunde (Bounce-Frequenz)
+const TANZ_BOUNCE_PX = 20;      // Maximaler Bounce nach oben (in s-skaliertem Pixel)
+const TANZ_ARM_AMP_RAD = 0.45;  // Wiggle-Amplitude der hochgereckten Arme
+const TANZ_ARM_HZ = 1.5;        // Wiggle-Frequenz der Arme
+// Dreh-Choreographie über die Tanz-Dauer: Sequenz von (richtung, dauer-ms)-Paaren.
+// Summe muss ≤ TANZ_DAUER_MS sein; Reststrecke wird auf "vorne" gesetzt.
+// "Hin und wieder, nicht zu oft": je ein kurzer Side-Glance nach rechts und links,
+// dazwischen jeweils mindestens 0,8 s Front-View — das Auge folgt entspannt.
+const TANZ_DREH_SEQUENZ = [
+    { richtung: "vorne",  dauer:  900 },
+    { richtung: "rechts", dauer:  400 },
+    { richtung: "vorne",  dauer:  900 },
+    { richtung: "links",  dauer:  400 },
+    { richtung: "vorne",  dauer:  900 },
+];
+let tanzStart = 0;
+// Flag: Tanz wartet darauf, dass der Spieler das aktuelle Story-Overlay schliesst.
+// Wird in schliesseOverlay() konsumiert (analog zum octopus_exit_gestartet-Pattern).
+let tanzGeplant = false;
+
+function starteTanz() {
+    tanzStart = performance.now();
+    figur.richtung = "vorne";
+    figur.zielFu = figur.fu;
+    figur.zielFv = figur.fv;
+    figur.gehphase = 0;
+    figur.ankunft = null;
+}
+
+function tanzAktiv() {
+    if (!tanzStart) return false;
+    if (performance.now() - tanzStart > TANZ_DAUER_MS) {
+        tanzStart = 0;
+        return false;
+    }
+    return true;
+}
+
+function tanzPhaseSekunden() {
+    return (performance.now() - tanzStart) / 1000;
+}
+
+// Welche Richtung soll die Figur im aktuellen Moment des Tanzes anschauen? Iteriert
+// einmal über die Sequenz pro Frame — bei 5 Einträgen ist das billig genug.
+function tanzRichtung() {
+    if (!tanzStart) return "vorne";
+    const tMs = performance.now() - tanzStart;
+    let acc = 0;
+    for (const step of TANZ_DREH_SEQUENZ) {
+        acc += step.dauer;
+        if (tMs < acc) return step.richtung;
+    }
+    return "vorne";
+}
+
+window.starteTanz = starteTanz;
+
 // Laufbereich: Abstand, damit der Körper nicht in die Wände ragt.
 const FIGUR_FU_MIN = 0.06;
 const FIGUR_FU_MAX = 0.94;
@@ -3479,9 +3624,20 @@ function zeichneLaecheln(cx, cy, breite, dicke) {
 }
 
 function zeichneFigur() {
-    const [fx, fy] = bodenPunkt(figur.fu, figur.fv);
+    const tanz = tanzAktiv();
+    // Tanz-Phase in Sekunden (für Sinus-Bounce + Arm-Wiggle). 0 wenn nicht tanzend.
+    const tphase = tanz ? tanzPhaseSekunden() : 0;
+
+    const [fx, fy0] = bodenPunkt(figur.fu, figur.fv);
     const s = (1 - 0.45 * figur.fv) * FIGUR_SKALA;
-    const r = figur.richtung;
+    // Während des Tanzes folgt die Richtung der Dreh-Choreographie (TANZ_DREH_SEQUENZ):
+    // meistens vorne (lächelndes Gesicht sichtbar), zwischendurch kurze Side-Glances rechts/links.
+    // Body geht in Side-View automatisch schmaler (bw = bodyW * 0.9), was einen Twist andeutet.
+    const r = tanz ? tanzRichtung() : figur.richtung;
+    // Bounce: |sin(2π·hz·t)| ergibt schnelle Hops (Boden auf 0, Apex auf -BOUNCE).
+    const fy = tanz
+        ? fy0 - Math.abs(Math.sin(tphase * Math.PI * TANZ_HOP_HZ)) * TANZ_BOUNCE_PX * s
+        : fy0;
 
     const headR = 52 * s;
     const bodyW = 115 * s;
@@ -3521,7 +3677,30 @@ function zeichneFigur() {
 
     // ---- Arme ----
     const aY = bodyTop + 10 * s;
-    if (!isSide) {
+    if (tanz) {
+        // Tanz-Pose: beide Arme hoch in die Luft, mit gegenphasigem Wiggle. Pivot an
+        // der Schulter (innen am Körper), Arm zeichnet sich von dort nach oben (rect mit
+        // negativem y-Wert vor dem Rotate, sodass die Rotation um den Schulterpunkt geht).
+        const wiggle = Math.sin(tphase * Math.PI * 2 * TANZ_ARM_HZ) * TANZ_ARM_AMP_RAD;
+        // Linke Schulter (in Bühnenkoordinaten, vor Rotation)
+        const sxL = fx - bw / 2 + armW / 2;
+        const syL = aY + armW * 0.4;
+        ctx.save();
+        ctx.translate(sxL, syL);
+        ctx.rotate(-wiggle);   // negativ → nach links/aussen kippen, wenn wiggle > 0
+        roundRect(-armW / 2, -armH, armW, armH, rad);
+        ctx.fill();
+        ctx.restore();
+        // Rechte Schulter — gegenphasig
+        const sxR = fx + bw / 2 - armW / 2;
+        const syR = aY + armW * 0.4;
+        ctx.save();
+        ctx.translate(sxR, syR);
+        ctx.rotate(wiggle);
+        roundRect(-armW / 2, -armH, armW, armH, rad);
+        ctx.fill();
+        ctx.restore();
+    } else if (!isSide) {
         roundRect(fx - bw / 2 - armW, aY, armW, armH, rad);
         ctx.fill();
         roundRect(fx + bw / 2, aY, armW, armH, rad);
@@ -3808,6 +3987,22 @@ function aktualisiereFigur() {
         figur.fv = Math.max(FIGUR_FV_MIN, Math.min(FIGUR_FV_MAX, figur.fv));
     }
 
+    // Tanz-Modus: Figur tanzt vor Ort. Sobald Ziel != Position (Spieler hat woandershin
+    // geklickt) bricht der Tanz vorzeitig ab, ansonsten läuft er nach TANZ_DAUER_MS aus.
+    if (tanzStart) {
+        const istStill = (figur.zielFu === figur.fu && figur.zielFv === figur.fv);
+        if (!istStill) {
+            tanzStart = 0;
+            // fall through — normal walking-Logik
+        } else if (performance.now() - tanzStart > TANZ_DAUER_MS) {
+            tanzStart = 0;
+            return;
+        } else {
+            figur.gehphase = 0;
+            return;
+        }
+    }
+
     const dx = figur.zielFu - figur.fu;
     const dy = figur.zielFv - figur.fv;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -3879,6 +4074,7 @@ let loopGestartet = false;
 
 function loop() {
     aktualisiereFigur();
+    aktualisiereMusikProximity();
     draw();
     requestAnimationFrame(loop);
 }
@@ -5028,12 +5224,28 @@ function automatischSchliessen(_ms = 4000) {
     clearSchliessenTimer();
 }
 
-// Einfacher Info-Text (z.B. "Tür verschlossen.")
+// Einfacher Info-Text (z.B. "Tür verschlossen.") — neutrale Optik (weiss, sans-serif).
+// Für mechanische Hinweise/Sperr-Meldungen, NICHT für Story-Beats.
 function zeigeOverlayText(text) {
     clearSchliessenTimer();
     overlayInhaltEl.innerHTML = "";
     const p = document.createElement("p");
     p.className = "overlay-text";
+    p.textContent = text;
+    overlayInhaltEl.appendChild(p);
+    overlayEl.hidden = false;
+}
+
+// Story-Text-Variante (z.B. Drop-Reaktionen, Pickup-Beats, Animations-Trigger-Texte).
+// Tinten-Marineblau (#1c3a5e) auf cream-Hintergrund, italic + serif → setzt sich klar
+// von Math-Feedback (grün) und Hint-Texten (neutral) ab. Für narrative Beats verwenden,
+// für mechanische Hinweise (gesperrte Tür, "kein passendes Item") weiterhin
+// zeigeOverlayText() nehmen.
+function zeigeStoryText(text) {
+    clearSchliessenTimer();
+    overlayInhaltEl.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "overlay-text story";
     p.textContent = text;
     overlayInhaltEl.appendChild(p);
     overlayEl.hidden = false;
@@ -5076,6 +5288,12 @@ function schliesseOverlay() {
         spielstand.zustaende.octopus_exit_gestartet = true;
         setTimeout(() => spieleAudio("Hmmmm_1"), 500);
         setTimeout(() => animiereOctopusRaus(), 2000);
+    }
+    // Chain 7: geplanter Freudentanz nach „You break through the soil…" — startet jetzt,
+    // wo der Spieler den Story-Beat gelesen und das Overlay zu hat.
+    if (tanzGeplant) {
+        tanzGeplant = false;
+        starteTanz();
     }
 }
 
@@ -5245,6 +5463,10 @@ function rendereInlineMath(text, ziel) {
 }
 
 function zeigeFormelbuch() {
+    // Erst-Fund-Flag VOR der State-Mutation festhalten, damit der einleitende Story-
+    // Text nur beim allerersten Anschauen erscheint. Bei späteren Aufrufen (Spieler
+    // schaut eine Formel nach) bleibt das Overlay schlank — nur Titel + Tabelle.
+    const ersterFund = !spielstand.zustaende.formelbuch_gefunden;
     spielstand.zustaende.formelbuch_gefunden = true;
     speicherSpielstand();
     clearSchliessenTimer();
@@ -5254,6 +5476,17 @@ function zeigeFormelbuch() {
     titel.className = "formelbuch-titel";
     titel.textContent = "Formula Book — Circles";
     overlayInhaltEl.appendChild(titel);
+
+    if (ersterFund) {
+        const story = document.createElement("p");
+        // Eigene Klasse + .overlay-text.story → erbt das Story-Styling (cream-Karte,
+        // Tinten-Marineblau, italic, serif). Die formelbuch-Variante zieht das per
+        // CSS etwas kompakter (kleinere Font, weniger Margin), damit die Tabelle drunter
+        // noch entspannt reinpasst.
+        story.className = "overlay-text story formelbuch-story";
+        story.textContent = "Now that you've found the formula book, you can really get started. Come back here whenever you want to look up a formula.";
+        overlayInhaltEl.appendChild(story);
+    }
 
     const tabelle = document.createElement("table");
     tabelle.className = "formelbuch";
@@ -5579,7 +5812,7 @@ function nimmAufGegenstand(obj) {
     }
     if (obj.aufnehmen === "duck_1") {
         // Chain 4 — Story-Hinweis: Ente sieht unheimlich aus, soll man bald wieder los werden.
-        zeigeOverlayText("You take the rubber duck.\nIt looks strangely menacing — you'd rather get rid of it soon.");
+        zeigeStoryText("You take the rubber duck.\nIt looks strangely menacing — you'd rather get rid of it soon.");
         automatischSchliessen();
     }
     // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.

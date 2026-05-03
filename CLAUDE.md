@@ -68,7 +68,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=49`, `script.js?v=261`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=56`, `script.js?v=286`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -128,6 +128,8 @@ const FIGUR_FV_MIN = 0,    FIGUR_FV_MAX = 0.97;
 ```
 
 Komplett schwarz, Augen + Mund weiss, keine Haare/Schuhe/Ohren. `zeichneFigur()` (top-down): Beine mit Sinus-Gehanimation, Körper, Arme, Hals, Kopf, Gesicht. `figur.richtung` zeigt immer in die TATSÄCHLICHE Laufrichtung — beim Slide um ein Hindernis dreht sich die Figur entsprechend.
+
+**Tanz-Animation** (zeitbasiert via `performance.now()`-Stempel `tanzStart`): einmaliger Freudentanz nach Chain 7 / Loch ausgegraben, ~3,5 s lang. `starteTanz()` setzt `figur.richtung="vorne"`, `figur.zielFu/Fv = figur.fu/Fv` (Stillstand), nullt `gehphase` + `ankunft`. Während des Tanzes überspringt `aktualisiereFigur` die Walking-Logik und returnt früh; sobald `zielFu/Fv != fu/Fv` (Spieler hat woandershin geklickt) oder die Dauer abgelaufen ist, fällt die Logik wieder auf den normalen Walk-Pfad zurück. `zeichneFigur` rendert eine Bounce-Pose: vertikales `|sin|`-Hopping mit `TANZ_HOP_HZ=2.4` Hops/s + `TANZ_BOUNCE_PX=20`, und beide Arme nach oben gestreckt mit gegenphasigem Wiggle (`TANZ_ARM_HZ=1.5` Hz, `±TANZ_ARM_AMP_RAD=0.45` rad). Konsolen-Helper: `starteTanz()` direkt aufrufbar.
 
 ## Räume
 
@@ -528,7 +530,15 @@ Aufgaben mit π im Text setzen `pi_hinweis: true` → blendet automatisch eine H
 
 **Multiple-Choice** wird über `typ: "multiple_choice"` aktiviert mit `optionen: [{ katex|label, korrekt? }, …]`. Genau eine Option hat `korrekt: true`. Falsche Antworten färben den Button rot + sperren ihn, korrekte Antwort sperrt alle + triggert Belohnung. Falsche Versuche bleiben offen → User kann nochmal probieren.
 
-`bei_richtig` unterstützt: `schluessel` (Schloss-ID), `inventar` (Object → spielstand.inventar gemerged), `gegenstand` (ID aus GEGENSTAENDE → ins Inventar), `belohnung_text` (string ODER `(spielstand) => string` — Funktion wird **nach** dem callback ausgewertet, sodass der Text auf den frisch aktualisierten State zugreifen kann; siehe `chain_2_octopus`/`chain_3_pizza` für state-abhängige Mood-Texte), `callback: (s) => ...` (für freie Logik wie Chain-State-Updates oder Verbrauch).
+`bei_richtig` unterstützt: `schluessel` (Schloss-ID), `inventar` (Object → spielstand.inventar gemerged), `gegenstand` (ID aus GEGENSTAENDE → ins Inventar), `belohnung_text` (string ODER `(spielstand) => string` — Funktion wird **nach** dem callback ausgewertet, sodass der Text auf den frisch aktualisierten State zugreifen kann), `story_text` (string ODER `(spielstand) => string` — narrative Konsequenz, wird in eigener Story-Karte unter dem grünen Math-Feedback gerendert; siehe `chain_2_octopus`/`chain_3_pizza` für state-abhängige Mood-Texte), `callback: (s) => ...` (für freie Logik wie Chain-State-Updates oder Verbrauch).
+
+**Story-Text-Styling** (Tinten-Marineblau): Narrative Beats werden visuell klar von Math-Feedback (grün) und Hint-Texten (neutral) getrennt:
+- `belohnung_text` → grüne `.feedback.richtig`-Box („Correct! Area = 5966 cm²."). Nur Math-Bestätigung, keine Story.
+- `story_text` (in `bei_richtig`) → eigene `.story-karte` UNTER der grünen Box: cream-Hintergrund `#fbf6e9`, dünner Rahmen `#e3d8b8`, Tinten-Marineblau-Schrift `#1c3a5e`, italic, serif (Georgia). Auch als Funktion zulässig (POST-callback ausgewertet).
+- `zeigeStoryText(text)` → standalone Story-Overlay (gleiche Optik wie `.story-karte`, etwas grösser). Für narrative Drop-Reaktionen, Pickup-Beats, Animations-Trigger-Texte: „You water the flower…", „The skeleton bursts into laughter…", „You break through the soil…", „The keypad clicks open…".
+- `zeigeOverlayText(text)` → bleibt für mechanische **Hinweise/Sperr-Meldungen** (gesperrte Tür, Sammlungs-Hinweis): neutrales Weiss, sans-serif. NICHT für Story-Beats.
+
+Faustregel: erzählt der Text, was in der Welt passiert? → Story (marineblau). Erklärt er dem Spieler, warum etwas (noch) nicht geht? → Hint (neutral).
 
 ## Chains (Handlungsstränge)
 
@@ -639,6 +649,10 @@ Läuft parallel zu Chains 1–4. Liefert den **Pickel** — das zweite Item für
 
 **Vorbedingung:** alle 3 Kreis-Klicks im Bürobild verlangen `formelbuch_gefunden=true` (analog Chains 1–4). Klick davor fällt ohne Hinweis durch.
 
+**Erstklick-Hint** (nur einmal pro Spielstand): der allererste Klick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Text „Good things come in threes." und wird selbst NICHT in die Sequenz aufgenommen (kein Ton, kein Sequenz-Eintrag). Flag `bild_kreise_hinweis_gesehen` persistiert. Spieler schliesst den Hint und gibt dann die Sequenz normal ein.
+
+**Once-per-Sequenz-Regel:** in einer 3er-Sequenz darf jede Farbe nur einmal vorkommen. Wiederholungs-Klicks auf eine Farbe, die bereits in `bild_kreise_sequenz` ist, werden silent ignoriert (kein Ton, kein zweiter Eintrag). Damit folgt aus „3 Klicks, 3 Farben" automatisch „yellow + red + violet in irgendeiner Reihenfolge", die Sequenz-Aufgabe reduziert sich auf das Finden der korrekten Reihenfolge.
+
 | Step | Trigger | Effekt |
 |---|---|---|
 | 1a | Klick auf gelben Kreis (`bild_kreis_yellow`) im Bürobild | `spieleTon(C4=261.63 Hz)`, `bild_kreise_sequenz.push("yellow")` |
@@ -718,7 +732,7 @@ Finale Chain. Setzt **alle drei Endgame-Items** voraus: `schaufel` (Chain 4), `p
 | Step | Trigger | Effekt |
 |---|---|---|
 | 1 | Drag `schaufel` ODER `pickel` auf `gartenmitte_grab` (Polygon (560..1040, 660..800), aktiv wenn formelbuch + (Schaufel ‖ Pickel im Inv) + !chain_7_loch_offen) | Werkzeug verbraucht, `chain_7_schaufel_gedroppt` bzw. `chain_7_pickel_gedroppt = true`. Hinweis-Overlay „You start breaking up the soil — but you also need a {pickaxe\|trowel}." |
-| 2 | Drag das andere Werkzeug auf gartenmitte_grab | Beide Flags true → `chain_7_loch_offen=true`, **`HINDERNISSE.garten.push(CHAIN_7_HINDERNIS)`** (5-Vertex-Spline mit Handles, interaktiv im Editor an die Loch-Form angepasst — ungefähr fu 0.33..0.67, fv 0.34..0.90), `aktualisiereChain7()` zeigt `chain_7_grab` (Loch + Truhe dahinter). Story-Overlay „You break through the soil and uncover a wooden chest in the hole." |
+| 2 | Drag das andere Werkzeug auf gartenmitte_grab | Beide Flags true → `chain_7_loch_offen=true`, **`HINDERNISSE.garten.push(CHAIN_7_HINDERNIS)`** (5-Vertex-Spline mit Handles, interaktiv im Editor an die Loch-Form angepasst — ungefähr fu 0.33..0.67, fv 0.34..0.90), `aktualisiereChain7()` zeigt `chain_7_grab` (Loch + Truhe dahinter), `tanzGeplant=true`. Story-Overlay „You break through the soil and uncover a wooden chest in the hole." Beim Schliessen des Overlays startet **`starteTanz()`** kurzen Freudentanz der Figur (~3,5 s, Bounce + Arme hoch). |
 | 3 | Drag `vereinter_schluessel` auf `chest_1` (Polygon (700..900, 590..680) direkt auf der Truhe, aktiv wenn loch_offen + Schlüssel im Inv + !geoeffnet) | Schlüssel verbraucht, `chain_7_geoeffnet=true`, `dragAbbrechen()` (Sicherheits-Cleanup), **`zeigeSiegOverlay()`** öffnet das Vollbild-Endscreen-Overlay. |
 
 **`chain_7_grab` (DOM):** `<g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">` enthält zwei `<image>`-Elemente:
@@ -918,16 +932,18 @@ Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `s
 
 **Sound-/Musik-Toggle** im Settings-Menü (Zahnrad unten rechts) togglet `soundAn` (alle SFX) bzw. `musikAn` (Background-Musik). Beide werden in `localStorage` unter `SETTINGS_KEY` persistiert (separat vom Spielstand → Reset löscht Sound-Vorlieben NICHT). `musikAn` Default `true`.
 
-**Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 25 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
+**Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 15 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
 - **Intro** (`Haupt_1`): startet beim Klick auf einen Start-Screen-Button (Continue / Start over / Begin adventure → `verstecksStartScreen()` → `starteMusik()`). Spielt einmal komplett durch.
 - **Loop** (`<Raum>_2`-Files, je 8 Takte): ~300 ms vor Track-Ende (`MUSIK_LOOKAHEAD`) liest `decideUndPlane()` den aktuellen Raum (`aktuellerRaum`) und plant das passende `_2` (`Haupt_2`/`Buero_2`/`Badezimmer_2`/`Garten_2`/`Keller_2`) exakt am Endezeitpunkt des laufenden Tracks (`source.start(endTime)`) → kein hörbarer Gap. Raumwechsel mid-Loop wirkt sich erst beim Decision-Point aus — die laufenden 8 Takte spielen aus.
 - **Outro** (`Garten_3`): wenn `chain_7_geoeffnet === true` (Schatztruhe geöffnet → Sieg-Overlay) und Decision-Point für nächsten Track läuft, wird `Garten_3` statt `Garten_2` geplant. Danach Phase `done`, kein weiteres Audio.
 
-**Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.25 = 25 %) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
+**Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.15 = 15 %, Konstante `MUSIK_VOLUME`) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
 
 **MP3-Padding-Workaround** (`MP3_PADDING_KOMPENSATION = 0.08` s): MP3-Encoder fügen am Anfang/Ende jedes Files Padding-Samples ein (~1100 Leading + ~1152 Trailing = ~26 ms je). Selbst mit sample-genauem Scheduling hört man dadurch eine kleine Pause zwischen Tracks. Workaround: virtuelles Track-Ende = `buffer.duration - MP3_PADDING_KOMPENSATION` → nächster Track startet ~80 ms vor realem Buffer-Ende, das Trailing-Padding des aktuellen überlappt mit dem Leading-Padding des nächsten (beides Stille). Falls Files mit anderem Encoder kodiert werden, Wert empirisch tunen.
 
 Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. `_1`/`_3`-Versionen pro Raum existieren als Files in `assets/music/` (Intros/Outros pro Raum), aktuell nur `Haupt_1` und `Garten_3` aktiv genutzt — die anderen sind Reserve.
+
+**Proximity-Fade Bürobild (Chain 5):** Die Loop-Musik kollidiert harmonisch mit den C/E/G-Tönen der Bürobild-Sequenz. `aktualisiereMusikProximity()` läuft jeden Frame in `loop()` und multipliziert den `musikGainNode.gain` proportional zur Distanz der Figur zum Anker `BUEROBILD_ANKER` (fu=0.12, fv=0.36, also direkt vor der linken Wand in Bildmitte-Tiefe). Innerhalb `PROXIMITY_NEAR` (0.10) komplett stumm, ausserhalb `PROXIMITY_FAR` (0.30) voll, dazwischen linear. Glide via `setTargetAtTime(target, now, 0.15)` → ~0.45 s sanfter Ramp. Effekt nur aktiv, wenn `aktuellerRaum === "buero" && !bild_kreise_geloest` — nach Lösen der Aufgabe spielt die Musik immer voll. Bei stillstehender Figur skipt die Funktion via `proximityLastMult`-Cache (Schwelle 0.01) — keine unnötigen Web-Audio-Calls.
 
 ## Input / Loop
 

@@ -346,7 +346,7 @@ h1 {
     flex: 1;
     padding: 0.55rem 0.7rem;
     font-size: 1.1rem;
-    border: 2px solid #bbb;
+    border: 1px solid #bbb;
     border-radius: 0.3rem;
     outline: none;
     color: #111;
@@ -388,7 +388,7 @@ h1 {
     font-size: 0.95rem;
     color: #555;
     background: #f0f4fa;
-    border-left: 3px solid #6b8aaf;
+    border: 1px solid #c8d3e3;
     border-radius: 0.2rem;
 }
 
@@ -412,7 +412,7 @@ h1 {
     font-size: 1.05rem;
     color: #111;
     background: #f5f7fa;
-    border: 2px solid #c5cad3;
+    border: 1px solid #c5cad3;
     border-radius: 0.4rem;
     cursor: pointer;
     transition: background 0.12s ease, border-color 0.12s ease;
@@ -479,6 +479,39 @@ h1 {
     background: #fde1e1;
     color: #7a1e1e;
     border: 1px solid #e7a0a0;
+}
+
+/* Story-Karte: setzt narrative Texte (Story-Beats nach Aufgaben, Drop-Reaktionen)
+   visuell von Math-Feedback (grün) und Hint-Texten (neutral) ab. Tinten-Marineblau
+   #1c3a5e + Italic + Serif + cream-Hintergrund → wirkt wie Tagebuch-/Journal-Eintrag,
+   passend zur Tante-Mathematikerin-Schatzstory. */
+#overlay-inhalt .story-karte {
+    margin: 0.9rem 0 0 0;
+    padding: 0.7rem 0.9rem;
+    background: #fbf6e9;
+    border: 1px solid #e3d8b8;
+    border-radius: 0.3rem;
+    color: #1c3a5e;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+/* Story-Variant des einfachen Overlay-Texts (zeigeStoryText): gleiche Optik wie
+   .story-karte, aber als alleinstehender Text ohne grüne Math-Feedback-Box drüber.
+   Etwas grösser (1.2rem) für ruhigere Standalone-Lesbarkeit. */
+#overlay-inhalt .overlay-text.story {
+    color: #1c3a5e;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    background: #fbf6e9;
+    border: 1px solid #e3d8b8;
+    border-radius: 0.3rem;
+    padding: 0.8rem 1rem;
+    font-size: 1.2rem;
+    line-height: 1.55;
 }
 
 #overlay-close {
@@ -566,6 +599,16 @@ h1 {
 /* Overlay-Box etwas weiter, damit die Formelbuch-Tabelle bequem reinpasst. */
 #overlay-inhalt:has(.formelbuch) {
     min-width: 32rem;
+}
+
+/* Story-Text VOR der Formelbuch-Tabelle (nur beim Erst-Fund sichtbar) — kompakter
+   als der Standard-.overlay-text.story, damit Titel + Story + Tabelle zusammen
+   nicht zu vertikal werden. */
+#overlay-inhalt .overlay-text.story.formelbuch-story {
+    font-size: 1rem;
+    padding: 0.6rem 0.8rem;
+    margin: 0 0 1rem 0;
+    line-height: 1.45;
 }
 
 /* Octopus im Badezimmer (Inline-SVG aus assets/octopus_1_1/_1_2/_1_3.svg, Switch-Triplet).
