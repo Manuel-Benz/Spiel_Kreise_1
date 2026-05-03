@@ -1002,7 +1002,7 @@ let musikAn = true;
 //
 // Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
 // am Decision-Point keine Netzwerk-Latenz zuschlägt.
-const MUSIK_VOLUME = 0.15;
+const MUSIK_VOLUME = 0.08;
 const MUSIK_LOOP_PRO_RAUM = {
     haupt:      "Haupt_2",
     buero:      "Buero_2",
@@ -1065,11 +1065,11 @@ function initMusikGain() {
 // Bildschirm dann eher hochformatig statt flach-breit. ROTATION dreht die Ellipse zusätzlich
 // in (fu, fv); positive Werte kippen die fv-Hauptachse Richtung +fu (Bildschirm: oben-rechts).
 // NEAR_FRAC = innere Ellipse als Anteil der äusseren (z.B. 0.25 → innere ist 25 % der RX/RY).
-const BUEROBILD_ANKER = { fu: 0.05, fv: 0.10 };
+const BUEROBILD_ANKER = { fu: 0.00, fv: 0.50 };
 let PROXIMITY_RX = 0.30;        // FAR-Halbachse in fu (Breite)
-let PROXIMITY_RY = 0.80;        // FAR-Halbachse in fv (Tiefe — gestreckt)
-let PROXIMITY_NEAR_FRAC = 0.25; // innere (NEAR-)Ellipse = NEAR_FRAC × äussere
-let PROXIMITY_ROTATION = 0.25;  // Rotation in Radian; positiv = fv-Achse Richtung +fu kippt
+let PROXIMITY_RY = 1.00;        // FAR-Halbachse in fv (Tiefe — gestreckt)
+let PROXIMITY_NEAR_FRAC = 0.50; // innere (NEAR-)Ellipse = NEAR_FRAC × äussere
+let PROXIMITY_ROTATION = 0;     // Rotation in Radian; positiv = fv-Achse Richtung +fu kippt
 let proximityLastMult = 1;
 
 function aktualisiereMusikProximity() {
