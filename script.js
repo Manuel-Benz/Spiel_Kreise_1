@@ -1059,9 +1059,10 @@ function initMusikGain() {
 // rechts (Bücherregal-Bereich) bleibt voll laut. Zone-Form ist circular in (fu,fv) —
 // durch die Perspektive auf dem Boden wirkt's elliptisch nach hinten.
 // PROXIMITY_NEAR/FAR sind in (fu, fv)-Distanz; bei Bedarf in der Datei tunbar.
+// Mutable, damit die Werte zur Laufzeit per Konsole tunbar sind (siehe setMusikProximity).
 const BUEROBILD_ANKER = { fu: 0.05, fv: 0.10 };
-const PROXIMITY_NEAR = 0.15;  // Distanz, ab der die Musik komplett stumm ist
-const PROXIMITY_FAR  = 0.65;  // Distanz, ab der die Musik voll spielt
+let PROXIMITY_NEAR = 0.15;  // Distanz, ab der die Musik komplett stumm ist
+let PROXIMITY_FAR  = 0.65;  // Distanz, ab der die Musik voll spielt
 let proximityLastMult = 1;
 
 function aktualisiereMusikProximity() {
@@ -1083,6 +1084,69 @@ function aktualisiereMusikProximity() {
         musikGainNode.gain.setTargetAtTime(MUSIK_VOLUME * mult, audioCtx.currentTime, 0.15);
     }
 }
+
+// Debug-Overlay zur Proximity-Zone (analog zu hindernisDebug). Wenn aktiv, werden auf den
+// Boden zwei Ringe projiziert: NEAR (vollständig stumm) und FAR (Übergang zu voll Musik).
+// Beide Kreise sind in (fu, fv) konzentrisch um BUEROBILD_ANKER, projiziert via bodenPunkt
+// erscheinen sie wegen der Perspektive elliptisch nach hinten gestreckt. Konsole-Toggle:
+// musikProximityDebug(true|false).
+function zeichneMusikProximityDebug() {
+    if (!window.MUSIK_PROXIMITY_DEBUG) return;
+    if (aktuellerRaum !== "buero") return;
+    const ctx0 = ctx;  // ctxFigur ist hier aktiv (siehe draw())
+    const N = 64;
+    const samplePoly = (radius) => {
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+            const ang = (i / N) * 2 * Math.PI;
+            const fu = BUEROBILD_ANKER.fu + radius * Math.cos(ang);
+            const fv = BUEROBILD_ANKER.fv + radius * Math.sin(ang);
+            pts.push(bodenPunkt(fu, fv));
+        }
+        return pts;
+    };
+    const drawPoly = (pts, fill, stroke) => {
+        ctx0.beginPath();
+        for (let i = 0; i < pts.length; i++) {
+            const [x, y] = pts[i];
+            if (i === 0) ctx0.moveTo(x, y);
+            else ctx0.lineTo(x, y);
+        }
+        ctx0.closePath();
+        if (fill) { ctx0.fillStyle = fill; ctx0.fill(); }
+        if (stroke) { ctx0.strokeStyle = stroke; ctx0.lineWidth = 2; ctx0.stroke(); }
+    };
+    // FAR-Ring (Übergangs-Aussenkante) zuerst, damit NEAR-Ring drüber liegt.
+    drawPoly(samplePoly(PROXIMITY_FAR), "rgba(255, 80, 80, 0.18)", "rgba(255, 80, 80, 0.85)");
+    // NEAR-Ring (vollständig-stumm-Innenzone) — kräftigeres Rot.
+    drawPoly(samplePoly(PROXIMITY_NEAR), "rgba(220, 30, 30, 0.40)", "rgba(220, 30, 30, 0.95)");
+    // Anker-Punkt
+    const [ax, ay] = bodenPunkt(BUEROBILD_ANKER.fu, BUEROBILD_ANKER.fv);
+    ctx0.fillStyle = "#fff";
+    ctx0.strokeStyle = "#900";
+    ctx0.lineWidth = 2;
+    ctx0.beginPath();
+    ctx0.arc(ax, ay, 6, 0, 2 * Math.PI);
+    ctx0.fill();
+    ctx0.stroke();
+}
+
+window.musikProximityDebug = (an = true) => {
+    window.MUSIK_PROXIMITY_DEBUG = !!an;
+    if (typeof draw === "function") draw();
+    return window.MUSIK_PROXIMITY_DEBUG ? "Musik-Proximity-Debug AN (nur im Büro sichtbar)" : "Musik-Proximity-Debug AUS";
+};
+if (typeof window.MUSIK_PROXIMITY_DEBUG === "undefined") window.MUSIK_PROXIMITY_DEBUG = false;
+
+// Tuning per Konsole: setMusikProximity({ fu, fv, near, far }) — alle Felder optional.
+// Die Debug-Zone aktualisiert sich automatisch im nächsten Frame.
+window.setMusikProximity = (params = {}) => {
+    if (typeof params.fu === "number") BUEROBILD_ANKER.fu = params.fu;
+    if (typeof params.fv === "number") BUEROBILD_ANKER.fv = params.fv;
+    if (typeof params.near === "number") PROXIMITY_NEAR = params.near;
+    if (typeof params.far === "number") PROXIMITY_FAR = params.far;
+    return `Anker (fu=${BUEROBILD_ANKER.fu}, fv=${BUEROBILD_ANKER.fv}), NEAR=${PROXIMITY_NEAR}, FAR=${PROXIMITY_FAR}`;
+};
 
 function naechsterLoopName() {
     return MUSIK_LOOP_PRO_RAUM[aktuellerRaum] || "Haupt_2";
@@ -3961,6 +4025,7 @@ function draw() {
     ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     zeichneFigur();
     zeichneHindernisseDebug();   // Debug-Overlay (nur wenn HINDERNIS_DEBUG=true)
+    zeichneMusikProximityDebug(); // Musik-Proximity-Zone (nur wenn MUSIK_PROXIMITY_DEBUG=true)
     // Pflanzen mit data-fv zwischen Rück- und Front-SVG togglen (perspektivische Tiefensortierung).
     aktualisierePflanzenTiefe();
 }

@@ -68,7 +68,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=56`, `script.js?v=287`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=56`, `script.js?v=288`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -944,6 +944,8 @@ Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `s
 Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. `_1`/`_3`-Versionen pro Raum existieren als Files in `assets/music/` (Intros/Outros pro Raum), aktuell nur `Haupt_1` und `Garten_3` aktiv genutzt — die anderen sind Reserve.
 
 **Proximity-Fade Bürobild (Chain 5):** Die Loop-Musik kollidiert harmonisch mit den C/E/G-Tönen der Bürobild-Sequenz. `aktualisiereMusikProximity()` läuft jeden Frame in `loop()` und multipliziert den `musikGainNode.gain` proportional zur Distanz der Figur zum Anker `BUEROBILD_ANKER` (fu=0.05, fv=0.10, also vorne-links knapp neben der Lavalampe). Innerhalb `PROXIMITY_NEAR` (0.15) komplett stumm, ausserhalb `PROXIMITY_FAR` (0.65) voll, dazwischen linear. Effektive Zone deckt vorne-links (Lavalampe + Bürobild) komplett ab und reicht bis zur Mitte des Büros; hinten-rechts (Bücherregal) bleibt unbeeinflusst. Glide via `setTargetAtTime(target, now, 0.15)` → ~0.45 s sanfter Ramp. Effekt nur aktiv, wenn `aktuellerRaum === "buero" && !bild_kreise_geloest` — nach Lösen der Aufgabe spielt die Musik immer voll. Bei stillstehender Figur skipt die Funktion via `proximityLastMult`-Cache (Schwelle 0.01) — keine unnötigen Web-Audio-Calls.
+
+**Debug-Visualisierung der Proximity-Zone:** `musikProximityDebug(true)` in der Konsole zeigt zwei rote Ringe auf dem Boden (nur im Büro): Innerer (kräftiges Rot) = `PROXIMITY_NEAR`-Grenze (vollständig stumm), Äusserer (transparentes Rot) = `PROXIMITY_FAR`-Grenze (Übergang zu voll laut). Anker als weisser Punkt mit rotem Rand. Kreise sind in (fu, fv) konzentrisch um den Anker; durch die Boden-Perspektive erscheinen sie elliptisch nach hinten gestreckt. Werte zur Laufzeit per `setMusikProximity({ fu, fv, near, far })` tunbar (alle Felder optional) — Debug-Zone updatet im nächsten Frame.
 
 ## Input / Loop
 
