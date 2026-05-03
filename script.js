@@ -1054,12 +1054,14 @@ function initMusikGain() {
 // kommt die Musik wieder zurück. Ausserhalb des Büros oder nach Lösen der
 // Aufgabe (bild_kreise_geloest) ist der Multiplikator immer 1.
 //
-// Anker-Punkt = Boden-Position direkt vor der linken Wand, in Tiefe der Bildmitte
-// (BUERO_BILD.rahmen umfasst Wand-u 0.0875..0.6425; Mitte ≈ 0.365 → floor fv 0.36).
-// PROXIMITY_NEAR/FAR sind in (fu, fv)-Distanz; bei Bedarf in der Konsole tunbar.
-const BUEROBILD_ANKER = { fu: 0.12, fv: 0.36 };
-const PROXIMITY_NEAR = 0.10;  // Distanz, ab der die Musik komplett stumm ist
-const PROXIMITY_FAR  = 0.30;  // Distanz, ab der die Musik voll spielt
+// Anker-Punkt = vordere linke Boden-Ecke, knapp neben der Lavalampe. Vorne-mitte und
+// vorne-rechts (Tür-Eingang, Schreibtisch-Bereich) sollen schon Teil-Dim haben; hinten-
+// rechts (Bücherregal-Bereich) bleibt voll laut. Zone-Form ist circular in (fu,fv) —
+// durch die Perspektive auf dem Boden wirkt's elliptisch nach hinten.
+// PROXIMITY_NEAR/FAR sind in (fu, fv)-Distanz; bei Bedarf in der Datei tunbar.
+const BUEROBILD_ANKER = { fu: 0.05, fv: 0.10 };
+const PROXIMITY_NEAR = 0.15;  // Distanz, ab der die Musik komplett stumm ist
+const PROXIMITY_FAR  = 0.65;  // Distanz, ab der die Musik voll spielt
 let proximityLastMult = 1;
 
 function aktualisiereMusikProximity() {
