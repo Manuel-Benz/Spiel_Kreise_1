@@ -1499,6 +1499,19 @@ window.soundTest = async () => {
 // Konvention im ganzen Spiel: π = PI_KONSTANTE (3.14). Aufgaben mit pi_hinweis:true
 // blenden "Rechne mit π = 3.14." als Hinweis ein.
 const PI_KONSTANTE = 3.14;
+
+// Helper für die 4 Chain-6-Pickups (Schlüsselteile + Leim): hängt beim ALLERERSTEN
+// gefundenen Item einen Hint-Absatz an die Story-Karte, der die Sammel-Mechanik
+// andeutet. Trigger ist `linkesInventar.size === 1` POST-Callback (in jedem chain_6-
+// Callback wird sammleSchluesselteil() aufgerufen, das das Item dem Set hinzufügt;
+// die Story wird in gewaehrenBelohnung NACH dem Callback ausgewertet, also bei
+// Size 1 weiss man: dies war das erste). „parts" als Sammelbegriff ist absichtlich
+// generisch, sodass der Hint sowohl für Fragmente als auch für den Leim passt.
+function chain6StoryText(baseText) {
+    const hint = "This looks like one of several parts hidden around the house. Find them all, and they might come together into something useful.";
+    return (s) => s.linkesInventar.size === 1 ? `${baseText}\n\n${hint}` : baseText;
+}
+
 const AUFGABEN = {
     // Chain 1, Aufgabe 1: cake_1 anklicken → Multiple-Choice mit gepaarten U+A-Werten.
     // π = 3.14, d = 20 → r = 10 → U = 2·3.14·10 = 62.8 cm, A = 3.14·100 = 314 cm².
@@ -1723,7 +1736,7 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             belohnung_text: "Correct!",
-            story_text: "Behind the creature you spot a key fragment — it joins your collection on the left.",
+            story_text: chain6StoryText("Behind the creature you spot a key fragment — it joins your collection on the left."),
             callback: () => sammleSchluesselteil("schluesselteil_1"),
         },
     },
@@ -1738,7 +1751,7 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             belohnung_text: "Correct!",
-            story_text: "Tucked behind the books you find another key fragment.",
+            story_text: chain6StoryText("Tucked behind the books you find another key fragment."),
             callback: () => sammleSchluesselteil("schluesselteil_2"),
         },
     },
@@ -1753,7 +1766,7 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             belohnung_text: "Correct!",
-            story_text: "Among the tulip's petals you discover a key fragment.",
+            story_text: chain6StoryText("Among the tulip's petals you discover a key fragment."),
             callback: () => sammleSchluesselteil("schluesselteil_3"),
         },
     },
@@ -1768,7 +1781,7 @@ const AUFGABEN = {
         ],
         bei_richtig: {
             belohnung_text: "Correct!",
-            story_text: "Inside the middle drawer you find a small tube of glue.",
+            story_text: chain6StoryText("Inside the middle drawer you find a small tube of glue."),
             callback: () => sammleSchluesselteil("leim"),
         },
     },

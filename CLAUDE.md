@@ -68,7 +68,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=57`, `script.js?v=293`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=57`, `script.js?v=294`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -697,6 +697,8 @@ Liefert den **vereinten Schlüssel** — der wird in einer späteren Chain (Chai
 **Vorbedingung:** alle 4 Klick-Stellen verlangen `formelbuch_gefunden=true` (analog Chains 1–5). Klick davor fällt durch zur Boden-Logik, ohne Hinweis.
 
 **Reihenfolge der 4 Pickups: egal.** Jeder Pickup ist eine eigenständige MC-Aufgabe (Multiple-Choice der richtigen Kreis-Formel — kein Rechnen, nur Formel-Erkennung).
+
+**Erstfund-Hint** (nur beim allerersten der 4 Items): die Story-Karte hängt einen zusätzlichen Absatz an: „This looks like one of several parts hidden around the house. Find them all, and they might come together into something useful." So weiss der Spieler beim ersten Fragment/Leim, dass es mehr zu sammeln gibt. Trigger: `linkesInventar.size === 1` POST-Callback (Helper `chain6StoryText(baseText)` wrapped die 4 story_text-Strings). Wording bewusst generisch („parts"), damit es egal ist, ob das erste gefundene Item ein Fragment oder der Leim ist.
 
 | Pickup-Stelle | Aufgabe | Korrekte Antwort | Item ins linke Inventar |
 |---|---|---|---|
