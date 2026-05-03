@@ -966,13 +966,20 @@ window.zeigeStartScreen = zeigeStartScreen;
 
 // ---------- Chain 3 / Bridge: Nachtsicht ----------
 // Togglt die Body-Klasse `nachtsicht` → SVG-Filter `url(#nachtsicht)` auf die drei
-// statischen Render-Layer (Single-Pass feColorMatrix, siehe CLAUDE.md).
+// statischen Render-Layer (Single-Pass feColorMatrix, siehe CLAUDE.md). Synchronisiert
+// auch den .aktiv-Glow auf dem Binoculars-Inventar-Slot — Slot wird mit querySelector
+// gesucht, kann zum Zeitpunkt des Aufrufs schon oder noch nicht existieren (z.B. Lade-
+// Reihenfolge: Inventar-Render läuft VOR Nachtsicht-Reaktivierung in aktualisiereAllesNachLaden).
 function aktiviereNachtsicht() {
     document.body.classList.add("nachtsicht");
+    const slot = inventarEl?.querySelector('[data-gegenstand="binoculars_1"]');
+    if (slot) slot.classList.add("aktiv");
     draw();  // Geheimtür-Phosphor-Outline neu zeichnen
 }
 function deaktiviereNachtsicht() {
     document.body.classList.remove("nachtsicht");
+    const slot = inventarEl?.querySelector('[data-gegenstand="binoculars_1"]');
+    if (slot) slot.classList.remove("aktiv");
     draw();
 }
 window.aktiviereNachtsicht = aktiviereNachtsicht;
@@ -5895,6 +5902,10 @@ function aktualisiereInventar() {
         slot.dataset.gegenstand = id;
         slot.title = g.name;
         slot.innerHTML = g.icon;
+        // Binoculars: zeigt grünen Glow, wenn Nachtsicht gerade aktiv ist.
+        if (id === "binoculars_1" && document.body.classList.contains("nachtsicht")) {
+            slot.classList.add("aktiv");
+        }
         slot.addEventListener("pointerdown", (e) => starteDrag(e, id, slot));
         inventarEl.appendChild(slot);
     }
@@ -5912,6 +5923,8 @@ function nimmAufGegenstand(obj) {
         // Nachtsicht-Filter aktivieren + binoculars_1_visual aus toilet_1 ausblenden.
         spielstand.zustaende.binoculars_genommen = true;
         aktiviereNachtsicht();
+        zeigeStoryText("You take the binoculars and the world shifts into phosphor-green night vision. Tap the binoculars in your inventory to toggle the effect.");
+        automatischSchliessen();
     }
     if (obj.aufnehmen === "duck_1") {
         // Chain 4 — Story-Hinweis: Ente sieht unheimlich aus, soll man bald wieder los werden.
@@ -5970,6 +5983,10 @@ function dragAbbrechen() {
 }
 window.dragAbbrechen = dragAbbrechen;
 
+// Schwellenwert für Click-vs-Drag-Erkennung (Pointer-Bewegung in Pixeln).
+// Unterhalb: pointerup = Klick, ruft klickeInventarItem(id). Darüber: Drag, ruft versucheDrop.
+const KLICK_DRAG_SCHWELLE_PX = 6;
+
 function starteDrag(e, id, slot) {
     if (wechselInGang) return;
     if (dragZustand) dragAbbrechen();  // Sicherheits-Reset, falls vom letzten Drag was hängenblieb
@@ -5977,6 +5994,9 @@ function starteDrag(e, id, slot) {
 
     try { slot.setPointerCapture(e.pointerId); } catch (_) {}
     slot.classList.add("dragging");
+
+    const startX = e.clientX, startY = e.clientY;
+    let bewegt = false;
 
     const g = GEGENSTAENDE[id];
     dragPreviewEl.innerHTML = g.icon;
@@ -5986,6 +6006,10 @@ function starteDrag(e, id, slot) {
 
     const onMove = (ev) => {
         if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
+        if (!bewegt) {
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if (dx * dx + dy * dy > KLICK_DRAG_SCHWELLE_PX * KLICK_DRAG_SCHWELLE_PX) bewegt = true;
+        }
         dragPreviewEl.style.left = ev.clientX + "px";
         dragPreviewEl.style.top  = ev.clientY + "px";
     };
@@ -5994,7 +6018,11 @@ function starteDrag(e, id, slot) {
         const itemId = dragZustand.id;
         const cx = ev.clientX, cy = ev.clientY;
         dragAbbrechen();
-        versucheDrop(cx, cy, itemId);
+        if (!bewegt) {
+            klickeInventarItem(itemId);
+        } else {
+            versucheDrop(cx, cy, itemId);
+        }
     };
     const onCancel = (ev) => {
         if (!dragZustand || ev.pointerId !== dragZustand.pointerId) return;
@@ -6007,6 +6035,20 @@ function starteDrag(e, id, slot) {
     document.addEventListener("pointerup", onUp);
     document.addEventListener("pointercancel", onCancel);
 }
+
+// Klick (kein Drag) auf einen Inventar-Slot. Aktuell nur für Binoculars: togglet die
+// Nachtsicht. Andere Items haben kein Klick-Verhalten — Klicks darauf verpuffen.
+function klickeInventarItem(id) {
+    if (id === "binoculars_1") {
+        toggleNachtsicht();
+    }
+}
+
+function toggleNachtsicht() {
+    if (document.body.classList.contains("nachtsicht")) deaktiviereNachtsicht();
+    else aktiviereNachtsicht();
+}
+window.toggleNachtsicht = toggleNachtsicht;
 
 function versucheDrop(clientX, clientY, gegenstandId) {
     const rect = canvas.getBoundingClientRect();

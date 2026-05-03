@@ -251,6 +251,13 @@ h1 {
     opacity: 0.35;
 }
 
+/* Phosphor-Grün-Glow auf den Binoculars-Slot, wenn Nachtsicht gerade aktiv ist —
+   gleicher Farbton wie die Phosphor-Outline der Geheimtür unter Nachtsicht. */
+.inventar-slot.aktiv {
+    border-color: #5fff8a;
+    box-shadow: 0 0 8px rgba(95, 255, 138, 0.7), 0 0 18px rgba(95, 255, 138, 0.45);
+}
+
 .inventar-slot svg {
     width: 80%;
     height: 80%;
