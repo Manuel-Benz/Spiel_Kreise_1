@@ -1188,12 +1188,14 @@ const MUSIK_LOOKAHEAD = 0.30; // s vor Track-Ende → Raum lesen + nächsten Tra
 const MP3_PADDING_KOMPENSATION = 0.08;
 // Loop-Files (*_2.mp3) sind 9 Takte lang: 8 Takte Musik + 1 Takt Hall/Auslauf.
 // Tempo 120 BPM, 4/4 → 1 Takt = 4 Beats × 0.5 s = 2.0 s. Der nächste Track startet
-// einen Takt vor dem realen Buffer-Ende, sodass der 9. Takt (Hall) des aktuellen
-// Tracks mit dem 1. Takt des neuen Tracks überlappt — Übergang klingt nahtlos
-// und der Hall verschwimmt natürlich in die neue Musik.
+// einen Takt + MP3-Padding vor dem realen Buffer-Ende, sodass der 9. Takt (Hall)
+// des aktuellen Tracks mit dem 1. Takt des neuen Tracks überlappt — Übergang klingt
+// nahtlos und der Hall verschwimmt natürlich in die neue Musik. Ohne den Padding-Anteil
+// (Trailing-Stille des alten + Leading-Stille des neuen Files, zusammen ~80 ms) läge der
+// musikalische Einsatz des neuen Files spürbar zu spät hinter dem 9.-Takt-Beginn.
 const TAKT_SEKUNDEN = 60 / 120 * 4;
 function trackEndOffset(name) {
-    return name.endsWith("_2") ? TAKT_SEKUNDEN : MP3_PADDING_KOMPENSATION;
+    return name.endsWith("_2") ? TAKT_SEKUNDEN + MP3_PADDING_KOMPENSATION : MP3_PADDING_KOMPENSATION;
 }
 
 let musikBuffers = {};         // name → AudioBuffer (cached)
