@@ -1003,7 +1003,7 @@ let musikAn = true;
 // Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
 // am Decision-Point keine Netzwerk-Latenz zuschlägt.
 // Mutable, damit per Konsole tunbar (siehe setMusikVolume).
-let MUSIK_VOLUME = 0.08;
+let MUSIK_VOLUME = 0.05;
 const MUSIK_LOOP_PRO_RAUM = {
     haupt:      "Haupt_2",
     buero:      "Buero_2",

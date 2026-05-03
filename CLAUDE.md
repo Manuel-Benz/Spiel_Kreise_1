@@ -68,7 +68,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=56`, `script.js?v=291`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=56`, `script.js?v=292`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -932,12 +932,12 @@ Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `s
 
 **Sound-/Musik-Toggle** im Settings-Menü (Zahnrad unten rechts) togglet `soundAn` (alle SFX) bzw. `musikAn` (Background-Musik). Beide werden in `localStorage` unter `SETTINGS_KEY` persistiert (separat vom Spielstand → Reset löscht Sound-Vorlieben NICHT). `musikAn` Default `true`.
 
-**Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 8 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
+**Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 5 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
 - **Intro** (`Haupt_1`): startet beim Klick auf einen Start-Screen-Button (Continue / Start over / Begin adventure → `verstecksStartScreen()` → `starteMusik()`). Spielt einmal komplett durch.
 - **Loop** (`<Raum>_2`-Files, je 8 Takte): ~300 ms vor Track-Ende (`MUSIK_LOOKAHEAD`) liest `decideUndPlane()` den aktuellen Raum (`aktuellerRaum`) und plant das passende `_2` (`Haupt_2`/`Buero_2`/`Badezimmer_2`/`Garten_2`/`Keller_2`) exakt am Endezeitpunkt des laufenden Tracks (`source.start(endTime)`) → kein hörbarer Gap. Raumwechsel mid-Loop wirkt sich erst beim Decision-Point aus — die laufenden 8 Takte spielen aus.
 - **Outro** (`Garten_3`): wenn `chain_7_geoeffnet === true` (Schatztruhe geöffnet → Sieg-Overlay) und Decision-Point für nächsten Track läuft, wird `Garten_3` statt `Garten_2` geplant. Danach Phase `done`, kein weiteres Audio.
 
-**Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.08 = 8 %, Konstante `MUSIK_VOLUME`) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
+**Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.05 = 5 %, Konstante `MUSIK_VOLUME`, zur Laufzeit per `setMusikVolume(v)` tunbar) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
 
 **MP3-Padding-Workaround** (`MP3_PADDING_KOMPENSATION = 0.08` s): MP3-Encoder fügen am Anfang/Ende jedes Files Padding-Samples ein (~1100 Leading + ~1152 Trailing = ~26 ms je). Selbst mit sample-genauem Scheduling hört man dadurch eine kleine Pause zwischen Tracks. Workaround: virtuelles Track-Ende = `buffer.duration - MP3_PADDING_KOMPENSATION` → nächster Track startet ~80 ms vor realem Buffer-Ende, das Trailing-Padding des aktuellen überlappt mit dem Leading-Padding des nächsten (beides Stille). Falls Files mit anderem Encoder kodiert werden, Wert empirisch tunen.
 
