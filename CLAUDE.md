@@ -6,6 +6,8 @@ Architektur-Doku, damit ein neuer Chat sofort weiterarbeiten kann.
 
 Interaktives Mathe-Lernspiel **„Full Circle"** (Thema: Kreise) für den Schulunterricht. Aufbau als **Escape-Room-artiges Abenteuer** mit 5 Räumen, linearer Aufgaben-Progression und Cross-Room-Lookups. Vanilla HTML/CSS/JS, kein Build-Tool, kein Framework. (GitHub-Repo-Name `Spiel_Kreise_1` und localStorage-Keys `spiel_kreise_1_*` sind historisch — wurden bewusst nicht umbenannt, um die Repo-URL und bestehende User-Spielstände nicht zu brechen.)
 
+**Backstory:** Drei Freunde wohnen in einem alten Haus — Tintenfisch, Skelett und Quietscheente. Die Ente ist „ein bisschen gemein" und hat sowohl den Tintenfisch (aus der Wanne) als auch das Skelett (aus seinem Grab im Garten) vertrieben. Die Spieler:in hilft den beiden, wieder nach Hause zu finden. Diese Story motiviert die Mechaniken: Octopus geht erst zurück in die Wanne, wenn die Ente entfernt wurde (siehe Chain 2/3-Gating); Skelett kehrt in der Endsequenz aus dem Garten in sein Grab zurück (siehe Chain 7).
+
 Entwickler: Manuel Benz (Lehrer, wenig Programmiererfahrung). GitHub: `Manuel-Benz/Spiel_Kreise_1`.
 
 ## Dateistruktur
@@ -16,7 +18,7 @@ style.css            ← Layout, Stage-Styling, Inventar, Drag-Preview, Octopus-
 script.js            ← Räume, Türen, Figur, Deko-Generatoren, Input/Loop, Inventar, Hindernisse, Tiefensortierung
 assets/              ← SVGs (siehe Tabelle unten) + favicon.svg (Tab-Icon: 3 Kreise gelb/rot/violett)
 assets/sounds/       ← MP3 SFX (Bird_1/Bird_2/Duck_1/Hmmmm_1/Laughing_1/Toilet_1)
-assets/music/        ← MP3 Background-Musik (Haupt_1, _2 pro Raum, Garten_3 als Outro)
+assets/music/        ← MP3 Background-Musik (Haupt_1 Intro, _2 pro Raum als Loop, Garten_3 als Outro — 7 Files insgesamt)
 CLAUDE.md            ← diese Datei
 ```
 
@@ -43,10 +45,11 @@ CLAUDE.md            ← diese Datei
 | `candle_2.svg`, `candle_3.svg` | Templates für die ~50 Keller-Kerzen — Pfad-Inhalt in `KERZE_TEMPLATE_2/_3` (script.js) eingebettet, pro Kerze geklont mit ersetzten Wachs-Farben | als String-Templates in script.js |
 | `chain_1.svg`, `chain_2.svg` | Ketten im Keller (Wand + Boden) | Inline-SVG |
 | Pickel *(virtuell)* | Spitzhacke (brauner Holzgriff + grauer Doppelspitzen-Metallkopf). **Seit Vereinfachung von Chain 5 nicht mehr als Bühnen-Element** — landet direkt nach `drei_kreise`-Drop ins Inventar. Story-Text im Drop-Callback erwähnt das Geschenk vom Skelett. | nur als Inventar-Icon (Inline-SVG, randlos) |
-| `chest_1.svg` | Schatztruhe (Chain 7) — vergraben in der Gartenmitte, sichtbar nach Schaufel + Pickel-Drop auf gartenmitte_grab | `<image href>` (war historisch inline im Keller; mit Chain 7 in den Garten verschoben + auf Black-Box-`<image>` umgestellt → kein Gradient-Klon-Risiko) |
+| `chest_1_1.svg` / `chest_1_2.svg` | Truhe (Chain 7) als 2-Layer-Paar (analog `bathtub_1_1/_1_2`): _1_1 = ganze Truhe (Hintergrund); _1_2 = obere Hälfte entfernt, fungiert als Vorder-Layer. Skelett-Sprung-Animation landet im DOM ZWISCHEN den beiden Layern, sodass _1_2 das gelandete Skelett von vorne überdeckt — visuelle „Skelett verschwindet in Truhe". Beide Layers sichtbar nach Schaufel + Pickel-Drop. | `<image href>` (Black-Box, kein Gradient-Klon-Risiko) |
 | `hole_1.svg` | Loch in der Gartenmitte (Chain 7) — User-gezeichnet, 4 Innen-Wände (back, front, links, rechts) mit eingebauter Perspektive. viewBox 288×168 mit Padding rundherum. | `<image href>` |
-| `krone.svg` | Krone im Sieg-Overlay — User-gezeichnet, viewBox 300×260: Trapez-Ring + Highlight-Streifen + 5 Zacken + 5 Edelsteine an Zackenspitzen + zentraler Saphir mit Highlight. Randlos. | `<image class="krone" href>` (CSS-Pulse-Animation auf `<image>`) |
-| Loch *(virtuell)* | Ausgehobenes Grab in der Gartenmitte (`<g id="chain_7_grab">`) — `hole_1.svg` (User-gezeichnet, 4 Wände + Perspektive eingebaut) als `<image>` mit `filter="url(#grell-mild)"`. Position so, dass die sichtbare Rim mit dem perspektivischen Boden-Trapez übereinstimmt (bot-rim y=786 von x=581..1020, top-rim y=684 von x≈621..980). data-y-fuss=786. Sichtbar nach `chain_7_loch_offen=true`. Truhe `chest_1.svg` sitzt HINTER dem Loch (nicht drin), x=715 y=598. | `<image href>` + Inline-SVG-Gruppe |
+| `krone.svg` | War im alten Sieg-Overlay (Schatz-Ende). **Aktuell nicht eingebunden** — Sieg-Endscreen zeigt jetzt das tanzende Trio (siehe Sieg-Overlay-Sektion). Datei bleibt als unbenutztes Asset im Repo. | — |
+| `skelett_garten` *(virtuell)* | Skelett-Cameo in der Endsequenz (Chain 7). `<image href="assets/skeleton_3.svg">` an der rechten Garten-Tür (x=1395, y=470, 120×170, `filter="url(#invert)"`). Initial `class="sanitar-aus"`. CSS-Klasse `.skelett-springt` triggert eine 2.3 s 4-phasige Slide+Pause+Jump+Drop-Animation in die Truhe (siehe Chain 7 / Skelett-Sprung-Animation). DOM-Position **innerhalb** `chain_7_grab` zwischen `chest_1_1` und `chest_1_2` → wird beim Landen vom Vorder-Layer der Truhe überdeckt. | `<image href>` |
+| Loch *(virtuell)* | Ausgehobenes Grab in der Gartenmitte (`<g id="chain_7_grab">`) — `hole_1.svg` (User-gezeichnet, 4 Wände + Perspektive eingebaut) als `<image>` mit `filter="url(#grell-mild)"`. Position so, dass die sichtbare Rim mit dem perspektivischen Boden-Trapez übereinstimmt (bot-rim y=786 von x=581..1020, top-rim y=684 von x≈621..980). data-y-fuss=786. Sichtbar nach `chain_7_loch_offen=true`. Truhe als 2-Layer-Paar (`chest_1_1.svg` + `chest_1_2.svg`) sitzt HINTER dem Loch (nicht drin), x=698 y=583, 204×91 (siehe Asset-Tabelle oben + Skelett-Sprung-Sektion). | `<image href>` + Inline-SVG-Gruppe |
 | `flower_1.svg`, `flower_3.svg` | Innen-Blumen vorne-links im Garten (überlappen, flower_3 DOM-vor flower_1) | Inline-SVG |
 | `flower_2.svg` | Vorne-rechts im Garten | Inline-SVG (mit `f2_`-Prefix) |
 | `flower_4.svg`, `flower_6.svg` | Wiesen-Detailblumen im Garten (Canvas) — flower_4 vorne-links, flower_6 hinter dem Zaun | `drawImage` via `BUESCHE.flower4`/`flower6`, gerastert. Beide enthalten den ehemals inline-SVG-Inhalt mit `f4_`/`f6_`-Prefix-IDs. flower_6.svg hat zusätzlich einen `<g transform="matrix(-1 0 0 1 744.09 0)">`-Wrapper (an y-Achse gespiegelt). |
@@ -69,7 +72,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=64`, `script.js?v=300`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=72`, `script.js?v=316`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -401,6 +404,7 @@ const spielstand = {
         octopus_da: true,                               // Tintenfisch noch im Bad? false nach Exit-Animation
         octopus_zustand: 1,                             // 1 = mürrisch / 2 = aufgehellt / 3 = zufrieden (animiert sich weg)
         octopus_exit_gestartet: false,                  // Bridge: Exit-Timer max 1× pro Run (siehe schliesseOverlay-Hook)
+        octopus_wartet_auf_ente: false,                 // Backstory-Gating: Octopus state===3, aber duck_1 noch in der Wanne → Sprung wird auf Enten-Pickup verzögert. Persistent (überlebt Reload).
         // Chain 3 + Bridge:
         vogel_da: false,                                // bird_1 sichtbar (true zwischen Wolken-Klick und Coin-Drop)
         wolke_zentral_weg: false,                       // WOLKEN[1] permanent versteckt nach Klick
@@ -421,7 +425,7 @@ const spielstand = {
         // (`pickel_da` entfernt — Pickel landet seit Vereinfachung DIREKT ins Inventar beim
         // drei_kreise-Drop; kein separater Aufnehm-Schritt im Keller mehr.)
         // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte → Truhe
-        // ausheben → mit Schlüssel öffnen → Sieg-Overlay (Feuerwerk + Schatz). Reihenfolge
+        // ausheben → mit Schlüssel öffnen → Skelett-Sprung-Animation + Sieg-Overlay (Feuerwerk + tanzendes Trio). Reihenfolge
         // Schaufel/Pickel egal; Loch öffnet sich nach beiden Drops.
         chain_7_schaufel_gedroppt: false,               // Schaufel auf gartenmitte_grab gedroppt
         chain_7_pickel_gedroppt: false,                 // Pickel auf gartenmitte_grab gedroppt
@@ -584,6 +588,12 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 
 **Octopus-Exit-Timing:** `setTimeout(() => animiereOctopusRaus(), 2000)` wird **nicht** im Aufgaben-Callback gestartet, sondern in `schliesseOverlay()` über einen Hook: wenn nach Schliessen `octopus_zustand===3 && octopus_da && !octopus_exit_gestartet`, dann startet der 2-Sekunden-Timer. Damit zählt die Pause ab dem Moment, in dem User wieder das Spiel sieht (statt schon während des Mood-Hinweis-Overlays). `octopus_exit_gestartet`-Flag verhindert Doppel-Trigger.
 
+**Duck-Gating (Backstory-Mechanik):** Da die Ente den Tintenfisch ursprünglich aus der Wanne vertrieben hat, geht er nicht zurück, solange `duck_1` noch dort schwimmt. Helper `entWegAusWanne(s)` returnt true, sobald `duck_1` aufgenommen, in den Ketten oder gefüttert wurde (`gegenstaende.has("duck_1") || duck_im_keller || duck_gefuettert`). Im `schliesseOverlay`-Hook gibt es nun zwei Pfade bei `octopus_zustand===3`:
+- `entWegAusWanne===true` → wie bisher: Hmmmm + 2 s + Exit-Animation, `octopus_exit_gestartet=true`.
+- `entWegAusWanne===false` → `octopus_wartet_auf_ente=true`, **kein** Hmmmm, **keine** Animation. Der Mood-Story_text der Aufgabe (chain_2_octopus / chain_3_pizza, beide als Funktion) liest `entWegAusWanne` mit und zeigt dem Spieler im state-3-Fall einen kurzen Hinweis „but it eyes the rubber duck warily" / „glances warily at the rubber duck and stays put" statt „slides off with a happy gurgle". Bewusst dezent gehalten — nicht jedes Detail vorwegnehmen, der Spieler soll selbst durch Ausprobieren auf den Pickup-Trick kommen.
+
+**Pickup-Trigger:** `nimmAufGegenstand` für `duck_1` prüft `octopus_wartet_auf_ente`. Wenn gesetzt + Octopus noch da + Exit nicht schon gestartet: nur `octopus_wartet_auf_ente=false` clearen + neue Story „You scoop the rubber duck out of the bathtub. With a relieved gurgle the octopus slips past you and dives back into the water." anzeigen — die eigentliche Hmmmm- + Animations-Sequenz triggert dann symmetrisch zum Direkt-Pfad aus `schliesseOverlay` (Bedingung: state===3 + octopus_da + entWegAusWanne + !exit_gestartet + !wartet, alles erfüllt sobald die Story-Karte geschlossen wird). Damit startet die Sprung-Animation in BEIDEN Pfaden (Direkt-Mood-3 + Pickup nach Wartet) erst NACH dem Schliessen des jeweiligen Overlays — der Spieler liest erst, dann passiert was. Wird die Ente ohne pendendes Wartet-Flag aufgenommen, gibt es nur den normalen Story-Hinweis („...best find a way to keep it from coming back"). `octopus_wartet_auf_ente` ist persistent über Reload (mit `Object.assign` aus dem Save geladen) — sonst würde der Spieler nach einem Reload erneut den Mood-3-Beat in der Aufgabe sehen müssen, statt den Pickup zu nutzen.
+
 **Octopus-Exit-Animation:** `animiereOctopusRaus()` startet eine dreiphasige CSS-`@keyframes`-Animation `octopus-leave` (Total 2.2 s, siehe `style.css`):
 - **Phase A** (0..45.5 %, 1.0 s): Octopus krabbelt von Original-Position zu `dx=-470, dy=-5` und schrumpft auf `scale(0.7)`. ease-out für sanftes Anrollen.
 - **Phase B** (45.5..68.2 %, 0.5 s): Pause an dieser Position (~toilet_2-Höhe).
@@ -695,7 +705,7 @@ Berechnung: `xFrac = (cu - leinwand.uMin) / (leinwand.uMax - leinwand.uMin)`, an
 
 Sammel-Chain mit eigenem **linkem Inventar** (`#inventar-links`, oben links). Items darin sind NICHT interaktiv (kein Drag, Klick zeigt nur einen Hinweis-Overlay) — sie sind Sammelstücke. Sobald alle 4 zusammen sind, verschmelzen sie zu einem `vereinter_schluessel` im rechten Inventar.
 
-Liefert den **vereinten Schlüssel** — der wird in einer späteren Chain (Chain 7, Schatztruhe im Garten) zusammen mit Schaufel (Chain 4) und Pickel (Chain 5) verwendet.
+Liefert den **vereinten Schlüssel** — der wird in einer späteren Chain (Chain 7, Truhe im Garten) zusammen mit Schaufel (Chain 4) und Pickel (Chain 5) verwendet.
 
 **Vorbedingung:** alle 4 Klick-Stellen verlangen `formelbuch_gefunden=true` (analog Chains 1–5). Klick davor fällt durch zur Boden-Logik, ohne Hinweis.
 
@@ -740,27 +750,58 @@ Finale Chain. Setzt **alle drei Endgame-Items** voraus: `schaufel` (Chain 4), `p
 |---|---|---|
 | 1 | Drag `schaufel` ODER `pickel` auf `gartenmitte_grab` (Polygon (560..1040, 660..800), aktiv wenn formelbuch + (Schaufel ‖ Pickel im Inv) + !chain_7_loch_offen) | Werkzeug verbraucht, `chain_7_schaufel_gedroppt` bzw. `chain_7_pickel_gedroppt = true`. Hinweis-Overlay „You start breaking up the soil — but you also need a {pickaxe\|trowel}." |
 | 2 | Drag das andere Werkzeug auf gartenmitte_grab | Beide Flags true → `chain_7_loch_offen=true`, **`HINDERNISSE.garten.push(CHAIN_7_HINDERNIS)`** (5-Vertex-Spline mit Handles, interaktiv im Editor an die Loch-Form angepasst — ungefähr fu 0.33..0.67, fv 0.34..0.90), `aktualisiereChain7()` zeigt `chain_7_grab` (Loch + Truhe dahinter), `tanzGeplant=true`. Story-Overlay „You break through the soil and uncover a wooden chest in the hole." Beim Schliessen des Overlays startet **`starteTanz()`** kurzen Freudentanz der Figur (~3,5 s, Bounce + Arme hoch). |
-| 3 | Drag `vereinter_schluessel` auf `chest_1` (Polygon (700..900, 590..680) direkt auf der Truhe, aktiv wenn loch_offen + Schlüssel im Inv + !geoeffnet) | Schlüssel verbraucht, `chain_7_geoeffnet=true`, `dragAbbrechen()` (Sicherheits-Cleanup), **`zeigeSiegOverlay()`** öffnet das Vollbild-Endscreen-Overlay. |
+| 3 | Drag `vereinter_schluessel` auf `chest_1` (Polygon (700..900, 590..680) direkt auf der Truhe, aktiv wenn loch_offen + Schlüssel im Inv + !geoeffnet, laufziel (fu=0.35, fv=0.83) — links neben der Truhe, damit die Figur den Skelett-Sprung nicht blockiert) | Schlüssel verbraucht, `chain_7_geoeffnet=true`, `dragAbbrechen()`, `skelettSprungGeplant=true`, Story-Overlay öffnet — beim Schliessen startet die Skelett-Sprung-Animation (siehe eigene Sektion), nach Animation-Ende + 3 s Pause öffnet `zeigeSiegOverlay()`. |
 
-**`chain_7_grab` (DOM):** `<g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">` enthält zwei `<image>`-Elemente:
-- `hole_1.svg` (Loch mit 4 Innen-Wänden, Perspektive im Asset eingebaut) bei x=561 y=675.5 width=479 height=119 mit `preserveAspectRatio="none"` und `filter="url(#grell-mild)"`. Asset-viewBox 288×168 hat Padding (Rim sichtbar von asset-(12,12) bis asset-(276,156)) — Position so gewählt, dass die sichtbare Rim mit dem alten Trapez übereinstimmt.
-- `chest_1.svg` (Truhe) 170×76 bei x=715 y=598, sitzt HINTER dem Loch.
+**`chain_7_grab` (DOM):** `<g id="chain_7_grab" class="sanitar-aus" data-y-fuss="786">` enthält vier Elemente in dieser DOM-Reihenfolge:
+- `hole_1.svg` (Loch mit 4 Innen-Wänden, Perspektive im Asset eingebaut) bei x=564 y=675.5 width=473 height=119 mit `preserveAspectRatio="none"` und `filter="url(#grell-mild)"`. Asset-viewBox 288×168 hat Padding — Position so gewählt, dass die sichtbare Rim mit dem alten Trapez übereinstimmt.
+- `chest_1_1.svg` (Truhe-Hintergrund, ganze Truhe) 204×91 bei x=698 y=583, sitzt HINTER dem Loch. 20 % grösser als ursprünglich (170×76 → 204×91), zentriert auf x=800, Bottom an y=674 (auf dem hinteren Hole-Rim).
+- `skelett_garten` (Skelett-Cameo, initial via eigene `sanitar-aus`-Klasse versteckt) — siehe Skelett-Sprung-Sektion unten.
+- `chest_1_2.svg` (Truhe-Vordergrund, obere Hälfte entfernt) 204×91 bei x=698 y=583, deckungsgleich mit chest_1_1 → wirkt als Vorder-Layer, hinter dem das Skelett beim Landen verschwindet (analog `bathtub_1_1/_1_2`).
 
 Initial via Klasse `sanitar-aus` versteckt; `aktualisiereChain7` togglet sie. Wird via `data-y-fuss` in den Front-Layer geklont (Tiefensortierung).
 
 **`CHAIN_7_HINDERNIS`:** dynamisch beim Loch-Öffnen in `HINDERNISSE.garten` gepushed — verhindert, dass die Figur ins Loch laufen kann. Modul-State `chain_7_hindernis_aktiv` (let-Variable) verhindert Doppel-Push. Wird beim Reload (Module-Init) automatisch zurückgesetzt.
 
+### Skelett-Sprung-Animation (Chain 7 Übergang)
+
+Nach dem Truhen-Drop und dem Schliessen des Story-Overlays läuft eine Cameo-Animation: das Skelett — bis zu diesem Moment nirgends im Garten zu sehen — taucht stumm an der rechten Garten-Tür auf, läuft am Boden zur Truhen-Mitte, hält kurz inne und springt dann hinein. Visualisiert die Backstory („Skelett kehrt nach Hause zurück, sicher in seine Truhe verstaut").
+
+**DOM:** `<image id="skelett_garten" class="sanitar-aus" href="assets/skeleton_3.svg" x="1395" y="470" width="120" height="170" filter="url(#invert)">` **innerhalb** `chain_7_grab`, zwischen `chest_1_1` und `chest_1_2`. Initial via eigene `sanitar-aus`-Klasse versteckt (unabhängig von Gruppen-Sichtbarkeit). DOM-Reihenfolge: `hole_1` → `chest_1_1` → `skelett_garten` → `chest_1_2` → letzteres deckt das gelandete Skelett von vorne ab (Tintenfisch-im-Wasser-Mechanik analog `bathtub_1_1/_1_2`).
+
+**Animation: ZWEI parallele @keyframes-Animations** (`skelett-springt-move` + `skelett-springt-clip`, total 2.3 s, linear) in `style.css`. **KEIN Scale, KEINE Rotation, KEIN Opacity-Fade** — pure 2D-Translate + Clip-Path-Inset. Vier Phasen:
+
+| Bereich | Dauer | Aktion |
+|---|---|---|
+| 0–39 % | 0.9 s | **Slide** horizontal von der rechten Tür (1455, 640) nach links bis (950, 640) — y bleibt konstant. linear timing. |
+| 39–61 % | 0.5 s | **Pause** — Skelett bleibt am rechten Truhen-Rand stehen, sammelt Anlauf. |
+| 61–78 % | 0.4 s | **Diagonaler Jump** nach OBEN-LINKS, Apex bei 78 % bei (800, 480) — 103 px über Truhen-Top y=583. ease-out timing. |
+| 78–100 % | 0.5 s | **Drop** in die Truhe (y von 480 auf 840), ease-in für Schwerkraft. Parallel wächst clip-path inset von 0 auf 170 px AB 89 % (Skelett erreicht Truhen-Oberkante) → Skelett verschwindet von unten nach oben in der Truhe. |
+
+`transform-box: view-box; transform-origin: 1455px 555px`. End-Bbox bei (740, 670) → Bottom bei y=840 (weit unter Truhen-Boden y=674), aber durch Clip-Path-Inset komplett unsichtbar. Nach `animationend` setzt der finish-Callback `sanitar-aus` zurück (Skelett endgültig versteckt) und ruft `onDone`.
+
+**Wichtig zum Clip-Path:** `clip-path: inset(0 0 N 0)` muss als CSS (nicht SVG-`<clipPath>` mit `userSpaceOnUse`) angewendet werden — letzteres greift VOR der CSS-Transform und wandert mit dem Element mit, was das gewünschte „in der Truhe verschwinden" verhindern würde. CSS-Clip-Path-Inset arbeitet auf der CSS-Box des Elements und bleibt damit relativ zur Element-Position konsistent. Die Clip-Animation läuft als SEPARATE Animation (nicht im selben `@keyframes`-Block wie die Translate-Animation), damit beide unabhängige Timing-Curves haben können — die Translate-Animation arbeitet ease-in für die Schwerkraft, die Clip-Animation hält bis 89 % auf 0 und springt dann linear auf 170 px.
+
+**Trigger:** `spieleSkelettSprungAnimation(onDone)` in script.js — entfernt `sanitar-aus`, fügt `skelett-springt` hinzu, hängt `animationend`-Listener an + Safety-Timeout (2.7 s = Animation 2.3 s + 400 ms Puffer). Selektor matcht Original UND Front-Layer-Klone (`v_<idx>_skelett_garten`).
+
+**Debug-Helper** `skelettPfadDebug(true|false)` in der Browser-Konsole zeichnet die Bbox des Skelett-Elements an JEDEM Keyframe als halbtransparentes Rechteck im Garten + verbindet die Bottom-Center-Punkte mit einem gestrichelten Pfad. Damit kann man die Trajektorie visuell prüfen und konkrete Koordinaten für Anpassungen ablesen. Konstante `SKELETT_PFAD_KEYFRAMES` muss synchron mit `@keyframes skelett-springt-move` in `style.css` gehalten werden.
+
+**Aufruf-Sequenz** im chest_1-akzeptiert-Callback: `verbrauche` + `chain_7_geoeffnet=true` + `skelettSprungGeplant=true` → `zeigeStoryText("You unlock the chest. Out of the corner of your eye, you spot the skeleton bounding across the garden — straight into the open chest.")`. **`schliesseOverlay`** liest `skelettSprungGeplant` analog zum `tanzGeplant`-Pattern: Wenn der Spieler das Story-Overlay manuell schliesst (×, Esc, Backdrop), startet erst dann die Sprung-Animation. Im `onDone`-Callback wird `setTimeout(zeigeSiegOverlay, 3000)` aufgerufen → 3 s Pause nach Animation, sodass der Spieler die „Skelett verschwindet in Truhe"-Szene wirken lassen kann, bevor der Endbildschirm erscheint.
+
 ### Sieg-Overlay (Chain 7 Endscreen)
 
-Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overlay` z-index 10), wird via `zeigeSiegOverlay()` geöffnet. Backdrop-Klick + Esc bewusst NICHT schliessbar — Spieler muss explizit wählen.
+Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overlay` z-index 10), wird via `zeigeSiegOverlay()` geöffnet. Backdrop-Klick + Esc bewusst NICHT schliessbar — Spieler muss explizit wählen. Wird vom chest_1-Callback NACH der Skelett-Sprung-Animation aufgerufen.
 
 **Inhalt:**
 - **Feuerwerk-Layer** (`#sieg-fireworks`): 6 Bursts an verschiedenen Positionen (gold/rot/türkis/grün/pink/gelb), jeder mit 12 Partikeln à 30°, gestaffelte Delays. CSS-Keyframe-Animation `firework-burst` 1.6 s endlos. Pro Aufruf neu via `spawneFireworks()` befüllt.
-- **Schatz-SVG** (`#sieg-treasure`, viewBox 0 0 400 260): Münzhaufen (gestaffelte gold-Ellipsen + Einzelmünzen, randlos) + Krone als externes Asset `assets/krone.svg` via `<image class="krone" href>` x=100 y=0 width=200 height=173. CSS-Animationen: `krone-pulse` (sanftes Atem-Pulse 2.4 s, greift über class="krone" auf das `<image>`), `sparkle-twinkle` (4 Funkelsterne, gestaffelt).
-- **Headline** „You found the treasure!"
+- **Trio-SVG** (`#sieg-trio`, viewBox 0 0 400 260, gerendert mit width 432 px = 360 × 1.2 für 20 % visueller Vergrösserung): drei Asset-Cameos via `<image href>`, alle Bottom-aligned auf Boden-Linie y=240 — Tintenfisch links (`octopus_1_3.svg?v=2`, x=20 y=130 160×120), Skelett mittig (`skeleton_3.svg`, x=160 y=60 100×220, mit lokalem `<filter id="sieg-invert">` für weiss-auf-dunkel), Ente rechts (`duck_1.svg?v=2`, x=275 y=150 90×90). Bühnen-Schatten als Ellipse cy=240 hinten. Alle stehen fest auf der Boden-Linie. Asset-Quellen `octopus_1_3.svg` und `duck_1.svg` wurden vom User für saubere Endscreen-Optik angepasst (Strokes auf Fill-Farbe gezogen, daher `?v=2`-Cache-Bust nur an diesen beiden href-Verwendungen — das Inline-SVG im Bad bleibt unberührt).
+- **Animation `sieg-bounce`** (1.1 s, ease-in-out, infinite) auf `.sieg-tanz`: **KEIN translateY** — reines Squash + Stretch, transform-origin 50% 100% (Bottom-Center). Charaktere wackeln in der Höhe (scaleY 0.93..1.05) und Breite (scaleX 0.96..1.07), bleiben aber mit den Füssen auf dem Boden — sehen lebendig aus, ohne zu schweben. Drei verschiedene `animation-delay` (0.30 s / 0.0 s / 0.55 s) → Walking-Bass-Wackeln statt synchrones Pulsieren. `transform-box: fill-box`.
+- **Headline** „Everybody happy!"
+- **Subtext** (`#sieg-subtext`, italic Serif Tinten-Marineblau analog `.story-karte`): „The octopus is splashing in his bathtub again, the skeleton is resting in his grave — and the duck..."
 - **2 Buttons:** „Play again" → `siegPlayAgain()` (löscht `STORAGE_KEY`-Save + setzt `sessionStorage["spiel_kreise_1_skip_start"]="1"` + `location.reload()` → frischer Start ohne Story-Screen) · „End game" → `siegEndGame()` (Box-Inhalt durch „Thanks for playing!" ersetzt).
 
-**Side-Effects beim Öffnen:** Inventare (rechts + links) werden auf `hidden=true` gesetzt, damit Inventory-Slots nicht neben der Krone stehen.
+**Side-Effects beim Öffnen:** Inventare (rechts + links) werden auf `hidden=true` gesetzt, damit sie nicht neben dem Trio stehen.
+
+**Asset-`krone.svg`** ist seit Trio-Endscreen unbenutzt — bleibt im Repo als optionales Asset. CSS-Keyframes `krone-pulse` und `sparkle-twinkle` bleiben definiert (sparkle-twinkle wird vom Start-Screen weiterverwendet).
 
 ### Bridge — Octopus weg → toilet_1 → Binoculars → Nachtsicht → Geheimtür → Keller
 
@@ -778,14 +819,14 @@ Eigenes Vollbild-Overlay `#sieg-overlay` (z-index 20, über dem Aufgaben-`#overl
 
 ## Start-Overlay (Begrüssungsbildschirm)
 
-Eigenes Vollbild-Overlay `#start-overlay` (z-index 20, parallel zum Sieg-Overlay), wird beim Page-Load gezeigt BEVOR der User ins Spiel kommt. Story-Setup für die Tante-Mathematikerin + Schatz-Story, plus Continue/Start-over (mit Save) bzw. Begin-adventure (ohne Save). Backdrop + Esc bewusst NICHT klick-schliessbar.
+Eigenes Vollbild-Overlay `#start-overlay` (z-index 20, parallel zum Sieg-Overlay), wird beim Page-Load gezeigt BEVOR der User ins Spiel kommt. Story-Setup zur Drei-Freunde-Backstory (Ente vertreibt Tintenfisch + Skelett, Spieler hilft beiden zurück), plus Continue/Start-over (mit Save) bzw. Begin-adventure (ohne Save). Backdrop + Esc bewusst NICHT klick-schliessbar.
 
 **Inhalt:**
-- **Floater-Layer** (`#start-floaters`): 130 zufällig schwebende Kreise in unterschiedlichen Grössen (24–224 px Durchmesser, biased zu kleineren via Math.random²) und Farben (10er-Palette: Bürobild yellow/red/violet + treasure gold + cyan/orange/mint/pink/soft-violet/peach). Opazität 0.30–0.75 zufällig (Tiefen-Effekt). 3 CSS-Drift-Keyframes, Animation-Duration 8–18 s + Delay 0–4 s pro Kreis zufällig (entkorreliertes Schweben). KEINE Ränder. Per `spawneStartFloater()` bei jedem Aufruf neu erzeugt → bei jedem Page-Load anderes Pattern.
+- **Floater-Layer** (`#start-floaters`): 130 zufällig schwebende Kreise in unterschiedlichen Grössen (24–224 px Durchmesser, biased zu kleineren via Math.random²) und Farben (10er-Palette: Bürobild yellow/red/violet + warmes Gold + cyan/orange/mint/pink/soft-violet/peach). Opazität 0.30–0.75 zufällig (Tiefen-Effekt). 3 CSS-Drift-Keyframes, Animation-Duration 8–18 s + Delay 0–4 s pro Kreis zufällig (entkorreliertes Schweben). KEINE Ränder. Per `spawneStartFloater()` bei jedem Aufruf neu erzeugt → bei jedem Page-Load anderes Pattern.
 - **Story-Box** (`#start-box`): warme cream-Farbe mit gold-Akzentrahmen, max-width 560 px.
   - **Haus-SVG** (`#start-house`, viewBox 0 0 320 200): Cartoon-Haus mit Dach/Schornstein/Tür/Fenstern + 3 farbige pulsierende Kreise (yellow/red/violet — Bürobild-Motiv) + 2 funkelnde Sterne. CSS-Animationen `start-circle-pulse` 3.2 s + `sparkle-twinkle` (recyclet aus Sieg-Overlay).
   - **Headline** „Full Circle"
-  - **Story** (3 Sätze, EN): „Your great-aunt, an eccentric mathematician, has left you her old house. Her will hints at a hidden treasure — but she was obsessed with circles and locked everything behind formulas. Solve her puzzles to find what she left behind."
+  - **Story** (3 Sätze, EN): „Three friends share an old house: an octopus, a skeleton and a rubber duck. The duck is a bit mean — she has chased the octopus out of the bathtub and the skeleton out of his grave. Help them find their way back to their favorite spot."
   - **Buttons** (dynamisch via JS in `zeigeStartScreen()`):
     - Save vorhanden: **„Continue"** (gold, primär) + **„Start over"** (grau, sekundär).
     - Kein Save: nur **„Begin adventure"** (gold).
@@ -942,13 +983,13 @@ Konsolen-Helfer: `soundAnAus(true|false)`, `soundTest()`, `spieleSpuelung()`, `s
 **Background-Musik** (`assets/music/`, alle MP3, default-Lautstärke 5 %): **Web Audio API** (sample-genau, gapless) mit zustandsbasierter Sequenz in drei Phasen (`musikPhase`-Variable):
 - **Intro** (`Haupt_1`): startet beim Klick auf einen Start-Screen-Button (Continue / Start over / Begin adventure → `verstecksStartScreen()` → `starteMusik()`). Spielt einmal komplett durch.
 - **Loop** (`<Raum>_2`-Files, je 8 Takte): ~300 ms vor Track-Ende (`MUSIK_LOOKAHEAD`) liest `decideUndPlane()` den aktuellen Raum (`aktuellerRaum`) und plant das passende `_2` (`Haupt_2`/`Buero_2`/`Badezimmer_2`/`Garten_2`/`Keller_2`) exakt am Endezeitpunkt des laufenden Tracks (`source.start(endTime)`) → kein hörbarer Gap. Raumwechsel mid-Loop wirkt sich erst beim Decision-Point aus — die laufenden 8 Takte spielen aus.
-- **Outro** (`Garten_3`): wenn `chain_7_geoeffnet === true` (Schatztruhe geöffnet → Sieg-Overlay) und Decision-Point für nächsten Track läuft, wird `Garten_3` statt `Garten_2` geplant. Danach Phase `done`, kein weiteres Audio.
+- **Outro** (`Garten_3`): wenn `chain_7_geoeffnet === true` (Truhe geöffnet → Sieg-Overlay) und Decision-Point für nächsten Track läuft, wird `Garten_3` statt `Garten_2` geplant. Danach Phase `done`, kein weiteres Audio.
 
 **Pipeline:** `getBuffer(name)` lädt MP3 via `fetch` + `decodeAudioData` zu `AudioBuffer` (Promise-Cache in `musikBufferPromises` → niemals doppelt fetchen). `starteMusik()` triggert Background-Preload aller 7 Files (`MUSIK_FILES`-Array) parallel — bei Decision-Time sind alle Buffer im Cache, kein Netzwerk-Wait. `spieleTrack(name, startTime)` erstellt `AudioBufferSourceNode`, verbindet zu `musikGainNode` (gain = 0.05 = 5 %, Konstante `MUSIK_VOLUME`, zur Laufzeit per `setMusikVolume(v)` tunbar) → `audioCtx.destination`, ruft `source.start(startTime)`. Setzt `setTimeout(decideUndPlane, endTime - LOOKAHEAD)` für nächsten Wechsel.
 
 **MP3-Padding-Workaround** (`MP3_PADDING_KOMPENSATION = 0.08` s): MP3-Encoder fügen am Anfang/Ende jedes Files Padding-Samples ein (~1100 Leading + ~1152 Trailing = ~26 ms je). Selbst mit sample-genauem Scheduling hört man dadurch eine kleine Pause zwischen Tracks. Workaround: virtuelles Track-Ende = `buffer.duration - MP3_PADDING_KOMPENSATION` → nächster Track startet ~80 ms vor realem Buffer-Ende, das Trailing-Padding des aktuellen überlappt mit dem Leading-Padding des nächsten (beides Stille). Falls Files mit anderem Encoder kodiert werden, Wert empirisch tunen.
 
-Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. `_1`/`_3`-Versionen pro Raum existieren als Files in `assets/music/` (Intros/Outros pro Raum), aktuell nur `Haupt_1` und `Garten_3` aktiv genutzt — die anderen sind Reserve.
+Helpers: `starteMusik()` (idempotent — startet nichts, wenn `musikSource` oder `musikTimer` aktiv ist oder Phase `done`), `stoppeMusik()` (clear Timer + `source.stop()`, behält Phase). Settings-Toggle ruft beide auf. `MUSIK_LOOP_PRO_RAUM`-Map definiert die Loop-Files. Im Repo liegen aktuell nur die tatsächlich genutzten 7 Files (`Haupt_1`, `Haupt_2`, `Buero_2`, `Badezimmer_2`, `Garten_2`, `Keller_2`, `Garten_3`); pro Raum-Reserve-Files (`_1`/`_3`) wurden gelöscht.
 
 **Proximity-Fade Bürobild (Chain 5):** Die Loop-Musik kollidiert harmonisch mit den C/E/G-Tönen der Bürobild-Sequenz. `aktualisiereMusikProximity()` läuft jeden Frame in `loop()` und multipliziert den `musikGainNode.gain` abhängig von der Position der Figur zur Zone um `BUEROBILD_ANKER` (fu=0.0, fv=0.50, also direkt an der linken Wand auf halber Tiefe). Zone ist eine **Ellipse in (fu, fv)** mit Halbachsen `PROXIMITY_RX` (Breite, Default 0.30) und `PROXIMITY_RY` (Tiefe, Default 1.00) — `RY > RX`, damit die Ellipse die ganze Tiefe der Linke-Wand-Region umschliesst. Optional `PROXIMITY_ROTATION` in Radian (Default 0). Innerhalb der inneren Ellipse (skaliert mit `PROXIMITY_NEAR_FRAC=0.50` der äusseren) komplett stumm, ausserhalb voll Musik, dazwischen linear. Glide via `setTargetAtTime(target, now, 0.15)` → ~0.45 s sanfter Ramp. Effekt nur aktiv, wenn `aktuellerRaum === "buero" && !bild_kreise_geloest`. Bei stillstehender Figur skipt die Funktion via `proximityLastMult`-Cache (Schwelle 0.01).
 
@@ -1003,7 +1044,7 @@ Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Br
 - **`dblclick` und `contextmenu`** sind nur im `HINDERNIS_DEBUG`-Modus aktiv (Spline-Vertex-Insert + Vertex/Handle-Löschen) — End-User auf Tablets ist davon nicht betroffen.
 - **Viewport-Meta** korrekt: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`.
 - **16:9-Inscription** in `resizeCanvas`: nimmt das grösste 16:9-Rechteck im Viewport. In Portrait-Orientierung wird die Stage entsprechend kleiner — funktional, aber Landscape ist optimal. Kein Orientierungs-Hinweis nötig (Schüler:innen rotieren intuitiv).
-- **Reduced-Motion-Hook:** `@media (prefers-reduced-motion: reduce)` am Ende von `style.css` schaltet alle continuous-loop-Animationen ab (Kaminflammen `#fp_g4609/_4755/_4353`, Start-Floaters + pulsierende Kreise + Sparkles, Sieg-Feuerwerk + Krone-Pulse + Sparkles). One-shot-Animationen (octopus-leave, skelett-lacht, sammlung-kombi) bleiben — narrativ + kurz. Nutzer mit OS-Setting „Bewegung reduzieren" sehen keine Feuerwerks-Partikel mehr (initial opacity 0 → ohne Keyframe-Pulse permanent unsichtbar) — bewusst akzeptiert.
+- **Reduced-Motion-Hook:** `@media (prefers-reduced-motion: reduce)` am Ende von `style.css` schaltet alle continuous-loop-Animationen ab (Kaminflammen `#fp_g4609/_4755/_4353`, Start-Floaters + pulsierende Kreise + Sparkles, Sieg-Feuerwerk + Trio-Bounce). One-shot-Animationen (octopus-leave, skelett-lacht, skelett-springt, sammlung-kombi) bleiben — narrativ + kurz. Nutzer mit OS-Setting „Bewegung reduzieren" sehen keine Feuerwerks-Partikel mehr (initial opacity 0 → ohne Keyframe-Pulse permanent unsichtbar) — bewusst akzeptiert.
 
 ## Stolpersteine
 
@@ -1057,7 +1098,7 @@ Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Br
 
 ## Roadmap
 
-**Aktueller Stand:** Infrastruktur, Spielstand, **Persistenz via localStorage** (Spielstand + separate Settings, Reset-Zahnrad mit Sound/Music/Reset-Menü), **Begrüssungsbildschirm** (Story-Setup mit Tante-Mathematikerin, 130 schwebende Kreise im Hintergrund, Continue/Start-over bzw. Begin-adventure, Two-Click-Confirm-Reset, Skip-Flag für Direkt-Start nach Reset), **Tablet-tauglich** (Touch-Targets ≥ 44 px, `touch-action: none`, `-webkit-tap-highlight-color: transparent`, Long-Press-Callout unterdrückt), Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, MC mit **Zufalls-Reihenfolge**, `belohnung_text` darf Funktion sein, optionaler `geloest_text`-Override), Inventar + Drag & Drop (rechts) **plus linkes Sammel-Inventar (Chain 6, NICHT interaktiv)**, Kollision (**alle Hindernisse als Splines** — Kreise/Ellipsen als 6-Eck-Näherung, Vierecke 1:1; kubische Bezier-Splines mit Live-Editor inkl. Doppelklick-Handle-Reset + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate, Hindernis-Drag-Editor. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**. **Auto-Close global deaktiviert** (Overlays manuell schliessen). **Inventar-Icons komplett randlos** (kein `stroke="#1a1a1a"` mehr). **Kombinations-Helper chain123() etc. rufen automatisch `bridge()` mit** wenn 1+2+3 enthalten.
+**Aktueller Stand:** Infrastruktur, Spielstand, **Persistenz via localStorage** (Spielstand + separate Settings, Reset-Zahnrad mit Sound/Music/Reset-Menü), **Begrüssungsbildschirm** (Story-Setup mit Drei-Freunde-Backstory, 130 schwebende Kreise im Hintergrund, Continue/Start-over bzw. Begin-adventure, Two-Click-Confirm-Reset, Skip-Flag für Direkt-Start nach Reset), **Tablet-tauglich** (Touch-Targets ≥ 44 px, `touch-action: none`, `-webkit-tap-highlight-color: transparent`, Long-Press-Callout unterdrückt), Aufgaben-UI (Zahlen + Multiple-Choice mit KaTeX-Optionen, MC mit **Zufalls-Reihenfolge**, `belohnung_text` darf Funktion sein, optionaler `geloest_text`-Override), Inventar + Drag & Drop (rechts) **plus linkes Sammel-Inventar (Chain 6, NICHT interaktiv)**, Kollision (**alle Hindernisse als Splines** — Kreise/Ellipsen als 6-Eck-Näherung, Vierecke 1:1; kubische Bezier-Splines mit Live-Editor inkl. Doppelklick-Handle-Reset + Slide-Algorithmus mit Boundary- und Center-Filter-Fix), Tiefensortierung via `data-y-fuss`, Sanitär-Switch mit `.sanitar-aus`-CSS, klickbare Toiletten (Octopus blockiert toilet_1, toilet_2-Sitz erst nach Formelbuch hochklappbar, Voll/Leer-Mechanik mit Spülsound), Browser-Cursor:pointer kontextabhängig via präzise `aktiv`-Predikate, Hindernis-Drag-Editor. Möbel in allen fünf Räumen platziert + Hindernisse durchgängig per Drag-Editor gesetzt. **Spielertexte komplett auf Englisch**. **Auto-Close global deaktiviert** (Overlays manuell schliessen). **Inventar-Icons komplett randlos** (kein `stroke="#1a1a1a"` mehr). **Kombinations-Helper chain123() etc. rufen automatisch `bridge()` mit** wenn 1+2+3 enthalten.
 
 **Sieben spielbare Chains + Bridge zum Keller + Sieg-Endscreen:**
 - **Chain 1:** Formelbuch finden → cake_1 → Schlüssel (silbern) → cupboard_1 mit `chain_1_schloss`-Aufgabe (90° → π/2) → Zettel → Tischlampe-Lichtkegel → π-MC → Code-Item.
@@ -1066,7 +1107,7 @@ Spiel ist auf Tablets (iPad/Android-Tablets) genauso spielbar wie auf Desktop-Br
 - **Chain 4:** duck_1 + muffin_1 → Ketten → Burp + Messgerät → Teppich-MC → Schaufel.
 - **Chain 5:** Bürobild-Sequenz (C4-E4-G4) → `chain_5_kreise` → drei_kreise → painting_2 → Skelett lacht → **Pickel landet direkt im Inventar**.
 - **Chain 6:** 4 Pickup-Aufgaben (Sektor / Bogen / Umfang / Fläche, reine Formel-Erkennung) → linkes Sammel-Inventar → 4 Stück → Combine-Animation → `vereinter_schluessel`.
-- **Chain 7 (NEU):** Schaufel + Pickel → gartenmitte_grab → Loch + Truhe sichtbar (chain_7_grab als perspektivisches Boden-Trapez, dynamisches HINDERNISS gepushed) → vereinter_schluessel auf chest_1 → **Sieg-Overlay** (Feuerwerk + Krone + Münzen, Play again / End game).
+- **Chain 7:** Schaufel + Pickel → gartenmitte_grab → Loch + 2-Layer-Truhe sichtbar (chain_7_grab als perspektivisches Boden-Trapez, dynamisches HINDERNISS gepushed) → vereinter_schluessel auf chest_1 → **Skelett-Sprung-Animation** (4 Phasen: Slide+Pause+Jump+Drop, 2.3 s, mit Clip-Path-Inset für sauberes „in Truhe verschwinden") → 3 s Pause → **Sieg-Overlay** (Feuerwerk + tanzendes Trio Ente/Tintenfisch/Skelett, Play again / End game).
 - **Bridge:** Beide Octopus-Aufgaben → state=3 → Exit nach Overlay-Schliessen → toilet_1 → Binoculars → Nachtsicht → Geheimtür → code_geheimtuer-Drop → Keller offen.
 
 Reihenfolge zwischen Chain 2 und Chain 3 ist symmetrisch — beide Aufgaben können in beliebiger Reihenfolge gelöst werden, jede macht +1 am Octopus-State. Chain 3 ist effektiv erforderlich für die Bridge.

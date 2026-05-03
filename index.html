@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=64">
+    <link rel="stylesheet" href="style.css?v=72">
     <script>
         // Skip-Flag synchron prüfen vor Body-Parse: damit der Startscreen-Overlay im
         // "Start over"-Pfad nicht 1 Frame aufblitzt, bevor JS ihn versteckt. Konsumiert
@@ -1455,8 +1455,29 @@
                              dass die sichtbare Rim mit dem bisherigen Trapez übereinstimmt
                              (bot-rim y=786 von x=581..1020, top-rim y=684 von x≈621..980). -->
                         <image href="assets/hole_1.svg?v=3" x="564" y="675.5" width="473" height="119" preserveAspectRatio="none" filter="url(#grell-mild)"/>
-                        <!-- Schatztruhe HINTER dem Loch. -->
-                        <image id="chest_1" href="assets/chest_1.svg?v=1" x="715" y="598" width="170" height="76" preserveAspectRatio="none" filter="url(#grell-mild)"/>
+                        <!-- Truhe als 2-Layer-Paar (analog bathtub_1_1/_1_2): chest_1_1 ist
+                             die ganze Truhe (Hintergrund); chest_1_2 hat die obere Hälfte
+                             entfernt und liegt vor dem Skelett — der Skelett-Sprung endet
+                             zwischen den beiden Layern, sodass der Tintenfisch-Mechanismus
+                             „springt rein und verschwindet hinter dem Vorder-Layer" greift.
+                             Truhe ist um 20 % grösser als ursprünglich (170×76 → 204×91),
+                             zentriert auf x=800 (Mitte) und Bottom an y=674 (auf dem hinteren
+                             Hole-Rim, wie zuvor). -->
+                        <image id="chest_1_1" href="assets/chest_1_1.svg?v=1" x="698" y="583" width="204" height="91" preserveAspectRatio="none" filter="url(#grell-mild)"/>
+                        <!-- Chain 7 Endsequenz: Skelett-Cameo. Erscheint stumm an der rechten
+                             Garten-Tür (keine Türanimation), springt parabelförmig in die
+                             Truhe und landet zwischen chest_1_1 (hinten) und chest_1_2
+                             (vorne) — chest_1_2 deckt es visuell zu. Wird per CSS-Klasse
+                             `skelett-springt` gestartet (siehe spieleSkelettSprungAnimation
+                             in script.js). Initial versteckt via class="sanitar-aus".
+                             Element-Bbox 120×170 mit Top-Left (1395, 470) — visuell rechts
+                             oben am Tür-Bereich. End-Translate (-655, +170) bringt das
+                             Skelett mit Top bei y=640 (in Höhe der Truhen-Front), Center bei
+                             screen-x=800 (Truhen-Mitte). DOM-Position zwischen chest_1_1 und
+                             chest_1_2 → Truhen-Front überdeckt das Skelett beim Landen. -->
+                        <image id="skelett_garten" class="sanitar-aus" href="assets/skeleton_3.svg?v=1"
+                               x="1395" y="470" width="120" height="170" filter="url(#invert)"/>
+                        <image id="chest_1_2" href="assets/chest_1_2.svg?v=2" x="698" y="583" width="204" height="91" preserveAspectRatio="none" filter="url(#grell-mild)"/>
                     </g>
                 </g>
                 <g data-raum="keller" style="display:none" filter="url(#grell)">
@@ -3206,93 +3227,36 @@
                 <div id="overlay-inhalt"></div>
             </div>
         </div>
-        <!-- Sieg-Overlay (Chain 7): Vollbild-Endscreen mit Feuerwerk + Schatz-Illustration
-             + 2 Buttons. Wird sichtbar nach erfolgreichem Schlüssel-Drop auf chest_1. -->
+        <!-- Sieg-Overlay (Chain 7): Vollbild-Endscreen mit Feuerwerk + tanzendem Trio
+             (Ente, Tintenfisch, Skelett — die drei Bewohner sind wieder vereint) + 2
+             Buttons. Wird sichtbar nach Skelett-Sprung-Animation in chest_1-Callback. -->
         <div id="sieg-overlay" hidden>
             <div id="sieg-fireworks"></div>
             <div id="sieg-box">
-                <svg id="sieg-treasure" viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Münzhaufen hinten (große Ellipsen, gold gestaffelt) -->
-                    <ellipse cx="200" cy="220" rx="170" ry="22" fill="#7a5a14"/>
-                    <g class="muenzen">
-                        <!-- Deepest-Back (sehr klein, dunkel — werden vom Rest überdeckt) -->
-                        <ellipse cx="155" cy="158" rx="15" ry="5" fill="#8c6e1a"/>
-                        <ellipse cx="245" cy="155" rx="18" ry="6" fill="#8c6e1a"/>
-                        <ellipse cx="195" cy="152" rx="16" ry="5" fill="#b8941f"/>
-                        <ellipse cx="125" cy="162" rx="14" ry="5" fill="#b8941f"/>
-                        <!-- Bottom-Layer (am Boden, vorne) -->
-                        <ellipse cx="70" cy="218" rx="16" ry="6" fill="#e8b840"/>
-                        <ellipse cx="115" cy="215" rx="20" ry="7" fill="#e8b840"/>
-                        <ellipse cx="120" cy="208" rx="32" ry="11" fill="#e8b840"/>
-                        <ellipse cx="180" cy="212" rx="36" ry="13" fill="#f0c850"/>
-                        <ellipse cx="260" cy="206" rx="34" ry="12" fill="#e8b840"/>
-                        <ellipse cx="245" cy="218" rx="24" ry="9" fill="#f5d068"/>
-                        <ellipse cx="330" cy="220" rx="18" ry="7" fill="#d4a430"/>
-                        <ellipse cx="145" cy="220" rx="22" ry="8" fill="#f0c850"/>
-                        <ellipse cx="55" cy="224" rx="12" ry="4" fill="#d4a430"/>
-                        <ellipse cx="165" cy="224" rx="22" ry="8" fill="#f5d068"/>
-                        <ellipse cx="215" cy="224" rx="22" ry="8" fill="#f0c850"/>
-                        <ellipse cx="305" cy="222" rx="18" ry="6" fill="#e8b840"/>
-                        <ellipse cx="355" cy="222" rx="14" ry="5" fill="#d4a430"/>
-                        <ellipse cx="95" cy="224" rx="14" ry="5" fill="#d4a430"/>
-                        <!-- Middle-Layer -->
-                        <ellipse cx="95" cy="198" rx="22" ry="8" fill="#f0c850"/>
-                        <ellipse cx="160" cy="195" rx="28" ry="10" fill="#f5d068"/>
-                        <ellipse cx="220" cy="192" rx="30" ry="11" fill="#e8b840"/>
-                        <ellipse cx="300" cy="198" rx="24" ry="9" fill="#e8b840"/>
-                        <ellipse cx="150" cy="188" rx="18" ry="6" fill="#f5d068"/>
-                        <ellipse cx="250" cy="185" rx="22" ry="8" fill="#d4a430"/>
-                        <ellipse cx="75" cy="200" rx="14" ry="5" fill="#d4a430"/>
-                        <ellipse cx="345" cy="200" rx="14" ry="5" fill="#d4a430"/>
-                        <ellipse cx="135" cy="202" rx="18" ry="6" fill="#f5d068"/>
-                        <ellipse cx="280" cy="202" rx="18" ry="6" fill="#d4a430"/>
-                        <ellipse cx="195" cy="200" rx="20" ry="7" fill="#f0c850"/>
-                        <!-- Top of Pile (kleiner, dunkler — Tiefen-Effekt) -->
-                        <ellipse cx="190" cy="178" rx="24" ry="9" fill="#f5d068"/>
-                        <ellipse cx="140" cy="168" rx="20" ry="7" fill="#d4a430"/>
-                        <ellipse cx="220" cy="165" rx="22" ry="8" fill="#b8941f"/>
-                        <ellipse cx="110" cy="175" rx="18" ry="6" fill="#d4a430"/>
-                        <ellipse cx="290" cy="172" rx="20" ry="7" fill="#b8941f"/>
-                        <ellipse cx="165" cy="162" rx="18" ry="6" fill="#d4a430"/>
-                        <ellipse cx="245" cy="158" rx="20" ry="7" fill="#b8941f"/>
-                        <!-- Einzelne Münzen am Rand (verstreut) -->
-                        <circle cx="80" cy="220" r="11" fill="#f0c850"/>
-                        <circle cx="320" cy="218" r="13" fill="#e8b840"/>
-                        <circle cx="100" cy="232" r="9" fill="#f5d068"/>
-                        <circle cx="305" cy="234" r="11" fill="#f0c850"/>
-                        <circle cx="60" cy="230" r="9" fill="#f0c850"/>
-                        <circle cx="50" cy="240" r="7" fill="#e8b840"/>
-                        <circle cx="355" cy="230" r="10" fill="#f5d068"/>
-                        <circle cx="345" cy="242" r="8" fill="#f0c850"/>
-                        <circle cx="195" cy="245" r="9" fill="#f5d068"/>
-                        <circle cx="265" cy="244" r="8" fill="#d4a430"/>
-                        <circle cx="135" cy="244" r="8" fill="#f0c850"/>
-                        <circle cx="35" cy="245" r="7" fill="#f5d068"/>
-                        <circle cx="370" cy="245" r="8" fill="#e8b840"/>
-                        <circle cx="230" cy="248" r="8" fill="#f0c850"/>
-                        <circle cx="155" cy="248" r="7" fill="#f5d068"/>
-                        <circle cx="95" cy="248" r="8" fill="#d4a430"/>
-                        <circle cx="295" cy="250" r="7" fill="#f0c850"/>
-                        <circle cx="40" cy="220" r="7" fill="#f5d068"/>
-                        <circle cx="70" cy="235" r="7" fill="#e8b840"/>
-                        <circle cx="335" cy="232" r="8" fill="#f0c850"/>
-                        <circle cx="115" cy="230" r="7" fill="#d4a430"/>
-                        <circle cx="245" cy="232" r="8" fill="#f0c850"/>
-                        <circle cx="370" cy="218" r="7" fill="#d4a430"/>
-                        <circle cx="180" cy="250" r="8" fill="#d4a430"/>
-                    </g>
-                    <!-- Krone (User-Asset, vorne mittig) — externes SVG.
-                         class="krone" greift weiterhin die Krone-Pulse-Animation in style.css. -->
-                    <image class="krone" href="assets/krone.svg?v=1" x="100" y="0" width="200" height="173" preserveAspectRatio="xMidYMid meet"/>
-                    <!-- Funkel-Sterne um die Krone (CSS-Animation) -->
-                    <g class="sparkles">
-                        <path class="sparkle s1" d="M70 60 L73 76 L89 79 L73 82 L70 98 L67 82 L51 79 L67 76 Z" fill="#ffe680"/>
-                        <path class="sparkle s2" d="M340 50 L343 66 L359 69 L343 72 L340 88 L337 72 L321 69 L337 66 Z" fill="#fff7d0"/>
-                        <path class="sparkle s3" d="M50 140 L52 150 L62 152 L52 154 L50 164 L48 154 L38 152 L48 150 Z" fill="#ffe680"/>
-                        <path class="sparkle s4" d="M360 150 L362 160 L372 162 L362 164 L360 174 L358 164 L348 162 L358 160 Z" fill="#fff7d0"/>
-                    </g>
+                <!-- Trio: drei Asset-Cameos via <image href>. Bühnen-Boden-Linie als
+                     dezente Ellipse hinten. Jedes Element hat eine eigene CSS-Klasse
+                     (`sieg-tanz-N`) mit gestaffelten Bounce-Phasen — wirkt wie ein
+                     gemeinsamer Tanz, ohne dass alle gleichzeitig hochfedern. Skelett
+                     mittig (am höchsten), Tintenfisch links (am breitesten), Ente rechts
+                     (am kompaktesten). filter="url(#invert)" für Skelett wie im Keller. -->
+                <svg id="sieg-trio" viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="sieg-invert" x="-5%" y="-5%" width="110%" height="110%">
+                            <feColorMatrix type="matrix" values="-1 0 0 0 1   0 -1 0 0 1   0 0 -1 0 1   0 0 0 1 0"/>
+                        </filter>
+                    </defs>
+                    <!-- Bühnen-Schatten — Boden-Linie auf y=240 (alle drei Cameos enden
+                         mit ihrer Bbox-Bottom auf dieser Linie). -->
+                    <ellipse cx="200" cy="240" rx="170" ry="14" fill="#1a1a1a" opacity="0.18"/>
+                    <!-- Tintenfisch links — am breitesten dargestellt. y +10 (User-Tuning). -->
+                    <image class="sieg-tanz sieg-tanz-1" href="assets/octopus_1_3.svg?v=2" x="20" y="130" width="160" height="120" preserveAspectRatio="xMidYMax meet"/>
+                    <!-- Skelett mittig — am höchsten, schmale Gestalt. Inverted (weiss). y +40 (User-Tuning). -->
+                    <image class="sieg-tanz sieg-tanz-2" href="assets/skeleton_3.svg" x="160" y="60" width="100" height="220" preserveAspectRatio="xMidYMax meet" filter="url(#sieg-invert)"/>
+                    <!-- Ente rechts — +50 % Grösse (90×90 statt 60×60), Position recentered. -->
+                    <image class="sieg-tanz sieg-tanz-3" href="assets/duck_1.svg?v=2" x="275" y="150" width="90" height="90" preserveAspectRatio="xMidYMax meet"/>
                 </svg>
-                <h2 id="sieg-headline">You found the treasure!</h2>
+                <h2 id="sieg-headline">Everybody happy!</h2>
+                <p id="sieg-subtext">The octopus is splashing in his bathtub again, the skeleton is resting in his grave — and the duck...</p>
                 <div class="sieg-buttons">
                     <button id="sieg-replay" type="button">Play again</button>
                     <button id="sieg-end" type="button">End game</button>
@@ -3300,11 +3264,13 @@
             </div>
         </div>
         <!-- Start-Overlay: Begrüssungsbildschirm beim Laden der Seite. Zeigt Story-Setup
-             (Tante-Mathematikerin, versteckter Schatz), 1 oder 2 Buttons je nach Save-State
-             (Continue + Start over wenn Save vorhanden, sonst nur Begin adventure). Im
-             Hintergrund schweben 130 zufällig generierte Kreise in unterschiedlichen
-             Grössen + Farben (per spawneStartFloater() in script.js). Backdrop + Esc
-             bewusst NICHT klick-schliessbar — User muss explizit einen Button wählen. -->
+             (drei Freunde — Ente, Tintenfisch, Skelett — wohnen im Haus; die Ente ist
+             ein bisschen gemein und hat den Tintenfisch aus der Wanne und das Skelett
+             aus dem Grab vertrieben), 1 oder 2 Buttons je nach Save-State (Continue +
+             Start over wenn Save vorhanden, sonst nur Begin adventure). Im Hintergrund
+             schweben 130 zufällig generierte Kreise in unterschiedlichen Grössen +
+             Farben (per spawneStartFloater() in script.js). Backdrop + Esc bewusst
+             NICHT klick-schliessbar — User muss explizit einen Button wählen. -->
         <div id="start-overlay">
             <div id="start-floaters"></div>
             <div id="start-box">
@@ -3346,10 +3312,9 @@
                 </svg>
                 <h1 id="start-headline">Full Circle</h1>
                 <p id="start-story">
-                    Your great-aunt, an eccentric mathematician, has left you her old house.
-                    Her will hints at a hidden treasure — but she was obsessed with circles
-                    and locked everything behind formulas. Solve her puzzles to find what
-                    she left behind.
+                    Three friends share an old house: an octopus, a skeleton and a rubber duck.
+                    The duck is a bit mean — she has chased the octopus out of the bathtub
+                    and the skeleton out of his grave. Help them find their way back to their favorite spot.
                 </p>
                 <div class="start-buttons"></div>
             </div>
@@ -3365,6 +3330,6 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=300"></script>
+    <script src="script.js?v=316"></script>
 </body>
 </html>

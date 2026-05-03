@@ -230,6 +230,11 @@ const spielstand = {
         chain_2_step: 0,           // 0 = nichts, 1 = animal_3_1 aufgenommen, 2 = im WC entleert, 3 = aufgefüllt, 4 = Octopus 1× gefüttert, 5 = Octopus 2× → exit.
         octopus_exit_gestartet: false, // Sicherheits-Flag: Exit-Animation maximal 1× pro Run starten (siehe schliesseOverlay-Hook).
         octopus_hmmm_gespielt: false,  // Sicherheits-Flag: Hmmmm_1.mp3 maximal 1× beim ersten Mood-Advance (state 1→2).
+        // Backstory-Mechanik: Die Ente hat den Tintenfisch ursprünglich aus der Wanne vertrieben.
+        // Wenn der Tintenfisch zufrieden ist (state 3) und die Ente ist NOCH in der Wanne, geht
+        // er nicht zurück — Flag wird gesetzt, Story zeigt seinen Unmut. Sobald duck_1 aus der
+        // Wanne aufgenommen wird (nimmAufGegenstand-Hook), triggert die Exit-Animation nach.
+        octopus_wartet_auf_ente: false,
         // Chain 3 — zwei parallele Pfade: (a) zentrale Wolke anklicken → Vogel sichtbar.
         // (b) Schlauch-Aufgabe lösen → gartenschlauch ins Inventar → auf flower_1 droppen
         // → seed_1. Dann seed_1 auf Vogel → goldene_muenzen. Goldene Münzen auf Octopus
@@ -258,8 +263,9 @@ const spielstand = {
         bild_kreise_im_keller: false,     // drei_kreise auf painting_2 gedroppt → Overlay sichtbar
         bild_kreise_hinweis_gesehen: false, // Erstklick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Hint („Good things come in threes."); Klick selbst zählt nicht. Persistiert, damit der Hint pro Spielstand nur einmal kommt.
         // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte
-        // → Truhe ausheben → mit Schlüssel öffnen → Sieg-Overlay (Feuerwerk + Schatz).
-        // Reihenfolge Schaufel/Pickel egal; Loch öffnet sich nach beiden Drops.
+        // → Truhe ausheben → mit Schlüssel öffnen → Skelett-Sprung-Animation +
+        // Sieg-Overlay (Feuerwerk + tanzendes Trio). Reihenfolge Schaufel/Pickel egal;
+        // Loch öffnet sich nach beiden Drops.
         chain_7_schaufel_gedroppt: false, // Schaufel auf gartenmitte_grab gedroppt
         chain_7_pickel_gedroppt: false,   // Pickel auf gartenmitte_grab gedroppt
         chain_7_loch_offen: false,        // beide Werkzeuge gedroppt → Loch + Truhe sichtbar (chain_7_grab visible)
@@ -366,6 +372,9 @@ function ladeSpielstand() {
     spielstand.zustaende.bild_kreise_replay_aktiv = false;
     spielstand.zustaende.bild_kreise_sequenz = [];
     spielstand.zustaende.octopus_exit_gestartet = false;
+    // octopus_wartet_auf_ente: persistent (überlebt Reload) — sonst würde der Spieler nach
+    // einem Reload das motz-Story nochmal sehen müssen, statt direkt durch Enten-Pickup
+    // den Exit auszulösen.
     // Aktuellen Raum + Figur-Position
     if (daten.aktuellerRaum) aktuellerRaum = daten.aktuellerRaum;
     if (daten.figur) {
@@ -618,6 +627,16 @@ function aktualisiereChain3() {
     speicherSpielstand();
 }
 
+// True, sobald die Ente nicht mehr in der Wanne sitzt (aufgenommen, in den Ketten oder
+// gefüttert). Wird vom schliesseOverlay-Hook + Chain-2/3-Story-Texten ausgewertet, um
+// den Tintenfisch-Exit erst freizugeben, wenn der Bad-Eindringling weg ist.
+function entWegAusWanne(s) {
+    return s.gegenstaende.has("duck_1")
+        || s.zustaende.duck_im_keller
+        || s.zustaende.duck_gefuettert;
+}
+window.entWegAusWanne = entWegAusWanne;
+
 // ---------- Chain 4 ----------
 function aktualisiereChain4() {
     const z = spielstand.zustaende;
@@ -779,12 +798,123 @@ function oeffneGrab(werkzeug) {
 }
 window.oeffneGrab = oeffneGrab;
 
-// Sieg-Overlay öffnen — Vollbild-Endscreen mit Feuerwerk-Animation, Schatz-Illustration
-// und 2 Buttons (Play again / End game). Wird vom chest_1-akzeptiert-Callback aufgerufen.
+// Skelett-Sprung-Animation (Chain 7 Endsequenz): das Skelett-Cameo erscheint an der
+// rechten Garten-Tür und springt parabelförmig ins Grab. Sucht das Original UND
+// alle Front-Layer-Klone (klonePflanzenVorne prefixt mit v_<idx>_). Nach animationend
+// wird das Element komplett ausgeblendet (Klasse `sanitar-aus`). Total ~1.8 s.
+function spieleSkelettSprungAnimation(onDone) {
+    const els = document.querySelectorAll(`[id="skelett_garten"], [id^="v_"][id$="_skelett_garten"]`);
+    if (!els.length) { if (onDone) onDone(); return; }
+    let fired = false;
+    const finish = () => {
+        if (fired) return;
+        fired = true;
+        els.forEach(el => {
+            el.classList.remove("skelett-springt");
+            el.classList.add("sanitar-aus");
+        });
+        if (onDone) onDone();
+    };
+    els.forEach(el => {
+        el.classList.remove("sanitar-aus");
+        el.classList.add("skelett-springt");
+    });
+    els[0].addEventListener("animationend", finish, { once: true });
+    // Safety-Timeout: Animationend feuert manchmal nicht (z.B. wenn das Element nicht
+    // gepainted wurde). 2.7 s = Animation (2.3 s) + 400 ms Puffer.
+    setTimeout(finish, 2700);
+}
+window.spieleSkelettSprungAnimation = spieleSkelettSprungAnimation;
+
+// Debug-Overlay für die Skelett-Sprung-Bahn. Zeichnet die Bbox des Skelett-Elements
+// an JEDEM Keyframe als halbtransparentes Rechteck + verbindet die Bbox-Bottom-Centers
+// mit einem Pfad. Damit kann der User visuell sehen, wo die Animation hinläuft, und
+// gezielt Korrekturen ansagen. Toggle per Konsole: skelettPfadDebug(true|false).
+// Keyframes hier MÜSSEN synchron mit @keyframes skelett-springt in style.css gehalten
+// werden — beim Anpassen der Keyframes diese Liste mit-aktualisieren.
+const SKELETT_PFAD_KEYFRAMES = [
+    { pct:   0, dx:    0, dy:    0 },
+    { pct:  39, dx: -505, dy:    0 },
+    { pct:  61, dx: -505, dy:    0 },  // Pause-Ende (gleicher Punkt wie 39 %)
+    { pct:  78, dx: -655, dy: -160 },
+    { pct: 100, dx: -655, dy:  200 },
+];
+const SKELETT_BBOX = { x: 1395, y: 470, w: 120, h: 170 };
+
+function skelettPfadDebug(zeigen = true) {
+    const gartenG = document.querySelector('[data-raum="garten"]');
+    if (!gartenG) { console.warn("Garten-DOM nicht gefunden"); return; }
+    const old = document.getElementById("skelett_pfad_debug");
+    if (old) old.remove();
+    if (!zeigen) {
+        console.log("Skelett-Pfad-Debug AUS");
+        return;
+    }
+    const NS = "http://www.w3.org/2000/svg";
+    const grp = document.createElementNS(NS, "g");
+    grp.setAttribute("id", "skelett_pfad_debug");
+    grp.setAttribute("pointer-events", "none");
+    const cx = SKELETT_BBOX.x + SKELETT_BBOX.w / 2;
+    const by = SKELETT_BBOX.y + SKELETT_BBOX.h;
+    // 1) Pfad durch alle Bbox-Bottom-Center
+    let d = "";
+    SKELETT_PFAD_KEYFRAMES.forEach((k, i) => {
+        const x = cx + k.dx, y = by + k.dy;
+        d += (i === 0 ? "M" : "L") + x + "," + y;
+    });
+    const pfad = document.createElementNS(NS, "path");
+    pfad.setAttribute("d", d);
+    pfad.setAttribute("stroke", "#ff00ff");
+    pfad.setAttribute("stroke-width", "3");
+    pfad.setAttribute("fill", "none");
+    pfad.setAttribute("stroke-dasharray", "8 4");
+    grp.appendChild(pfad);
+    // 2) Bbox an jedem Keyframe als halbtransparentes Rechteck
+    SKELETT_PFAD_KEYFRAMES.forEach((k, i) => {
+        const x = SKELETT_BBOX.x + k.dx;
+        const y = SKELETT_BBOX.y + k.dy;
+        const istStart = i === 0, istEnd = i === SKELETT_PFAD_KEYFRAMES.length - 1;
+        const farbe = istStart ? "#ffff00" : istEnd ? "#00ffff" : "#ff00ff";
+        const opa = istStart || istEnd ? 0.30 : 0.15;
+        const rc = document.createElementNS(NS, "rect");
+        rc.setAttribute("x", x);
+        rc.setAttribute("y", y);
+        rc.setAttribute("width", SKELETT_BBOX.w);
+        rc.setAttribute("height", SKELETT_BBOX.h);
+        rc.setAttribute("stroke", farbe);
+        rc.setAttribute("stroke-width", "2");
+        rc.setAttribute("fill", farbe);
+        rc.setAttribute("fill-opacity", opa);
+        grp.appendChild(rc);
+        // Label: Prozent + dx/dy + Bottom-Center-Koord
+        const bx = cx + k.dx, byy = by + k.dy;
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", x + SKELETT_BBOX.w / 2);
+        lbl.setAttribute("y", y - 8);
+        lbl.setAttribute("fill", "#ffffff");
+        lbl.setAttribute("stroke", "#000000");
+        lbl.setAttribute("stroke-width", "0.6");
+        lbl.setAttribute("font-size", "20");
+        lbl.setAttribute("font-weight", "bold");
+        lbl.setAttribute("text-anchor", "middle");
+        lbl.textContent = `${k.pct}% bot=(${Math.round(bx)},${Math.round(byy)})`;
+        grp.appendChild(lbl);
+    });
+    gartenG.appendChild(grp);
+    console.log("Skelett-Pfad-Debug AN — Gelb=Start-Bbox, Magenta=Zwischen-Keyframes, Cyan=End-Bbox.");
+    console.log("Aktuelle Keyframes (dx, dy aus style.css @keyframes skelett-springt):");
+    console.table(SKELETT_PFAD_KEYFRAMES);
+    console.log("Skelett-Element-Bbox: x=" + SKELETT_BBOX.x + " y=" + SKELETT_BBOX.y + " w=" + SKELETT_BBOX.w + " h=" + SKELETT_BBOX.h);
+}
+window.skelettPfadDebug = skelettPfadDebug;
+
+// Sieg-Overlay öffnen — Vollbild-Endscreen mit Feuerwerk-Animation und 2 Buttons
+// (Play again / End game). Wird vom chest_1-akzeptiert-Callback aufgerufen — der
+// triggert vorher noch die Skelett-Sprung-Animation und ruft zeigeSiegOverlay danach.
 function zeigeSiegOverlay() {
     const siegEl = document.getElementById("sieg-overlay");
     if (!siegEl) return;
-    // Inventare ausblenden, damit das Inventar nicht neben der Krone steht.
+    // Inventare ausblenden, damit sie nicht neben dem tanzenden Trio stehen.
     if (inventarEl) inventarEl.hidden = true;
     const linksEl = document.getElementById("inventar-links");
     if (linksEl) linksEl.hidden = true;
@@ -864,7 +994,7 @@ const FLOATER_COLORS = [
     "#FFCE00", // yellow (Bürobild)
     "#E63946", // red (Bürobild)
     "#9D4EDD", // violet (Bürobild)
-    "#f5d068", // gold (treasure)
+    "#f5d068", // warm gold
     "#5fc8e0", // cyan
     "#ff8a3a", // orange
     "#6bd47a", // mint
@@ -1033,7 +1163,7 @@ let musikAn = true;
 // die _2-Files sind 8 Takte lang und werden immer ausgespielt, dann (≈300 ms vor
 // Track-Ende) wird der aktuelle Raum gelesen und der nächste Track exakt am
 // Endezeitpunkt des aktuellen geplant — sample-genau, kein Gap. Sobald der
-// Spieler die Schatztruhe öffnet (`chain_7_geoeffnet=true`), wird beim nächsten
+// Spieler die Truhe öffnet (`chain_7_geoeffnet=true`), wird beim nächsten
 // Decision-Point das Outro `Garten_3` geplant und gespielt; danach Phase `done`.
 //
 // Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
@@ -1584,7 +1714,10 @@ const AUFGABEN = {
             belohnung_text: "Correct!",
             story_text: (s) => {
                 if (s.zustaende.octopus_zustand === 3) {
-                    return "The octopus, fully content now, slides off with a happy gurgle.";
+                    if (entWegAusWanne(s)) {
+                        return "The octopus, fully content now, slides off with a happy gurgle.";
+                    }
+                    return "The octopus is fully content now — but it eyes the rubber duck warily.";
                 }
                 return "The octopus' mood has improved, but it is not quite happy yet.";
             },
@@ -1650,7 +1783,10 @@ const AUFGABEN = {
             belohnung_text: "Correct!",
             story_text: (s) => {
                 if (s.zustaende.octopus_zustand === 3) {
-                    return "The octopus pockets the coins, gives a satisfied gurgle, and slides away.";
+                    if (entWegAusWanne(s)) {
+                        return "The octopus pockets the coins, gives a satisfied gurgle, and slides away.";
+                    }
+                    return "The octopus pockets the coins and looks satisfied — but glances warily at the rubber duck and stays put.";
                 }
                 return "The octopus pockets the coins and looks a touch more cheerful, but isn't quite satisfied yet.";
             },
@@ -2342,14 +2478,17 @@ const OBJEKTE = {
                 pickel:   (s) => oeffneGrab("pickel"),
             },
         },
-        // Chain 7: Schatztruhe (HINTER dem Loch, x=715 y=598 170×76) — Drop-Target für
+        // Chain 7: Truhe (HINTER dem Loch, x=715 y=598 170×76) — Drop-Target für
         // vereinter_schluessel. Polygon deckt die Truhe direkt ab (mit etwas Puffer):
         // (700..900, 590..680) ≈ 200×90, leichter zu treffen beim Drag als die exakte Truhe.
-        // laufziel davor in der Garten-Mitte — Hindernis blockiert das Reinlaufen ins Loch.
+        // laufziel LINKS von der Truhe (User-Tuning), damit die Figur den Blick auf den
+        // Skelett-Sprung in der Endsequenz nicht blockiert. (fu, fv) entspricht
+        // Boden-Screen-Position (~635, 651) — knapp links vom Loch (fu 0.33..0.67),
+        // ungefähr auf Höhe des Truhen-Vorders.
         {
             id: "chest_1",
             polygon: [[700, 590], [900, 590], [900, 680], [700, 680]],
-            laufziel: { fu: 0.50, fv: 0.30 },
+            laufziel: { fu: 0.35, fv: 0.83 },
             aktiv: (s) => s.zustaende.chain_7_loch_offen
                        && !s.zustaende.chain_7_geoeffnet
                        && s.gegenstaende.has("vereinter_schluessel"),
@@ -2361,7 +2500,11 @@ const OBJEKTE = {
                     aktualisiereInventar();
                     // Sicherheitshalber laufenden Drag aufräumen, falls noch aktiv.
                     if (typeof dragAbbrechen === "function") dragAbbrechen();
-                    zeigeSiegOverlay();
+                    // Endsequenz: Story-Beat zuerst, dann (NACH dem manuellen Schliessen
+                    // des Story-Overlays) Skelett-Sprung in die Truhe, dann Sieg-Overlay.
+                    // schliesseOverlay() liest skelettSprungGeplant und feuert die Animation.
+                    skelettSprungGeplant = true;
+                    zeigeStoryText("You unlock the chest. Out of the corner of your eye, you spot the skeleton bounding across the garden — straight into the open chest.");
                 },
             },
         },
@@ -3271,6 +3414,10 @@ let tanzStart = 0;
 // Flag: Tanz wartet darauf, dass der Spieler das aktuelle Story-Overlay schliesst.
 // Wird in schliesseOverlay() konsumiert (analog zum octopus_exit_gestartet-Pattern).
 let tanzGeplant = false;
+// Chain 7: Skelett-Sprung wartet ebenfalls auf Story-Overlay-Schliessen — User
+// soll den „You unlock the chest..."-Beat lesen, dann startet die Animation,
+// dann öffnet das Sieg-Overlay. schliesseOverlay() konsumiert das Flag.
+let skelettSprungGeplant = false;
 
 function starteTanz() {
     tanzStart = performance.now();
@@ -5424,18 +5571,38 @@ function schliesseOverlay() {
     // Octopus-Exit erst NACH Schliessen der Aufgabe starten — die 2-s-Pause auf
     // octopus_1_3 zählt damit ab dem Moment, in dem der User wieder das Spiel sieht.
     // Flag verhindert Doppel-Trigger, falls schliesseOverlay mehrmals nach state 3 läuft.
+    // Duck-Gating: Wenn die Ente noch in der Wanne sitzt, blockiert der Tintenfisch den
+    // Sprung (Backstory: die Ente hat ihn ja vertrieben). Story_text der Aufgabe deutet
+    // den Stau bereits an; hier wird nur das Wartet-Flag gesetzt — der Sprung passiert
+    // nachträglich im nimmAufGegenstand("duck_1")-Hook. Kein Hmmm hier, keine Animation.
     if (spielstand.zustaende.octopus_zustand === 3 &&
         spielstand.zustaende.octopus_da &&
-        !spielstand.zustaende.octopus_exit_gestartet) {
-        spielstand.zustaende.octopus_exit_gestartet = true;
-        setTimeout(() => spieleAudio("Hmmmm_1"), 500);
-        setTimeout(() => animiereOctopusRaus(), 2000);
+        !spielstand.zustaende.octopus_exit_gestartet &&
+        !spielstand.zustaende.octopus_wartet_auf_ente) {
+        if (entWegAusWanne(spielstand)) {
+            spielstand.zustaende.octopus_exit_gestartet = true;
+            setTimeout(() => spieleAudio("Hmmmm_1"), 500);
+            setTimeout(() => animiereOctopusRaus(), 2000);
+        } else {
+            spielstand.zustaende.octopus_wartet_auf_ente = true;
+            speicherSpielstand();
+        }
     }
     // Chain 7: geplanter Freudentanz nach „You break through the soil…" — startet jetzt,
     // wo der Spieler den Story-Beat gelesen und das Overlay zu hat.
     if (tanzGeplant) {
         tanzGeplant = false;
         starteTanz();
+    }
+    // Chain 7 Endsequenz: Skelett-Sprung wartet auf Schliessen des „You unlock the
+    // chest…"-Beats. Sobald das Overlay zu ist, springt das Skelett (1.8 s); danach
+    // 2 s Pause (Spieler kann die Szene wirken lassen — Skelett ist gerade in der
+    // Truhe verschwunden), erst dann öffnet das Sieg-Overlay.
+    if (skelettSprungGeplant) {
+        skelettSprungGeplant = false;
+        spieleSkelettSprungAnimation(() => {
+            setTimeout(() => zeigeSiegOverlay(), 3000);
+        });
     }
 }
 
@@ -5959,8 +6126,23 @@ function nimmAufGegenstand(obj) {
         automatischSchliessen();
     }
     if (obj.aufnehmen === "duck_1") {
-        // Chain 4 — Story-Hinweis: Ente sieht unheimlich aus, soll man bald wieder los werden.
-        zeigeStoryText("You take the rubber duck.\nIt looks strangely menacing — you'd rather get rid of it soon.");
+        // Backstory: Die Ente hat den Tintenfisch aus der Wanne vertrieben. Wenn der
+        // Tintenfisch bereits zufrieden (state 3) ist und auf die Entfernung der Ente
+        // wartet (octopus_wartet_auf_ente), nur das Flag löschen — die Hmmm-+-Animations-
+        // Sequenz triggert dann symmetrisch zum Direkt-Pfad in schliesseOverlay (Bedingung:
+        // state===3 + octopus_da + entWegAusWanne + !exit_gestartet + !wartet). So startet
+        // die Animation erst NACH dem Schliessen des Story-Overlays — User liest erst,
+        // dann passiert was.
+        if (spielstand.zustaende.octopus_wartet_auf_ente
+            && spielstand.zustaende.octopus_da
+            && !spielstand.zustaende.octopus_exit_gestartet) {
+            spielstand.zustaende.octopus_wartet_auf_ente = false;
+            zeigeStoryText("You scoop the rubber duck out of the bathtub.\nWith a relieved gurgle the octopus slips past you and dives back into the water.");
+        } else {
+            // Chain 4 — Story-Hinweis: Ente wirkt zu zufrieden mit sich selbst, sollte
+            // man bald irgendwo unterbringen, damit sie nicht zurückkehren kann.
+            zeigeStoryText("You take the rubber duck out of the bathtub.\nIt looks a little too pleased with itself — best find a way to keep it from coming back.");
+        }
         automatischSchliessen();
     }
     // Visuelles Sofort-Update: Sichtbarkeits-Logik basiert auf gegenstaende (z.B.
