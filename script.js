@@ -1002,7 +1002,8 @@ let musikAn = true;
 //
 // Alle MP3s werden via fetch+decodeAudioData zu AudioBuffers vorgeladen, damit
 // am Decision-Point keine Netzwerk-Latenz zuschlägt.
-const MUSIK_VOLUME = 0.08;
+// Mutable, damit per Konsole tunbar (siehe setMusikVolume).
+let MUSIK_VOLUME = 0.08;
 const MUSIK_LOOP_PRO_RAUM = {
     haupt:      "Haupt_2",
     buero:      "Buero_2",
@@ -1046,6 +1047,18 @@ function initMusikGain() {
     musikGainNode.gain.value = MUSIK_VOLUME;
     musikGainNode.connect(audioCtx.destination);
 }
+
+// Konsolen-Helper: Musik-Volumen sofort setzen (umgeht den Proximity-Cache, sodass
+// auch ausserhalb des Büros die Änderung live wirkt). Returnt aktuellen Wert.
+//   setMusikVolume(0)     → testen, ob die Lautstärkeregelung greift
+//   setMusikVolume(0.05)
+window.setMusikVolume = (v) => {
+    MUSIK_VOLUME = v;
+    if (musikGainNode && audioCtx) {
+        musikGainNode.gain.setTargetAtTime(MUSIK_VOLUME * proximityLastMult, audioCtx.currentTime, 0.05);
+    }
+    return `MUSIK_VOLUME = ${MUSIK_VOLUME} (gain.value ≈ ${musikGainNode ? musikGainNode.gain.value.toFixed(4) : "node nicht initialisiert"})`;
+};
 
 // ---- Proximity-Fade: Bürobild (Chain 5) ----
 // Wenn die Figur sich dem Bürobild im Büro nähert, fadet die Hintergrundmusik
