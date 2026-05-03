@@ -1186,6 +1186,15 @@ const MUSIK_LOOKAHEAD = 0.30; // s vor Track-Ende → Raum lesen + nächsten Tra
 // überlappt (beides Stille → unhörbarer Übergang). Wert empirisch tunen, wenn
 // die Files anders encoded sind.
 const MP3_PADDING_KOMPENSATION = 0.08;
+// Loop-Files (*_2.mp3) sind 9 Takte lang: 8 Takte Musik + 1 Takt Hall/Auslauf.
+// Tempo 120 BPM, 4/4 → 1 Takt = 4 Beats × 0.5 s = 2.0 s. Der nächste Track startet
+// einen Takt vor dem realen Buffer-Ende, sodass der 9. Takt (Hall) des aktuellen
+// Tracks mit dem 1. Takt des neuen Tracks überlappt — Übergang klingt nahtlos
+// und der Hall verschwimmt natürlich in die neue Musik.
+const TAKT_SEKUNDEN = 60 / 120 * 4;
+function trackEndOffset(name) {
+    return name.endsWith("_2") ? TAKT_SEKUNDEN : MP3_PADDING_KOMPENSATION;
+}
 
 let musikBuffers = {};         // name → AudioBuffer (cached)
 let musikBufferPromises = {};  // name → Promise<AudioBuffer>
@@ -1372,9 +1381,10 @@ async function spieleTrack(name, startTime) {
     const t = Math.max(startTime, audioCtx.currentTime);
     src.start(t);
     musikSource = src;
-    // Für die Übergangs-Planung: virtuelles Track-Ende leicht VOR dem realen Buffer-Ende,
-    // damit der nächste Track früh startet und das MP3-Padding überlappt.
-    const endTime = t + buffer.duration - MP3_PADDING_KOMPENSATION;
+    // Für die Übergangs-Planung: virtuelles Track-Ende VOR dem realen Buffer-Ende.
+    // Bei Loop-Files (_2) um einen ganzen Takt früher (Hall überlappt mit neuem Anfang),
+    // bei Intro/Outro nur um die MP3-Padding-Kompensation. Siehe trackEndOffset().
+    const endTime = t + buffer.duration - trackEndOffset(name);
     const decideMs = Math.max(0, (endTime - MUSIK_LOOKAHEAD - audioCtx.currentTime) * 1000);
     if (musikTimer) clearTimeout(musikTimer);
     musikTimer = setTimeout(() => decideUndPlane(endTime), decideMs);
