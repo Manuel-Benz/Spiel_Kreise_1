@@ -1060,21 +1060,34 @@ function initMusikGain() {
 // durch die Perspektive auf dem Boden wirkt's elliptisch nach hinten.
 // PROXIMITY_NEAR/FAR sind in (fu, fv)-Distanz; bei Bedarf in der Datei tunbar.
 // Mutable, damit die Werte zur Laufzeit per Konsole tunbar sind (siehe setMusikProximity).
+// Zone als Ellipse in (fu, fv) — RX = Halbachse in fu, RY = Halbachse in fv. RY > RX,
+// damit die Ellipse in fv (Tiefe) gestreckt ist; durch die Perspektive wird sie auf dem
+// Bildschirm dann eher hochformatig statt flach-breit. ROTATION dreht die Ellipse zusätzlich
+// in (fu, fv); positive Werte kippen die fv-Hauptachse Richtung +fu (Bildschirm: oben-rechts).
+// NEAR_FRAC = innere Ellipse als Anteil der äusseren (z.B. 0.25 → innere ist 25 % der RX/RY).
 const BUEROBILD_ANKER = { fu: 0.05, fv: 0.10 };
-let PROXIMITY_NEAR = 0.15;  // Distanz, ab der die Musik komplett stumm ist
-let PROXIMITY_FAR  = 0.65;  // Distanz, ab der die Musik voll spielt
+let PROXIMITY_RX = 0.30;        // FAR-Halbachse in fu (Breite)
+let PROXIMITY_RY = 0.80;        // FAR-Halbachse in fv (Tiefe — gestreckt)
+let PROXIMITY_NEAR_FRAC = 0.25; // innere (NEAR-)Ellipse = NEAR_FRAC × äussere
+let PROXIMITY_ROTATION = 0.25;  // Rotation in Radian; positiv = fv-Achse Richtung +fu kippt
 let proximityLastMult = 1;
 
 function aktualisiereMusikProximity() {
     if (!musikGainNode || !audioCtx) return;
     let mult = 1.0;
     if (aktuellerRaum === "buero" && !spielstand.zustaende.bild_kreise_geloest) {
-        const dfu = figur.fu - BUEROBILD_ANKER.fu;
-        const dfv = figur.fv - BUEROBILD_ANKER.fv;
-        const dist = Math.sqrt(dfu * dfu + dfv * dfv);
-        if (dist <= PROXIMITY_NEAR) mult = 0;
-        else if (dist >= PROXIMITY_FAR) mult = 1;
-        else mult = (dist - PROXIMITY_NEAR) / (PROXIMITY_FAR - PROXIMITY_NEAR);
+        // In das lokale Ellipsen-Frame (gegen-)rotieren, dann auf Halbachsen normalisieren.
+        // t ist die "Ellipsen-Koordinate": 0 = Anker, 1 = äussere Grenze (FAR), NEAR_FRAC = innere Grenze.
+        const dfu0 = figur.fu - BUEROBILD_ANKER.fu;
+        const dfv0 = figur.fv - BUEROBILD_ANKER.fv;
+        const c = Math.cos(-PROXIMITY_ROTATION);
+        const s = Math.sin(-PROXIMITY_ROTATION);
+        const lu = dfu0 * c - dfv0 * s;
+        const lv = dfu0 * s + dfv0 * c;
+        const t = Math.sqrt((lu / PROXIMITY_RX) ** 2 + (lv / PROXIMITY_RY) ** 2);
+        if (t <= PROXIMITY_NEAR_FRAC) mult = 0;
+        else if (t >= 1) mult = 1;
+        else mult = (t - PROXIMITY_NEAR_FRAC) / (1 - PROXIMITY_NEAR_FRAC);
     }
     // Nur scheduleen, wenn sich der Zielwert merklich geändert hat — spart Web-Audio-
     // Calls bei stillstehender Figur. setTargetAtTime mit timeConstant 0.15s gibt einen
@@ -1095,12 +1108,18 @@ function zeichneMusikProximityDebug() {
     if (aktuellerRaum !== "buero") return;
     const ctx0 = ctx;  // ctxFigur ist hier aktiv (siehe draw())
     const N = 64;
-    const samplePoly = (radius) => {
+    // tFrac ∈ [0, 1] — sampelt eine konzentrische Ellipse skaliert mit der äusseren.
+    const c = Math.cos(PROXIMITY_ROTATION);
+    const s = Math.sin(PROXIMITY_ROTATION);
+    const samplePoly = (tFrac) => {
         const pts = [];
         for (let i = 0; i < N; i++) {
             const ang = (i / N) * 2 * Math.PI;
-            const fu = BUEROBILD_ANKER.fu + radius * Math.cos(ang);
-            const fv = BUEROBILD_ANKER.fv + radius * Math.sin(ang);
+            const lu = tFrac * PROXIMITY_RX * Math.cos(ang);
+            const lv = tFrac * PROXIMITY_RY * Math.sin(ang);
+            // Ins (fu, fv)-Frame zurückrotieren, dann auf Bildschirm projizieren.
+            const fu = BUEROBILD_ANKER.fu + lu * c - lv * s;
+            const fv = BUEROBILD_ANKER.fv + lu * s + lv * c;
             pts.push(bodenPunkt(fu, fv));
         }
         return pts;
@@ -1116,10 +1135,9 @@ function zeichneMusikProximityDebug() {
         if (fill) { ctx0.fillStyle = fill; ctx0.fill(); }
         if (stroke) { ctx0.strokeStyle = stroke; ctx0.lineWidth = 2; ctx0.stroke(); }
     };
-    // FAR-Ring (Übergangs-Aussenkante) zuerst, damit NEAR-Ring drüber liegt.
-    drawPoly(samplePoly(PROXIMITY_FAR), "rgba(255, 80, 80, 0.18)", "rgba(255, 80, 80, 0.85)");
-    // NEAR-Ring (vollständig-stumm-Innenzone) — kräftigeres Rot.
-    drawPoly(samplePoly(PROXIMITY_NEAR), "rgba(220, 30, 30, 0.40)", "rgba(220, 30, 30, 0.95)");
+    // Äussere FAR-Ellipse (Übergangs-Aussenkante) zuerst, damit innere NEAR-Ellipse drüber liegt.
+    drawPoly(samplePoly(1), "rgba(255, 80, 80, 0.18)", "rgba(255, 80, 80, 0.85)");
+    drawPoly(samplePoly(PROXIMITY_NEAR_FRAC), "rgba(220, 30, 30, 0.40)", "rgba(220, 30, 30, 0.95)");
     // Anker-Punkt
     const [ax, ay] = bodenPunkt(BUEROBILD_ANKER.fu, BUEROBILD_ANKER.fv);
     ctx0.fillStyle = "#fff";
@@ -1138,14 +1156,19 @@ window.musikProximityDebug = (an = true) => {
 };
 if (typeof window.MUSIK_PROXIMITY_DEBUG === "undefined") window.MUSIK_PROXIMITY_DEBUG = false;
 
-// Tuning per Konsole: setMusikProximity({ fu, fv, near, far }) — alle Felder optional.
-// Die Debug-Zone aktualisiert sich automatisch im nächsten Frame.
+// Tuning per Konsole — alle Felder optional. Die Debug-Zone aktualisiert sich im
+// nächsten Frame.
+//   setMusikProximity({ fu, fv, rx, ry, nearFrac, rotation })
+// rx/ry = Halbachsen der äusseren Ellipse in (fu, fv) (rx → links/rechts, ry → vorne/hinten).
+// nearFrac = innere Stumm-Ellipse als Anteil der äusseren (0..1). rotation in Radian.
 window.setMusikProximity = (params = {}) => {
     if (typeof params.fu === "number") BUEROBILD_ANKER.fu = params.fu;
     if (typeof params.fv === "number") BUEROBILD_ANKER.fv = params.fv;
-    if (typeof params.near === "number") PROXIMITY_NEAR = params.near;
-    if (typeof params.far === "number") PROXIMITY_FAR = params.far;
-    return `Anker (fu=${BUEROBILD_ANKER.fu}, fv=${BUEROBILD_ANKER.fv}), NEAR=${PROXIMITY_NEAR}, FAR=${PROXIMITY_FAR}`;
+    if (typeof params.rx === "number") PROXIMITY_RX = params.rx;
+    if (typeof params.ry === "number") PROXIMITY_RY = params.ry;
+    if (typeof params.nearFrac === "number") PROXIMITY_NEAR_FRAC = params.nearFrac;
+    if (typeof params.rotation === "number") PROXIMITY_ROTATION = params.rotation;
+    return `Anker (${BUEROBILD_ANKER.fu}, ${BUEROBILD_ANKER.fv}), RX=${PROXIMITY_RX}, RY=${PROXIMITY_RY}, NEAR_FRAC=${PROXIMITY_NEAR_FRAC}, ROT=${PROXIMITY_ROTATION.toFixed(3)}`;
 };
 
 function naechsterLoopName() {
