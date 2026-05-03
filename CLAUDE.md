@@ -32,6 +32,7 @@ CLAUDE.md            ← diese Datei
 | `lamp_lava_1.svg`, `bookshelf_1.svg` | Originale; Inline-Varianten im Hauptraum | nicht direkt |
 | `bookshelf_2.svg`, `chair_1.svg` | Bücherregal + Bürostuhl im Büro | Inline-SVG (kopiert) |
 | `octopus_1_1.svg`, `octopus_1_2.svg`, `octopus_1_3.svg`, `duck_1.svg` | Tintenfisch (3 Stimmungs-States, Switch-Triplet für Chain 2) + Quietscheente | Inline-SVG (alle drei Octopus-Varianten deckungsgleich, `class="octopus"`, IDs der Asset-Pfade NICHT geprefixed → bewusste Duplikate; CSS `:not(#path4647)` matcht alle drei) |
+| `octopus_1_4.svg` | Nur der Octopus-Kopf — taucht nach dem Versinken des grossen Octopus aus dem Wasser auf und bleibt dauerhaft als Peek-Out sichtbar. viewBox 260×240 (User-erweiterte Canvas mit Padding); im DOM mit element-Grösse 178×164 = 260×(440/640.08) eingebunden, sodass `scale(0.7)` denselben Pixel-Masstab ergibt wie der reingesprungene `octopus_1_3` | `<image href>` |
 | `bathtub_1_1.svg`, `bathtub_1_2.svg` | Wanne als Layer-Paar: _1_1 Hintergrund (volle Wanne), _1_2 Vordergrund (Wasser nur bis x-Mittelachse) — Octopus taucht beim Exit dazwischen unter | `<image href>` |
 | `bathtub_1_3.svg` | Alte Switch-State-Variante (Sitz oben + klares Wasser), aktuell ungenutzt | — |
 | `toilet_2_1/2.svg` | WC, 2 Switch-States | Inline-SVG |
@@ -68,7 +69,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=57`, `script.js?v=294`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=64`, `script.js?v=300`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -588,7 +589,9 @@ In der Praxis ist nur **eine** Fütterung möglich, weil animal_3_3 nach dem ers
 - **Phase B** (45.5..68.2 %, 0.5 s): Pause an dieser Position (~toilet_2-Höhe).
 - **Phase C** (68.2..100 %, 0.7 s): parabelförmiger Sprung zur Wannen-x-Mitte (`dx=-720`) mit Apex bei `dy=-405`, gleichzeitig 180°-Rotation (4 lineare Stützpunkte approximieren die Parabel: 76 % bei dx=-533, 84 % Apex bei dx=-595, 92 % bei dx=-658, 100 % bei dx=-720) → „Kopfsprung ins Wasser".
 
-Nach `animationend` setzt `aktualisiereSanitaer` via `octopus_da=false` die `sanitar-aus`-Klasse → `display:none`. Safety-Timeout 2.5 s.
+Nach `animationend`: `octopus_da=false` (versteckt octopus_1_3 via `sanitar-aus`) UND `octopus_im_wasser=true`. Letzteres triggert in `aktualisiereSanitaer` die Sichtbarkeit von **`octopus_1_4`** (Kopf-only-Asset) — bekommt zusätzlich die CSS-Klasse `.octopus-1-4-rising` für eine 1.2-s-Animation `octopus-1-4-rise`, die das Kopf-Element von `translate(0, 30px)` auf `translate(0, -55px)` (~85 px aufwärts) hebt. Nach Animation-Ende → `.octopus-1-4-rising` raus, `.octopus-1-4-peeked` rein (statisches Pendant zum letzten Keyframe). Beim Reload: `aktualisiereSanitaer` sieht `octopus_im_wasser=true` und appliziert direkt `.octopus-1-4-peeked` — keine Animation, sofort im Peek-State. Safety-Timeout 2.5 s.
+
+**octopus_1_4 (Kopf, post-dive Peek):** liegt im DOM zwischen `octopus_1_3` und `bathtub_1_2` — hinter der Foreground-Wasser-Layer, sodass nur der Teil oberhalb der Wasser-Oberkante sichtbar ist. Mittelpunkt bei (430, 540) — identisch mit dem Endpunkt der Eintauch-Animation, also „der Kopf taucht dort auf, wo der Octopus untergetaucht ist". Element-Grösse `178×164` ist dimensioniert mit derselben pixel-pro-viewBox-Unit-Ratio wie octopus_1_3 (440/640.08 ≈ 0.687), damit `scale(0.7)` denselben Masstab wie der reingesprungene Octopus erzeugt — das User-Asset hat ~30 % Padding um den eigentlichen Kopf-Inhalt herum (Pfade in viewBox 40..220 × 35..210), die Element-Dimensionierung kompensiert das.
 
 **DOM-Layering für „Untertauchen":** `bathtub_1_1` (Hintergrund-Layer, volle Wanne) DOM-VOR Octopus, `bathtub_1_2` (Vordergrund, Wasser nur bis x-Mittelachse) DOM-NACH allen Octopus-Varianten und VOR `duck_1`. So taucht der Octopus während der Sprung-Landephase visuell hinter `bathtub_1_2` ein, während die Ente weiter vorne auf dem Wasser bleibt. Beide bathtub-SVGs sind als `<image href>` eingebunden (kein Switch-Partner mehr — `aktualisiereSanitaer` togglet sie nicht; der `badewanne`-State und `setzeBadewanne()`-Helper bleiben für Backwards-Compat, haben aber keinen visuellen Effekt).
 

@@ -220,6 +220,7 @@ const spielstand = {
         toilette_2_voll: false,
         octopus_da: true,        // Tintenfisch sitzt auf toilet_1 — solange true, blockiert er die Spülung dort.
         octopus_zustand: 1,      // 1 = mürrisch (octopus_1_1, initial) / 2 = leicht aufgehellt / 3 = zufrieden (animiert sich anschliessend weg).
+        octopus_im_wasser: false, // nach Exit-Animation taucht octopus_1_4 (Kopf) langsam aus dem Wasser auf und bleibt dort dauerhaft als „peek".
         formelbuch_gefunden: false,  // wird true, sobald die 5 Bücher in regal-4 (2. von unten) im Hauptraum angeklickt wurden.
         // Chain 1 — Hauptraum-Torte → Schlüssel → cupboard_1 → Zettel → Lampe → Code (siehe AUFGABEN.chain_1_*).
         chain_1_step: 0,           // 0 = nichts, 1 = Kuchen gelöst, 2 = Schrank offen, 3 = Zettel im Inventar, 4 = unter Lampe, 5 = π-Aufgabe gelöst
@@ -461,9 +462,24 @@ function aktualisiereSanitaer() {
     setSichtbar("toilet_2_voll", spielstand.zustaende.toilette_2_voll && spielstand.zustaende.toilette_2 === 2);
     // Octopus-Switch: einer der drei sichtbar (oder keiner, wenn er das Bad verlassen hat).
     const oz = spielstand.zustaende.octopus_zustand;
+    const peeked = !!spielstand.zustaende.octopus_im_wasser;
     setSichtbar("octopus_1_1", spielstand.zustaende.octopus_da && oz === 1);
     setSichtbar("octopus_1_2", spielstand.zustaende.octopus_da && oz === 2);
     setSichtbar("octopus_1_3", spielstand.zustaende.octopus_da && oz === 3);
+    // octopus_1_4 (Kopf) ist sichtbar, sobald der grosse Octopus untergetaucht ist.
+    // Pinned-State via .octopus-1-4-peeked nur, wenn KEINE Rising-Animation läuft —
+    // sonst würde die statische Klasse den Animations-Transform ersetzen und der Kopf
+    // würde sofort am Endposition stehen statt aufzutauchen. Das Setzen von .rising
+    // (mit forwards) und das anschliessende Replace durch .peeked passiert in
+    // animiereOctopusRaus.beenden bzw. nach animationend.
+    setSichtbar("octopus_1_4", peeked);
+    const o14 = document.getElementById("octopus_1_4");
+    if (o14 && peeked && !o14.classList.contains("octopus-1-4-rising")) {
+        o14.classList.add("octopus-1-4-peeked");
+    }
+    if (o14 && !peeked) {
+        o14.classList.remove("octopus-1-4-peeked", "octopus-1-4-rising");
+    }
     // animal_3_1-Image auf desk_4 verstecken, sobald irgendeine Variante (oder Folgestand) im
     // Inventar / Spielstand erreicht ist — egal ob _1, _2 oder _3 bzw. chain_2_step >= 1.
     const animal3InSpielstand = spielstand.gegenstaende.has("animal_3_1") ||
@@ -534,6 +550,19 @@ function animiereOctopusRaus() {
         if (abgeschlossen) return;
         abgeschlossen = true;
         spielstand.zustaende.octopus_da = false;
+        spielstand.zustaende.octopus_im_wasser = true;
+        // Rising-Animation auf octopus_1_4 starten — VOR aktualisiereSanitaer, damit dort
+        // die statische .octopus-1-4-peeked-Klasse nicht hinzugefügt wird (Animation läuft
+        // mit `forwards`, hält den Endzustand selbst). Nach Animation-Ende ersetzt das
+        // animationend-Listener die Klassen.
+        const o14 = document.getElementById("octopus_1_4");
+        if (o14) {
+            o14.classList.add("octopus-1-4-rising");
+            o14.addEventListener("animationend", () => {
+                o14.classList.remove("octopus-1-4-rising");
+                o14.classList.add("octopus-1-4-peeked");
+            }, { once: true });
+        }
         aktualisiereSanitaer();
         els.forEach(el => el.classList.remove("octopus-leaving"));
     };
@@ -2766,12 +2795,7 @@ const HINDERNISSE = {
         ] },
     ],
     badezimmer: [
-        { spline: [                                   // [0] bathtub
-            { fu: 0.303, fv: 0.9988, hIn: { du: -0.0152, dv: -0.0721 } },
-            { fu: 0.002, fv: 0.9956 },
-            { fu: 0.0001, fv: 0.8464, hOut: { du: 0.0328, dv: 0.0259 } },
-            { fu: 0.2298, fv: 0.8165, hIn: { du: -0.0767, dv: -0.0061 }, hOut: { du: 0.086, dv: 0.0006 } },
-        ] },
+        // [0] bathtub — entfernt, User baut via Drag-Editor neu auf.
         { spline: [                                   // [1] toilet_1 (octopus-Seite) + cupboard_2 zusammengefasst
             { fu: 0.7524, fv: 0.0013, hIn: { du: 0.0215, dv: 0.1798 }, hOut: { du: -0.0151, dv: -0.182 } },
             { fu: 0.9999, fv: 0.0012 },
@@ -2782,12 +2806,7 @@ const HINDERNISSE = {
             { fu: 0.7171, fv: 0.6461, hIn: { du: -0.0812, dv: 0.0172 }, hOut: { du: 0.0394, dv: -0.0914 } },
             { fu: 0.7999, fv: 0.5221, hOut: { du: 0.0066, dv: -0.0642 } },
         ] },
-        { spline: [                                   // [2] toilet_2
-            { fu: 0.4593, fv: 0.9976, hIn: { du: -0.0121, dv: -0.058 } },
-            { fu: 0.3432, fv: 0.9993, hOut: { du: 0.0229, dv: -0.0649 } },
-            { fu: 0.3773, fv: 0.7844, hIn: { du: -0.0197, dv: 0.0778 }, hOut: { du: 0.0301, dv: -0.0454 } },
-            { fu: 0.4453, fv: 0.7985, hIn: { du: -0.0276, dv: -0.0451 }, hOut: { du: 0.016, dv: 0.078 } },
-        ] },
+        // [2] toilet_2 — entfernt, User baut via Drag-Editor neu auf.
     ],
     garten: [
         { spline: [                                   // [0] flower_1

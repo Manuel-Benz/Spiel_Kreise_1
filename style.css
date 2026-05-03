@@ -670,6 +670,30 @@ h1 {
     transform-origin: 1150px 545px;
 }
 
+/* octopus_1_4 (Kopf) taucht nach dem Versinken des grossen Octopus langsam aus dem
+   Wasser auf — leichtes Hochheben (~85 px), endet im Peek-Out. Transform-Origin
+   am visuellen Mittelpunkt des Elements (x=341+89=430, y=458+82=540), identisch
+   mit der Endposition des reingesprungenen Octopus.
+   Scale 0.7 wie der reingesprungene Octopus — passt, weil das octopus_1_4-Element
+   in index.html mit derselben pixel-pro-viewBox-Ratio (440/640.08 ≈ 0.687) wie
+   octopus_1_3 dimensioniert ist (178×164 statt asset-Native 260×240). */
+@keyframes octopus-1-4-rise {
+    0% { transform: translate(0, 30px) scale(0.7); }
+    100% { transform: translate(0, -55px) scale(0.7); }
+}
+.octopus-1-4-rising {
+    animation: octopus-1-4-rise 1.2s ease-out forwards;
+    transform-box: view-box;
+    transform-origin: 430px 540px;
+}
+/* Statisches Pendant zum 100 %-Keyframe — nach `animationend` und beim Reload
+   (octopus_im_wasser=true) gesetzt, ohne die Animation neu zu durchlaufen. */
+.octopus-1-4-peeked {
+    transform: translate(0, -55px) scale(0.7);
+    transform-box: view-box;
+    transform-origin: 430px 540px;
+}
+
 /* Chain 3b: flower_1 wird nach dem Giessen sichtbar grösser.
    transform-box: view-box → Origin-Koords im 1600×900-Viewport.
    Origin bei (360, 613) = Bottom-Center der flower_1-Bbox (x=320..400, y=510..613).
