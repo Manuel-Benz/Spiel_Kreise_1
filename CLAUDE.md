@@ -72,7 +72,7 @@ CLAUDE.md            ← diese Datei
 | `animal_3_3.svg` | Glas mit Wasser (Inventar-State nach Wanne-Auffüllen) | `<image href>` im Inventar-Icon |
 | `toilet_1.svg`, `chair_2.svg`, `skeleton_1/2.svg`, `human_1_left.svg`, `desk_1.svg`, `desk_2.svg` | nicht aktiv (desk_1 + desk_2 sind im Code als `display:none` deaktiviert, siehe Hauptraum) | — |
 
-**Cache-Busting** in `index.html`: aktuell `style.css?v=72`, `script.js?v=316`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
+**Cache-Busting** in `index.html`: aktuell `style.css?v=72`, `script.js?v=322`. Bei Änderungen an `script.js` oder `style.css` das `?v=N` hochzählen, sonst hängt die alte Version im Browser-Cache. Bei Änderungen an einem `<image href="assets/X.svg">`-Asset auch `?v=N` an den href anhängen — der Browser cached `<image>`-Sources separat. Gleiches gilt für SVGs, die per `drawImage` rasterisiert werden (z.B. `BUESCHE.hintenHalb`-`src` aktuell auf `assets/bush_3.svg?v=5`).
 
 ## Rendering-Ebenen (hinten → vorne)
 
@@ -664,7 +664,9 @@ Läuft parallel zu Chains 1–4. Liefert den **Pickel** — das zweite Item für
 
 **Vorbedingung:** alle 3 Kreis-Klicks im Bürobild verlangen `formelbuch_gefunden=true` (analog Chains 1–4). Klick davor fällt ohne Hinweis durch.
 
-**Erstklick-Hint** (nur einmal pro Spielstand): der allererste Klick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Text „Good things come in threes." und wird selbst NICHT in die Sequenz aufgenommen (kein Ton, kein Sequenz-Eintrag). Flag `bild_kreise_hinweis_gesehen` persistiert. Spieler schliesst den Hint und gibt dann die Sequenz normal ein.
+**Erstklick-Hint** (nur einmal pro Spielstand): der allererste Klick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Text „Good things come in threes — now make music!" und wird selbst NICHT in die Sequenz aufgenommen (kein Ton, kein Sequenz-Eintrag). Flag `bild_kreise_hinweis_gesehen` persistiert. Spieler schliesst den Hint und gibt dann die Sequenz normal ein.
+
+**Skip-Sequence nach erstem Erfolg:** sobald die Tonfolge einmal richtig gespielt wurde, setzt `replaySequenz` den Flag `chain_5_aufgabe_freigeschaltet=true` (persistent in `spielstand.zustaende`, überlebt Reload). Ab dann öffnet ein Klick auf irgendeinen der drei Kreise direkt `zeigeAufgabe("chain_5_kreise")` — `kreisGedrueckt` checkt den Flag oben und überspringt die Sequenz-Eingabe komplett. Greift insbesondere im 8 s-Lockout nach einer falschen MC-Antwort: der Spieler muss die Tonfolge nicht erneut spielen, um zur Aufgabe zurückzukehren — `zeigeAufgabe` zeigt dann den Countdown statt der Optionen (siehe Aufgaben-Lockout in der Aufgaben-Sektion).
 
 **Once-per-Sequenz-Regel:** in einer 3er-Sequenz darf jede Farbe nur einmal vorkommen. Wiederholungs-Klicks auf eine Farbe, die bereits in `bild_kreise_sequenz` ist, werden silent ignoriert (kein Ton, kein zweiter Eintrag). Damit folgt aus „3 Klicks, 3 Farben" automatisch „yellow + red + violet in irgendeiner Reihenfolge", die Sequenz-Aufgabe reduziert sich auf das Finden der korrekten Reihenfolge.
 
@@ -918,6 +920,16 @@ const AUFGABEN = {
 **Per-Aufgabe `geloest_text`-Override:** Optional kann eine Aufgabe `geloest_text: "..."` definieren — dieser Text wird statt des Standard-„You've already solved this task." gezeigt, wenn die Aufgabe schon gelöst ist. Aktuell genutzt von `bonus_sonne`.
 
 **Auto-Close global DEAKTIVIERT:** `automatischSchliessen` ist ein No-op — Overlays bleiben offen, bis der User per ×, Esc oder Backdrop-Klick schliesst. Funktion bleibt als API-Stub erhalten, alle ~17 Call-Sites unverändert. Wieder-Aktivieren = einzeilige Änderung an der Funktion.
+
+**Aufgaben-Lockout (8 s nach falscher Antwort):** Verhindert Brute-Force-Klick-Marathon. Module-State `aufgabenSperre` (Map id→ablaufzeit) — transient, überlebt Reload bewusst NICHT (sonst würde der Spieler nach langer Pause noch ausgesperrt). Helpers: `aufgabeIstGesperrt(id)`, `setzeAufgabenSperre(id)`, `verbleibendeSperreSek(id)`, `clearAufgabenCountdown()`. Konstante `AUFGABEN_SPERRE_MS = 8000`.
+
+Flow:
+1. **Falsche MC-Antwort** (`pruefeMultipleChoice`): rote Box „That's not right. Locked for 8 seconds.", alle Optionen disabled, `setzeAufgabenSperre(id)`, `setTimeout(schliesseOverlay, 2000)` über `schliessenTimeoutId` (wird gecanceled, falls der Spieler in den 2 s ein anderes Overlay öffnet — `clearSchliessenTimer` greift in `zeigeAufgabe`/`schliesseOverlay`/`zeigeOverlayText`).
+2. **Falsche Zahleneingabe** (`pruefeAntwort`): identischer Flow.
+3. **`zeigeAufgabe(id)`** prüft am Anfang `aufgabeIstGesperrt(id)` (nach `geloest`-Branch). Wenn gesperrt → `rendereGesperrteAufgabe(id)`: nur eine rote Countdown-Box „Try again in N seconds…" wird ans `#overlay-inhalt` gehängt, KEINE Optionen/Inputs. Frage/Formel/Hint sind schon vorher gerendert (Spieler kann die Aufgabe weiter durchdenken). `setInterval(200ms)` aktualisiert die Sekunden; sobald Sperre abgelaufen ist → `clearAufgabenCountdown()` + rekursiver `zeigeAufgabe(id)`-Call → frische Ansicht (MC neu gemischt, Input leer). Die zuletzt gewählte Antwort ist also nirgends mehr ersichtlich.
+4. **`schliesseOverlay`** ruft `clearAufgabenCountdown()` zusätzlich zum bestehenden `clearSchliessenTimer()` — verhindert tickenden Hintergrund-Timer nach manuellem Schliessen.
+
+Persistenz-Hinweis: `aufgabenSperre` ist bewusst NICHT in `spielstand` (transient). Die Skip-Sequence-Mechanik in Chain 5 (`chain_5_aufgabe_freigeschaltet`) IST persistent — siehe Chain 5-Sektion. Die beiden Mechanismen wirken zusammen: nach falscher MC-Antwort schliesst sich das Overlay; ein Klick auf einen Bürobild-Kreis ruft direkt `zeigeAufgabe("chain_5_kreise")` auf (via Skip-Flag), und `zeigeAufgabe` zeigt den Countdown statt der Optionen (via Sperre-Map). Damit muss der Spieler weder Sequenz erneut spielen noch lange warten.
 
 ## Inventar + Drag & Drop
 

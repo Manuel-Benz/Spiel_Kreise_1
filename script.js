@@ -262,6 +262,7 @@ const spielstand = {
         bild_kreise_geloest: false,       // MC gelöst → drei_kreise im Inventar; Bürobild-Kreise versteckt
         bild_kreise_im_keller: false,     // drei_kreise auf painting_2 gedroppt → Overlay sichtbar
         bild_kreise_hinweis_gesehen: false, // Erstklick auf irgendeinen der drei Bürobild-Kreise zeigt Story-Hint („Good things come in threes."); Klick selbst zählt nicht. Persistiert, damit der Hint pro Spielstand nur einmal kommt.
+        chain_5_aufgabe_freigeschaltet: false, // Tonfolge einmal richtig gespielt → Kreis-Klick öffnet die MC-Aufgabe direkt (überspringt Sequenz-Eingabe). Persistent über Reload — wer einmal die Sequenz gemeistert hat, soll sie nach 8 s-Lockout o.ä. nicht erneut spielen müssen.
         // Chain 7 — Schaufel + Pickel + vereinter_schluessel → Grab in Gartenmitte
         // → Truhe ausheben → mit Schlüssel öffnen → Skelett-Sprung-Animation +
         // Sieg-Overlay (Feuerwerk + tanzendes Trio). Reihenfolge Schaufel/Pickel egal;
@@ -691,11 +692,18 @@ function kreisGedrueckt(farbe) {
     const z = spielstand.zustaende;
     if (z.bild_kreise_replay_aktiv) return;       // Klicks während Replay ignorieren
     if (z.bild_kreise_geloest) return;            // Aufgabe schon gelöst
+    if (z.chain_5_aufgabe_freigeschaltet) {
+        // Tonfolge bereits einmal richtig gespielt — Kreis-Klick öffnet direkt die
+        // MC-Aufgabe (überspringt Sequenz-Eingabe). Greift auch im 8 s-Lockout, dann
+        // zeigt zeigeAufgabe den Countdown statt der Optionen.
+        zeigeAufgabe("chain_5_kreise");
+        return;
+    }
     if (!z.bild_kreise_hinweis_gesehen) {
         // Erstklick: Hint zeigen, Klick selbst verwerfen.
         z.bild_kreise_hinweis_gesehen = true;
         speicherSpielstand();
-        zeigeStoryText("Good things come in threes.");
+        zeigeStoryText("Good things come in threes — now make music!");
         return;
     }
     if (z.bild_kreise_sequenz.includes(farbe)) return; // Once-per-Sequenz: Farbe schon dabei.
@@ -720,6 +728,11 @@ function replaySequenz() {
         z.bild_kreise_sequenz = [];
         z.bild_kreise_replay_aktiv = false;
         if (richtig) {
+            // Erst-Erfolg merken — ab jetzt öffnet ein Kreis-Klick die MC-Aufgabe direkt
+            // (siehe kreisGedrueckt). So muss man nach einer falschen MC-Antwort + 8 s
+            // Lockout nicht erneut die Tonfolge eingeben.
+            z.chain_5_aufgabe_freigeschaltet = true;
+            speicherSpielstand();
             zeigeAufgabe("chain_5_kreise");
         }
     }, seq.length * tempo + 250);
@@ -1856,7 +1869,6 @@ const AUFGABEN = {
     chain_5_kreise: {
         typ: "multiple_choice",
         frage: "Two circles with radius r have the same combined area as one circle with radius R. How many times larger is R than r?",
-        formel: "2\\pi r^2 = \\pi R^2",
         optionen: [
             { katex: "\\sqrt{2}",                korrekt: true },
             { katex: "2" },
@@ -1878,7 +1890,6 @@ const AUFGABEN = {
         typ: "multiple_choice",
         frage: "The measuring device shows the rug's outer circumference U = 6.28 m and the spacing between the concentric circles d = 10 cm. What is the area of the OUTERMOST ring?",
         pi_hinweis: true,
-        tipp: "First find the outer radius R from U, then compute A = π·(R² − r²) with r = R − d.",
         optionen: [
             { katex: "5\\,966\\ \\mathrm{cm}^2", korrekt: true },
             { katex: "31\\,400\\ \\mathrm{cm}^2" },
@@ -1969,7 +1980,6 @@ const AUFGABEN = {
         typ: "multiple_choice",
         frage: "The key sits in the lock. To open the cabinet, you need to turn it by 90°. What is 90° in radians?",
         pi_hinweis: false,
-        tipp: "Convert degrees → radians via rad = deg · π / 180.",
         optionen: [
             { katex: "\\dfrac{\\pi}{2}", korrekt: true },
             { katex: "\\pi" },
@@ -2619,12 +2629,71 @@ function objektIstAktiv(obj) {
     return !!(AUFGABEN[obj.aufgabe] || obj.aufnehmen || obj.akzeptiert || obj.aktion);
 }
 
+// ---------- Aufgaben-Lockout (8 s nach falscher Antwort) ----------
+// Map: aufgabe-id → ablaufzeit (Date.now() + AUFGABEN_SPERRE_MS). Transient — überlebt
+// Reload bewusst nicht (sonst würde der Spieler nach langer Pause noch ausgesperrt).
+// Sobald Date.now() ≥ ablaufzeit gilt die Sperre als abgelaufen, der Eintrag wird beim
+// nächsten Check entfernt.
+const AUFGABEN_SPERRE_MS = 8000;
+const aufgabenSperre = new Map();
+let aufgabenCountdownIntervalId = null;
+
+function aufgabeIstGesperrt(id) {
+    const expiresAt = aufgabenSperre.get(id);
+    if (expiresAt === undefined) return false;
+    if (Date.now() >= expiresAt) {
+        aufgabenSperre.delete(id);
+        return false;
+    }
+    return true;
+}
+
+function setzeAufgabenSperre(id) {
+    aufgabenSperre.set(id, Date.now() + AUFGABEN_SPERRE_MS);
+}
+
+function verbleibendeSperreSek(id) {
+    const expiresAt = aufgabenSperre.get(id);
+    if (expiresAt === undefined) return 0;
+    return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+}
+
+function clearAufgabenCountdown() {
+    if (aufgabenCountdownIntervalId !== null) {
+        clearInterval(aufgabenCountdownIntervalId);
+        aufgabenCountdownIntervalId = null;
+    }
+}
+
+// Rendert die Countdown-Ansicht in das bereits vorbereitete Overlay (Frage-/Formel-/Hint-
+// Elemente sind schon dran). Zeigt nur die rote „Try again in N seconds…"-Box, KEINE
+// Optionen/Inputs — die zuletzt gewählte Antwort ist also nicht ersichtlich. Sobald die
+// Sperre abläuft, wird die normale Ansicht via `zeigeAufgabe(id)` neu aufgebaut (frisch
+// gemischte MC-Optionen, leeres Input-Feld).
+function rendereGesperrteAufgabe(id) {
+    const lockEl = document.createElement("p");
+    lockEl.className = "feedback falsch";
+    overlayInhaltEl.appendChild(lockEl);
+    const update = () => {
+        if (!aufgabeIstGesperrt(id)) {
+            clearAufgabenCountdown();
+            zeigeAufgabe(id);
+            return;
+        }
+        const sek = verbleibendeSperreSek(id);
+        lockEl.textContent = `Try again in ${sek} second${sek === 1 ? "" : "s"}…`;
+    };
+    update();
+    aufgabenCountdownIntervalId = setInterval(update, 200);
+}
+
 function zeigeAufgabe(id) {
     const a = AUFGABEN[id];
     if (!a) return;
     const geloest = spielstand.geloesteAufgaben.has(id);
 
     clearSchliessenTimer();
+    clearAufgabenCountdown();
     overlayInhaltEl.innerHTML = "";
 
     const frageText = typeof a.frage === "function" ? a.frage(spielstand) : a.frage;
@@ -2672,6 +2741,16 @@ function zeigeAufgabe(id) {
         // Pro-Aufgabe individueller Text via `geloest_text` (sonst Standard).
         info.textContent = a.geloest_text || "You've already solved this task.";
         overlayInhaltEl.appendChild(info);
+        overlayEl.hidden = false;
+        return;
+    }
+
+    // 8 s-Lockout aktiv? Statt der Optionen/Eingabe einen Countdown zeigen — Frage/Formel
+    // bleiben sichtbar (Spieler kann die Aufgabe weiter durchdenken), aber die zuletzt
+    // gewählte Antwort ist nicht mehr ersichtlich. Bei Ablauf rendert sich die Aufgabe
+    // automatisch neu (frisch gemischt).
+    if (aufgabeIstGesperrt(id)) {
+        rendereGesperrteAufgabe(id);
         overlayEl.hidden = false;
         return;
     }
@@ -2755,10 +2834,19 @@ function baueMultipleChoice(id, a) {
 
 function pruefeMultipleChoice(id, opt, btnGedrueckt, liste, feedbackEl) {
     if (!opt.korrekt) {
+        // 8 s-Lockout: rote Notiz kurz zeigen, alle Optionen sperren, Overlay nach 1.5 s
+        // automatisch zu. Beim Wieder-Öffnen rendert zeigeAufgabe() den Countdown statt
+        // der Optionen — die zuletzt gewählte Antwort ist nicht mehr sichtbar.
         btnGedrueckt.classList.add("falsch");
-        btnGedrueckt.disabled = true;
-        feedbackEl.textContent = "That's not right. Try again.";
+        liste.querySelectorAll("button").forEach(b => b.disabled = true);
+        feedbackEl.textContent = "That's not right. Locked for 8 seconds.";
         feedbackEl.className = "feedback falsch";
+        setzeAufgabenSperre(id);
+        clearSchliessenTimer();
+        schliessenTimeoutId = setTimeout(() => {
+            schliessenTimeoutId = null;
+            schliesseOverlay();
+        }, 2000);
         return;
     }
     btnGedrueckt.classList.add("richtig");
@@ -2777,9 +2865,19 @@ function pruefeAntwort(id, eingabeStr, feedbackEl, inputEl) {
     }
     const richtig = Math.abs(zahl - a.loesung) <= a.toleranz;
     if (!richtig) {
-        feedbackEl.textContent = "That's not right. Try again.";
+        // 8 s-Lockout (siehe pruefeMultipleChoice). Eingabe sperren, rote Notiz, Overlay
+        // nach 1.5 s zu. Beim Wieder-Öffnen Countdown statt Eingabefeld.
+        feedbackEl.textContent = "That's not right. Locked for 8 seconds.";
         feedbackEl.className = "feedback falsch";
-        inputEl.select();
+        inputEl.disabled = true;
+        const btnFalsch = inputEl.parentElement.querySelector("button");
+        if (btnFalsch) btnFalsch.disabled = true;
+        setzeAufgabenSperre(id);
+        clearSchliessenTimer();
+        schliessenTimeoutId = setTimeout(() => {
+            schliessenTimeoutId = null;
+            schliesseOverlay();
+        }, 2000);
         return;
     }
 
@@ -5578,6 +5676,7 @@ function zeigeOverlay(text) {
 
 function schliesseOverlay() {
     clearSchliessenTimer();
+    clearAufgabenCountdown();
     overlayEl.hidden = true;
     overlayInhaltEl.innerHTML = "";
     // Octopus-Exit erst NACH Schliessen der Aufgabe starten — die 2-s-Pause auf
