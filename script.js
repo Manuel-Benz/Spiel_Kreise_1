@@ -1990,8 +1990,10 @@ const AUFGABEN = {
             belohnung_text: "Correct! 90° = π/2 rad.",
             story_text: "Click — the key fits. The left cabinet door creaks open.",
             callback: () => {
-                // Schrank wird hier geöffnet (statt direkt im Drop-Callback) — der
-                // Schlüssel wurde bereits beim Drop verbraucht.
+                // Schlüssel jetzt verbrauchen (bei falscher Antwort bzw. Abbruch bleibt
+                // er im Inventar — siehe akzeptiert-Callback in OBJEKTE.buero.cupboard_1_drop).
+                verbrauche("schluessel_buero");
+                aktualisiereInventar();
                 oeffneCupboard1();
             },
         },
@@ -2143,13 +2145,10 @@ const OBJEKTE = {
             laufziel: { fu: 0.72, fv: 0.55 },
             aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.zustaende.cupboard_1_offen,
             akzeptiert: {
-                schluessel_buero: (s) => {
-                    // Schlüssel verbrauchen UND Aufgabe chain_1_schloss öffnen.
-                    // Das Öffnen des Schranks (oeffneCupboard1) erfolgt erst in der
-                    // bei_richtig.callback der Aufgabe — so kann der Schrank nicht
-                    // ohne richtige Antwort aufgehen.
-                    verbrauche("schluessel_buero");
-                    aktualisiereInventar();
+                schluessel_buero: () => {
+                    // Aufgabe chain_1_schloss öffnen. Schlüssel wird ERST in bei_richtig.callback
+                    // verbraucht — bei falscher Antwort bzw. Schliessen ohne Antwort bleibt der
+                    // Schlüssel im Inventar, sodass der Spieler erneut droppen und retry'en kann.
                     zeigeAufgabe("chain_1_schloss");
                 },
             },
