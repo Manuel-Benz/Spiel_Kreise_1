@@ -2083,7 +2083,7 @@ const OBJEKTE = {
             id: "cake_1_klick",
             polygon: [[286, 540], [361, 540], [361, 580], [286, 580]],
             laufziel: { fu: 0.10, fv: 0.667 },
-            aktiv: (s) => s.zustaende.formelbuch_gefunden,
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.geloesteAufgaben.has("chain_1_kuchen"),
             aufgabe: "chain_1_kuchen",
         },
         // Chain 4, Schritt 1b: muffin_1 auf desk_5 (vorne-rechts) — aufnehmbar.
@@ -2401,7 +2401,7 @@ const OBJEKTE = {
             id: "sonne_klick",
             polygon: [[1114, 114], [1286, 114], [1286, 286], [1114, 286]],
             laufziel: { fu: 0.85, fv: 0.30 },
-            aktiv: (s) => s.zustaende.formelbuch_gefunden,
+            aktiv: (s) => s.zustaende.formelbuch_gefunden && !s.geloesteAufgaben.has("bonus_sonne"),
             aufgabe: "bonus_sonne",
         },
         // Chain 3a: zentrale Wolke (WOLKEN[1] cx=470, cy=140) anklicken → Vogel erscheint.

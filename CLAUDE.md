@@ -858,7 +858,7 @@ Statt eigener Tutorial-Hand-Grafiken steuert das Spiel den nativen Browser-Curso
 
 | Objekt | `aktiv`-Bedingung |
 |---|---|
-| `cake_1_klick` (haupt) | `formelbuch_gefunden` |
+| `cake_1_klick` (haupt) | `formelbuch_gefunden && !geloesteAufgaben.has("chain_1_kuchen")` |
 | `cupboard_1_drop` (buero) | `formelbuch_gefunden && !cupboard_1_offen` |
 | `cupboard_1_zettel` (buero) | `cupboard_1_offen && !zettel-im-Inv` (impliziert formelbuch) |
 | `tischlampe_lichtkegel` (buero) | `formelbuch_gefunden && zettel-im-Inv` |
@@ -913,7 +913,7 @@ const AUFGABEN = {
 - **Chain 4**: `chain_4_teppich` (MC, äußerste Ringfläche bei U=6,28 m, d=10 cm → 5966 cm²)
 - **Chain 5**: `chain_5_kreise` (MC, 2π·r²=π·R² → R = r·√2)
 - **Chain 6**: `chain_6_sektor` / `chain_6_bogen` / `chain_6_umfang` / `chain_6_flaeche` (4× MC, reine Formel-Erkennung — kein Rechnen)
-- **Bonus** (Chain-frei): `bonus_sonne` (MC, Sonnen-Umfang U=4 370 880 km bei r=696 000 km, π=3.14) — Klick auf die Sonne im Garten, nicht spielentscheidend. Belohnungstext „Correct! But this doesn't help you in the game — you solved this just for fun 😊". Hat **`geloest_text`-Override** „You have just solved this for fun 😊" für Wieder-Klick (statt Standard-Text).
+- **Bonus** (Chain-frei): `bonus_sonne` (MC, Sonnen-Umfang U=4 370 880 km bei r=696 000 km, π=3.14) — Klick auf die Sonne im Garten, nicht spielentscheidend. Belohnungstext „Correct! But this doesn't help you in the game — you solved this just for fun 😊". Hat **`geloest_text`-Override** „You have just solved this for fun 😊" für Wieder-Klick (statt Standard-Text). **Wieder-Klick ist seit dem Aktiv-Predikat-Fix faktisch nicht mehr erreichbar** — `sonne_klick` deaktiviert sich nach erfolgreichem Lösen (siehe Cursor-Feedback-Sektion); `geloest_text` bleibt im Code als allgemeine Mechanik für andere Aufgaben.
 
 **MC-Zufalls-Reihenfolge:** `baueMultipleChoice()` macht bei jedem Render einen Fisher–Yates-Shuffle einer flachen Kopie von `a.optionen`. Klick-Handler bekommt das Option-Objekt direkt (nicht Index), damit die Korrektheits-Prüfung unabhängig von der Render-Reihenfolge funktioniert. Original-`AUFGABEN[id].optionen` bleibt unverändert.
 
